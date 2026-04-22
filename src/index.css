@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 221.2 83.2% 53.3%;
+    --accent: 346.8 91.2% 59.8%;
+  }
+
+  body {
+    @apply bg-background text-slate-100 min-h-screen overflow-x-hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-glass;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 bg-primary text-white font-semibold rounded-xl transition-all duration-300
+           hover:shadow-glow-primary hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50;
+  }
+
+  .btn-accent {
+    @apply px-6 py-3 bg-accent text-white font-semibold rounded-xl transition-all duration-300
+           hover:shadow-glow-accent hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50;
+  }
+
+  .input-field {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none 
+           focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+}
+
+/* Glow effects */
+.glow-text-primary {
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.glow-text-accent {
+  text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+}
