@@ -13,8 +13,10 @@
 - **Seed Data**: Popolamento iniziale delle parti (senza immagini per ora).
 
 ### ⏳ In Corso / Blocchi
-- **Scraping Immagini**: Lo script `scripts/scrape_images.js` è attualmente bloccato da Cloudflare (Error 403) su Fandom e BeyBXDB. 
-    - *Soluzione pianificata*: Utilizzo di link diretti CDN o caricamento manuale dei pezzi principali (Dran Sword, Hell Scythe, etc.) per avere un MVP visivamente completo.
+- **Scraping Immagini**: Lo script `scripts/scrape_images.js` è attualmente bloccato da Cloudflare (Error 403) su Fandom e BeyBXDB durante l'accesso alle pagine HTML.
+    - *Scoperta Tecnica*: L'accesso diretto ai link CDN di Wikia (`static.wikia.nocookie.net`) **funziona** e non è bloccato.
+    - *Soluzione pianificata*: Aggiornare lo script o il seed data per puntare direttamente ai file CDN conosciuti, bypassando la necessità di scaricare l'intera pagina Wiki.
+
 - **Combo Builder**: Pagina creata ma logica di assemblaggio ancora da implementare.
 - **Sistema XP**: Visualizzazione presente nella Dashboard, logica di calcolo da rifinire.
 
