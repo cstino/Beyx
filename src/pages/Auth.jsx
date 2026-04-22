@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Github } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import Logo from '../components/Logo';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -49,11 +50,22 @@ export default function Auth() {
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary/20 blur-3xl rounded-full" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 bg-accent/20 blur-3xl rounded-full" />
 
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-display font-extrabold italic tracking-tighter">
+        <div className="text-center mb-8 relative z-10">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="flex justify-center mb-4"
+          >
+            <div className="w-32 h-32 relative">
+              <Logo className="w-full h-full relative z-10" />
+            </div>
+          </motion.div>
+
+          <h2 className="text-3xl font-display font-extrabold italic tracking-tighter leading-none">
             {isLogin ? 'WELCOME BACK' : 'JOIN THE ELITE'}
           </h2>
-          <p className="text-slate-400 text-sm mt-2">
+          <p className="text-slate-400 text-xs mt-3 uppercase tracking-widest font-bold opacity-60">
             {isLogin ? 'Accedi al tuo archivio Blader' : 'Inizia la tua scalata alla cima'}
           </p>
         </div>

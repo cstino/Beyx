@@ -1,86 +1,165 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
 import 'dotenv/config';
+import fs from 'fs';
 
-// Load credentials from .env
-const supabaseUrl = process.env.VITE_SUPABASE_URL.replace('/rest/v1/', '');
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
+// Configuration
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL?.replace('/rest/v1/', '');
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SEED_FILE = './supabase/parts_seed.json';
-const WIKI_BASE_URL = 'https://beyblade.fandom.com/wiki/';
+const WIKI_API_URL = 'https://beyblade.fandom.com/api.php';
 
-async function scrapeAndUpload() {
-  console.log('🚀 Starting image scraping & upload process...');
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('❌ Supabase credentials missing in .env');
+  process.exit(1);
+}
 
-  if (!fs.existsSync(SEED_FILE)) {
-    console.error('❌ Seed file not found at', SEED_FILE);
-    return;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function searchFandomImage(partName, partType) {
+  try {
+    // 1. Search for the most likely article
+    const searchRes = await axios.get(WIKI_API_URL, {
+      params: {
+        action: 'query',
+        list: 'search',
+        srsearch: `${partName} ${partType.slice(0, -1)}`,
+        format: 'json',
+        origin: '*'
+      }
+    });
+
+    const searchResults = searchRes.data.query.search;
+    if (!searchResults || searchResults.length === 0) return null;
+
+    // 2. Get images from the first 2 results
+    for (let i = 0; i < Math.min(2, searchResults.length); i++) {
+        const pageTitle = searchResults[i].title;
+        const imagesRes = await axios.get(WIKI_API_URL, {
+          params: {
+            action: 'query',
+            titles: pageTitle,
+            prop: 'images',
+            format: 'json',
+            origin: '*'
+          }
+        });
+
+        const pages = imagesRes.data.query.pages;
+        const pageId = Object.keys(pages)[0];
+        const images = pages[pageId].images;
+
+        if (images && images.length > 0) {
+            // HIGH PRIORITY: Official Renders (Blade_Name.png, etc)
+            const cleanPartName = partName.replace(/\s+/g, '');
+            const officialPatterns = [
+              `Blade_${cleanPartName}.png`,
+              `Main_Blade_-_${partName.replace(/\s+/g, '_')}.png`,
+              `${cleanPartName}_Render.png`,
+              `UX_${cleanPartName}.png`
+            ];
+
+            let candidate = images.find(img => 
+                officialPatterns.some(p => img.title.toLowerCase().includes(p.toLowerCase()))
+            );
+
+            // SECONDARY: Any PNG that contains the part name and is NOT an anime screenshot
+            if (!candidate) {
+                candidate = images.find(img => 
+                    img.title.toLowerCase().includes(cleanPartName.toLowerCase()) && 
+                    img.title.toLowerCase().includes('.png') &&
+                    !img.title.toLowerCase().includes('anime') &&
+                    !img.title.toLowerCase().includes('screenshot')
+                );
+            }
+
+            // FALLBACK: Just take the first one if we're desperate, but better null then bad
+            if (!candidate) continue;
+
+            // 3. Get the direct URL for this image
+            const infoRes = await axios.get(WIKI_API_URL, {
+                params: {
+                    action: 'query',
+                    titles: candidate.title,
+                    prop: 'imageinfo',
+                    iiprop: 'url',
+                    format: 'json',
+                    origin: '*'
+                }
+            });
+
+            const infoPages = infoRes.data.query.pages;
+            const infoPageId = Object.keys(infoPages)[0];
+            const url = infoPages[infoPageId].imageinfo?.[0]?.url;
+
+            if (url) return url;
+        }
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error searching image for ${partName}:`, error.message);
+    return null;
   }
+}
 
-  const parts = JSON.parse(fs.readFileSync(SEED_FILE, 'utf8'));
+async function run() {
+  console.log('🚀 Starting Database-Driven Image Scraper...');
 
-  for (const part of parts) {
-    const { name, wiki_slug, table } = part;
-    console.log(`\n🔍 Processing: ${name}...`);
+  const tables = ['blades', 'ratchets', 'bits'];
+  
+  for (const table of tables) {
+    console.log(`\n📦 Fetching all components from: ${table}...`);
+    const { data: parts, error } = await supabase
+      .from(table)
+      .select('name')
+      .is('image_url', null); // Only fetch those without an image
+
+    if (error) {
+      console.error(`❌ Error fetching ${table}: ${error.message}`);
+      continue;
+    }
+
+    console.log(`📝 Found ${parts.length} items to update in ${table}`);
+
+    for (const part of parts) {
+      const { name } = part;
+      console.log(`\n🔍 Processing: ${name} (${table})...`);
+
+    // 1. Search for Image URL
+    const imageUrl = await searchFandomImage(name, table);
+    if (!imageUrl) {
+      console.warn(`⚠️ No image found for ${name}`);
+      continue;
+    }
+
+    console.log(`🔗 Found Wiki URL: ${imageUrl}`);
 
     try {
-      // 1. Scrape Wiki
-      const wikiUrl = `${WIKI_BASE_URL}${wiki_slug}`;
-      const { data: html } = await axios.get(wikiUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-      const $ = cheerio.load(html);
-      
-      // Look for the main image in the infobox
-      let imageUrl = $('.pi-image-thumbnail').attr('src');
-      
-      if (!imageUrl) {
-        // Fallback for some pages
-        imageUrl = $('.thumbimage').attr('src');
-      }
-
-      if (!imageUrl) {
-        console.warn(`⚠️ No image found for ${name} at ${wikiUrl}`);
-        continue;
-      }
-
-      // Clean URL (remove everything after .png or .webp to get original size if needed)
-      imageUrl = imageUrl.split('/revision/')[0];
-
-      console.log(`📸 Found image: ${imageUrl}`);
-
       // 2. Download Image
-      const response = await axios.get(imageUrl, { 
-        responseType: 'arraybuffer',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      });
-
+      const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
       const buffer = Buffer.from(response.data, 'binary');
+      
+      // Get correct content-type from headers
+      const contentType = response.headers['content-type'] || 'image/png';
+      const extension = contentType.split('/')[1] || 'png';
 
-      // 3. Upload to Supabase Storage
-      const fileName = `${table}/${wiki_slug.toLowerCase().replace(/_/g, '-')}.png`;
+      // 3. Upload to Supabase
+      const fileName = `${table}/${name.toLowerCase().replace(/\s+/g, '-')}.${extension}`;
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('parts-images')
         .upload(fileName, buffer, {
-          contentType: 'image/png',
+          contentType: contentType,
           upsert: true
         });
 
       if (uploadError) {
-        console.error(`❌ Upload error for ${name}:`, uploadError.message);
+        console.error(`❌ Upload error for ${name}: ${uploadError.message}`);
         continue;
       }
 
-      const publicUrl = `${supabaseUrl}/storage/v1/object/public/parts-images/${fileName}`;
-      console.log(`✅ Uploaded to: ${publicUrl}`);
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/parts-images/${fileName}`;
+      console.log(`✅ Uploaded: ${publicUrl}`);
 
       // 4. Update Database
       const { error: dbError } = await supabase
@@ -89,20 +168,21 @@ async function scrapeAndUpload() {
         .eq('name', name);
 
       if (dbError) {
-        console.error(`❌ DB Update error for ${name}:`, dbError.message);
+        console.error(`❌ DB Update error: ${dbError.message}`);
       } else {
-        console.log(`✨ Database updated for ${name}`);
+        console.log(`✨ Database updated!`);
       }
 
-      // 5. Rate limiting as per PRD
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
     } catch (error) {
-      console.error(`❌ Error processing ${name}:`, error.message);
+      console.error(`❌ Process failed for ${name}:`, error.message);
+    }
+
+    // Rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
-  console.log('\n🏁 Process completed!');
+  console.log('\n🏁 Scraper process finished!');
 }
 
-scrapeAndUpload();
+run();

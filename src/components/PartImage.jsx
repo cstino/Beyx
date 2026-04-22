@@ -41,7 +41,7 @@ export default function PartImage({ src, name, type, className }) {
   }
 
   return (
-    <div className={cn("relative w-full h-full rounded-xl overflow-hidden bg-white/5", className)}>
+    <div className={cn("relative w-full h-full", className)}>
       <img
         src={src}
         alt={name}

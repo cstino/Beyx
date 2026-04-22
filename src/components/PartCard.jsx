@@ -17,7 +17,7 @@ const tierColors = {
   C: 'text-slate-400 border-slate-500/50',
 };
 
-export default function PartCard({ part, owned = false, onClick }) {
+export default function PartCard({ part, owned = false, onClick, className }) {
   const { name, type, tier, stats, image_url } = part;
 
   return (
@@ -26,53 +26,43 @@ export default function PartCard({ part, owned = false, onClick }) {
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        "glass-card p-4 flex flex-col gap-4 cursor-pointer relative group transition-all duration-300",
-        !owned && "opacity-60 grayscale hover:grayscale-0 hover:opacity-100"
+        "glass-card p-4 flex flex-col gap-3 cursor-pointer relative group transition-all duration-300",
+        className
       )}
     >
       {/* Tier Badge */}
       <div className={cn(
-        "absolute top-3 right-3 w-8 h-8 rounded-full border-2 flex items-center justify-center font-black text-xs bg-background/80 backdrop-blur-md z-20 transition-all group-hover:scale-110",
+        "absolute top-2 right-2 w-7 h-7 rounded-full border flex items-center justify-center font-black text-[10px] bg-background/80 backdrop-blur-md z-20 transition-all group-hover:scale-110",
         tierColors[tier] || tierColors.C
       )}>
-        {tier}
+        {tier || 'C'}
       </div>
 
-      {/* Part Image with Placeholder Fallback */}
-      <div className="aspect-square w-full">
+      {/* Part Image */}
+      <div className="aspect-square w-full flex items-center justify-center p-2 bg-transparent">
         <PartImage 
           src={image_url} 
           name={name} 
           type={type} 
+          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
         />
       </div>
 
-
       <div>
-        <h3 className="text-lg uppercase leading-tight">{name}</h3>
-        <p className="text-[10px] text-slate-500 uppercase tracking-widest">{type}</p>
+        <h3 className="text-sm uppercase font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{name}</h3>
+        <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-1">{type}</p>
       </div>
 
-      {/* Mini Stats Bar */}
-      <div className="flex gap-2">
-        {Object.entries(stats).map(([key, value]) => (
-          <div key={key} className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full transition-all duration-1000",
-                key === 'attack' ? 'bg-accent' : key === 'defense' ? 'bg-primary' : 'bg-gold'
-              )}
-              style={{ width: `${(value / 100) * 100}%` }}
-            />
-          </div>
-        ))}
+      {/* Release Code Badge */}
+      <div className="absolute bottom-4 right-4 opacity-40 group-hover:opacity-100 transition-opacity">
+        <span className="text-[8px] font-black tracking-widest text-slate-400 border border-white/10 px-1.5 py-0.5 rounded uppercase bg-white/5">
+          {part.release_code || 'PROMO'}
+        </span>
       </div>
 
       {!owned && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[2px] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="bg-white text-background px-3 py-1 rounded-full text-xs font-bold uppercase tracking-tighter">
-            Aggiungi alla Collezione
-          </span>
+        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-white/5 rounded-md border border-white/5">
+          <span className="text-[7px] font-black uppercase text-white/30 tracking-tighter">Missing</span>
         </div>
       )}
     </motion.div>
