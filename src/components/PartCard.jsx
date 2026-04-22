@@ -4,15 +4,17 @@ import { Shield, Zap, Target, Star } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import PartImage from './PartImage';
+
 function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
 const tierColors = {
-  S: 'text-gold-glow border-gold',
-  A: 'text-primary-glow border-primary',
-  B: 'text-purple-400 border-purple-500',
-  C: 'text-slate-400 border-slate-500',
+  S: 'text-yellow-400 border-yellow-400/50 shadow-[0_0_15px_rgba(250,204,21,0.3)]',
+  A: 'text-primary border-primary/50 shadow-[0_0_15px_rgba(59,130,246,0.3)]',
+  B: 'text-purple-400 border-purple-500/50',
+  C: 'text-slate-400 border-slate-500/50',
 };
 
 export default function PartCard({ part, owned = false, onClick }) {
@@ -20,30 +22,31 @@ export default function PartCard({ part, owned = false, onClick }) {
 
   return (
     <motion.div
-      whileHover={{ scale: 1.02 }}
+      whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        "glass-card p-4 flex flex-col gap-4 cursor-pointer relative group transition-all",
+        "glass-card p-4 flex flex-col gap-4 cursor-pointer relative group transition-all duration-300",
         !owned && "opacity-60 grayscale hover:grayscale-0 hover:opacity-100"
       )}
     >
       {/* Tier Badge */}
       <div className={cn(
-        "absolute top-3 right-3 w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-sm bg-background/80 backdrop-blur-md",
+        "absolute top-3 right-3 w-8 h-8 rounded-full border-2 flex items-center justify-center font-black text-xs bg-background/80 backdrop-blur-md z-20 transition-all group-hover:scale-110",
         tierColors[tier] || tierColors.C
       )}>
         {tier}
       </div>
 
-      {/* Image Placeholder/Real Image */}
-      <div className="aspect-square w-full rounded-lg bg-white/5 flex items-center justify-center overflow-hidden">
-        {image_url ? (
-          <img src={image_url} alt={name} className="w-full h-full object-contain" />
-        ) : (
-          <Zap size={40} className="text-slate-700 animate-pulse" />
-        )}
+      {/* Part Image with Placeholder Fallback */}
+      <div className="aspect-square w-full">
+        <PartImage 
+          src={image_url} 
+          name={name} 
+          type={type} 
+        />
       </div>
+
 
       <div>
         <h3 className="text-lg uppercase leading-tight">{name}</h3>
