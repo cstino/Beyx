@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Dran Sword",
+    "type": "Attack",
+    "wiki_slug": "Main_Blade_-_Dran_Sword",
+    "table": "blades"
+  },
+  {
+    "name": "Hell Scythe",
+    "type": "Balance",
+    "wiki_slug": "Main_Blade_-_Hell_Scythe",
+    "table": "blades"
+  },
+  {
+    "name": "Knight Shield",
+    "type": "Defense",
+    "wiki_slug": "Main_Blade_-_Knight_Shield",
+    "table": "blades"
+  },
+  {
+    "name": "Wizard Arrow",
+    "type": "Stamina",
+    "wiki_slug": "Main_Blade_-_Wizard_Arrow",
+    "table": "blades"
+  },
+  {
+    "name": "Leon Claw",
+    "type": "Attack",
+    "wiki_slug": "Main_Blade_-_Leon_Claw",
+    "table": "blades"
+  },
+  {
+    "name": "Shark Edge",
+    "type": "Attack",
+    "wiki_slug": "Main_Blade_-_Shark_Edge",
+    "table": "blades"
+  },
+  {
+    "name": "Viper Tail",
+    "type": "Stamina",
+    "wiki_slug": "Main_Blade_-_Viper_Tail",
+    "table": "blades"
+  },
+  {
+    "name": "Phoenix Wing",
+    "type": "Attack",
+    "wiki_slug": "Main_Blade_-_Phoenix_Wing",
+    "table": "blades"
+  }
+]
