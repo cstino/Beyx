@@ -6,6 +6,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Collection from './pages/Collection';
 import Builder from './pages/Builder';
+import Guide from './pages/Guide';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -45,6 +46,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/collection" element={<Collection />} />
           <Route path="/builder" element={<Builder />} />
+          <Route path="/guide" element={<Guide />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

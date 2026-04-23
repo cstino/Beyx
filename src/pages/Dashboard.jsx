@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, Package, Hammer, Award, ChevronRight, TrendingUp } from 'lucide-react';
+import { Trophy, Package, Hammer, Award, ChevronRight, TrendingUp, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { Link } from 'react-router-dom';
 
@@ -83,6 +83,22 @@ export default function Dashboard() {
             />
           </div>
         </div>
+
+        {/* X Academy Banner */}
+        <Link to="/guide" className="p-4 bg-gradient-to-r from-primary/20 to-accent/20 rounded-[32px] border border-white/10 flex items-center justify-between group transition-all hover:border-white/20">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform">
+              <BookOpen className="text-primary" size={24} />
+            </div>
+            <div>
+              <h3 className="font-black uppercase text-sm tracking-tighter">X Academy</h3>
+              <p className="text-[10px] text-slate-400 uppercase font-black tracking-[0.1em]">Impara le basi e domina l'arena</p>
+            </div>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mr-1">
+             <ChevronRight className="text-slate-500 group-hover:translate-x-1 transition-transform" size={18} />
+          </div>
+        </Link>
       </section>
 
       {/* Quick Actions / Stats Grid */}

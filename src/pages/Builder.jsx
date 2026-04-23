@@ -5,13 +5,15 @@ import { Zap, Shield, Star, Target, Info, Save, RotateCcw, ChevronRight } from '
 import { supabase } from '../lib/supabaseClient';
 import { useBuilderStore } from '../store/useBuilderStore';
 import PartCard from '../components/PartCard';
+import ComboResultDrawer from '../components/ComboResultDrawer';
 
-const archetypes = [
-  { id: 'Attack', icon: Zap, color: 'text-accent', bg: 'bg-accent/10' },
-  { id: 'Defense', icon: Shield, color: 'text-green-500', bg: 'bg-green-500/10' },
-  { id: 'Stamina', icon: Star, color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
-  { id: 'Balance', icon: Target, color: 'text-primary', bg: 'bg-primary/10' },
-];
+const statColors = {
+  attack: '#ef4444',
+  defense: '#3b82f6',
+  stamina: '#22c55e',
+  burst: '#eab308',
+  mobility: '#a855f7'
+};
 
 export default function Builder() {
   const { blade, ratchet, bit, archetype, select, setArchetype, reset, getScore } = useBuilderStore();
@@ -57,86 +59,63 @@ export default function Builder() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-24">
-      {/* Header with Stats Display */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pt-4 pb-6 px-4 mb-6 border-b border-white/5">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-black uppercase tracking-tighter">Combo Builder</h1>
-          <button onClick={reset} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
+    <div className="max-w-4xl mx-auto pb-24 min-h-screen">
+      {/* Dynamic Selection Header */}
+      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl pt-6 pb-6 px-4 mb-4 border-b border-white/5">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex-1">
+            <h1 className="text-2xl font-black uppercase tracking-tighter leading-none">Combo Builder</h1>
+            <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] mt-1">
+              {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Completa'}
+            </p>
+          </div>
+          <button onClick={reset} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-95">
             <RotateCcw size={20} className="text-slate-400" />
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mb-6">
-          {archetypes.map((arch) => (
-            <button
-              key={arch.id}
-              onClick={() => setArchetype(arch.id)}
-              className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
-                archetype === arch.id 
-                  ? `border-white/20 ${arch.bg} shadow-glow-${arch.id.toLowerCase()}` 
-                  : 'border-transparent bg-white/5 opacity-50'
+        {/* Selection Progress Mini-display */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { part: blade, label: 'Blade', type: 'blades' },
+            { part: ratchet, label: 'Ratchet', type: 'ratchets' },
+            { part: bit, label: 'Bit', type: 'bits' }
+          ].map((item, idx) => (
+            <button 
+              key={idx}
+              onClick={() => setActiveTab(item.type)}
+              className={`p-2 rounded-xl border text-left transition-all ${
+                activeTab === item.type 
+                  ? 'bg-primary/20 border-primary/50 ring-2 ring-primary/20' 
+                  : 'bg-white/5 border-white/5 opacity-60'
               }`}
             >
-              <arch.icon size={18} className={arch.color} />
-              <span className="text-[10px] font-black uppercase">{arch.id}</span>
+              <span className="text-[7px] uppercase font-black text-slate-500 block leading-none mb-1">{item.label}</span>
+              <span className="text-[10px] font-black truncate block">
+                {item.part ? item.part.name : '---'}
+              </span>
             </button>
           ))}
         </div>
 
-        {/* Score Panel */}
-        <AnimatePresence mode="wait">
-          {score ? (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="glass-card overflow-hidden"
-            >
-              <div className="flex items-center">
-                <div className="p-4 bg-primary/20 border-r border-white/10 flex flex-col items-center justify-center min-w-[100px]">
-                  <span className="text-[10px] uppercase font-bold text-primary/80">Score</span>
-                  <span className="text-4xl font-black">{score.overall}</span>
-                </div>
-                <div className="flex-1 p-4 grid grid-cols-5 gap-2">
-                  {Object.entries(score.breakdown).map(([stat, val]) => (
-                    <div key={stat} className="flex flex-col gap-1">
-                      <div className="h-12 w-full bg-white/5 rounded-md relative flex items-end overflow-hidden">
-                        <motion.div 
-                          initial={{ height: 0 }}
-                          animate={{ height: `${val}%` }}
-                          className={`w-full ${stat === 'attack' ? 'bg-accent' : stat === 'defense' ? 'bg-green-500' : 'bg-primary'}`}
-                        />
-                      </div>
-                      <span className="text-[8px] uppercase font-black text-center opacity-60 truncate">{stat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          ) : (
-            <div className="glass-card p-6 flex flex-col items-center justify-center border-dashed border-white/10 opacity-50">
-              <Info className="mb-2 text-primary" />
-              <p className="text-xs uppercase font-bold tracking-widest">Seleziona 3 parti per calcolare lo score</p>
-            </div>
-          )}
-        </AnimatePresence>
-      </header>
-
-      {/* Selector Tabs */}
-      <div className="px-4">
-        <div className="flex gap-2 p-1 bg-white/5 rounded-xl mb-4">
+        {/* Categories Tabs (Pinned below progress) */}
+        <div className="flex gap-2 p-1 bg-white/5 rounded-xl mt-6 border border-white/5">
           {['blades', 'ratchets', 'bits'].map((type) => (
             <button
               key={type}
               onClick={() => setActiveTab(type)}
-              className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-lg transition-all ${
-                activeTab === type ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500'
+              className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                activeTab === type ? 'bg-primary text-white shadow-glow-primary' : 'text-slate-500'
               }`}
             >
               {type.slice(0, -1)}
             </button>
           ))}
         </div>
+      </header>
+
+      {/* Selector Content */}
+      <div className="px-4">
 
         {/* Part List with Virtualization */}
         <div className="min-h-[400px]">
@@ -165,26 +144,14 @@ export default function Builder() {
         </div>
       </div>
 
-      {/* Floating Save Button */}
-      <AnimatePresence>
-        {blade && ratchet && bit && (
-          <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-24 left-0 right-0 px-4 z-40"
-          >
-            <button 
-              disabled={saving}
-              onClick={handleSave}
-              className="w-full btn-primary py-4 flex items-center justify-center gap-2 shadow-2xl shadow-primary/40"
-            >
-              {saving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={20} />}
-              <span className="uppercase font-black tracking-widest">Salva Combo</span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Result Analysis Modal */}
+      <ComboResultDrawer 
+        combo={{ blade, ratchet, bit }}
+        score={score}
+        onClose={() => select('bit', null)} // Unselect bit to close analysis and keep building
+        onSave={handleSave}
+        saving={saving}
+      />
     </div>
   );
 }
