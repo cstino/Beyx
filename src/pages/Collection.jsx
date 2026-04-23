@@ -27,7 +27,11 @@ export default function Collection() {
       supabase.from('user_collections').select('part_id').eq('user_id', user.id)
     ]);
 
-    setParts({ blades: b.data || [], ratchets: r.data || [], bits: bt.data || [] });
+    setParts({ 
+      blades: (b.data || []).map(p => ({ ...p, kind: 'blade' })), 
+      ratchets: (r.data || []).map(p => ({ ...p, kind: 'ratchet' })), 
+      bits: (bt.data || []).map(p => ({ ...p, kind: 'bit' })) 
+    });
     setCollection(new Set(coll.data?.map(c => c.part_id)));
     setLoading(false);
   }

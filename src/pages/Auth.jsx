@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Github } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import Logo from '../components/Logo';
+import { Logo } from '../components/Logo';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);

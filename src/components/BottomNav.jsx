@@ -9,11 +9,11 @@ function cn(...inputs) {
 }
 
 const navItems = [
-  { icon: Home, label: 'Home', path: '/' },
-  { icon: LayoutGrid, label: 'Collection', path: '/collection' },
-  { icon: Hammer, label: 'Builder', path: '/builder' },
-  { icon: Trophy, label: 'Battle', path: '/battle' },
-  { icon: User, label: 'Account', path: '/meta' },
+  { icon: Home, label: 'HOME', path: '/' },
+  { icon: LayoutGrid, label: 'COLLECT', path: '/collection' },
+  { icon: Hammer, label: 'BUILDER', path: '/builder' },
+  { icon: Trophy, label: 'BATTLE', path: '/battle' },
+  { icon: User, label: 'ACCOUNT', path: '/account' },
 ];
 
 export default function BottomNav() {

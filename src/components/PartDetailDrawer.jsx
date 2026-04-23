@@ -14,29 +14,52 @@ const statColors = {
   mobility: '#A855F7', // Purple
 };
 
-export default function PartDetailDrawer({ part, onClose, onUpdate }) {
+const archetypeColors = {
+  Attack: '#F43F5E',
+  Defense: '#3B82F6',
+  Stamina: '#22C55E',
+  Balance: '#A855F7',
+};
+
+export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate }) {
+  const [activePart, setActivePart] = useState(initialPart);
+  const [variants, setVariants] = useState([]);
   const [owned, setOwned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    if (!part) return;
+    setActivePart(initialPart);
+  }, [initialPart]);
 
-    async function checkOwnership() {
+  useEffect(() => {
+    if (!activePart) return;
+
+    async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user.id);
       
-      const { data } = await supabase
+      // Check ownership of active variant
+      const { data: ownership } = await supabase
         .from('user_collections')
         .select('id')
         .eq('user_id', user.id)
-        .eq('part_id', part.id)
+        .eq('part_id', activePart.id)
         .maybeSingle();
       
-      setOwned(!!data);
+      setOwned(!!ownership);
+
+      // Fetch other variants (same name, different ID)
+      const tableName = activePart.kind === 'ratchet' ? 'ratchets' : activePart.kind === 'bit' ? 'bits' : 'blades';
+      const { data: others } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('name', activePart.name);
+      
+      setVariants(others || []);
     }
-    checkOwnership();
-  }, [part]);
+    fetchData();
+  }, [activePart]);
 
   const handleToggle = async () => {
     if (!userId || loading) return;
@@ -44,13 +67,13 @@ export default function PartDetailDrawer({ part, onClose, onUpdate }) {
 
     try {
       if (owned) {
-        await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', part.id);
+        await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', activePart.id);
         setOwned(false);
       } else {
         await supabase.from('user_collections').insert({
           user_id: userId,
-          part_id: part.id,
-          part_type: part.part_type || 'blade'
+          part_id: activePart.id,
+          part_type: activePart.kind || 'blade'
         });
         setOwned(true);
       }
@@ -62,7 +85,7 @@ export default function PartDetailDrawer({ part, onClose, onUpdate }) {
     }
   };
 
-  const stats = part?.stats || { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 };
+  const stats = activePart?.stats || { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 };
   
   // Find dominant stat for radar color
   const dominantStat = Object.entries(stats).reduce((a, b) => a[1] > b[1] ? a : b)[0];
@@ -70,7 +93,7 @@ export default function PartDetailDrawer({ part, onClose, onUpdate }) {
 
   return (
     <AnimatePresence>
-      {part && (
+      {activePart && (
         <>
           <motion.div
             initial={{ opacity: 0 }}
@@ -99,26 +122,75 @@ export default function PartDetailDrawer({ part, onClose, onUpdate }) {
 
             <div className="flex-1 overflow-y-auto px-6 pb-24">
               {/* Central Header */}
-              <div className="flex flex-col items-center text-center mb-10 pt-4">
+              <div className="flex flex-col items-center text-center mb-6 pt-4">
                 <motion.div 
+                  key={activePart.image_url}
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   className="w-48 h-48 mb-6 drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]"
                 >
-                  <PartImage src={part.image_url} name={part.name} type={part.type} />
+                  <PartImage src={activePart.image_url} name={activePart.name} type={activePart.kind} />
                 </motion.div>
                 
-                <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">{part.name}</h2>
-                <p className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">{part.type} COMPONENT</p>
+                <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">{activePart.name}</h2>
+                <p 
+                  className="text-[10px] font-black uppercase tracking-[0.2em]"
+                  style={{ color: activePart.kind === 'blade' ? archetypeColors[activePart.type] : accentColor }}
+                >
+                  {activePart.type || activePart.kind} COMPONENT
+                </p>
                 
-                <div className="flex gap-2 mt-6">
-                  <TierBadge tier={part.tier} />
+                <div className="flex gap-2 mt-4">
+                  <TierBadge tier={activePart.tier} />
                   <div className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg flex items-center gap-2 text-[10px] font-black uppercase">
                     <Weight size={14} className="text-slate-400" />
-                    {part.weight || '35.0'}g
+                    {activePart.weight || '35.0'}g
+                  </div>
+                  <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-lg text-primary text-[10px] font-black uppercase">
+                    {activePart.release_code || 'BX-00'}
                   </div>
                 </div>
+
+                {/* Stock Combo Section (New) */}
+                {activePart.kind === 'blade' && (activePart.stock_ratchet || activePart.stock_bit) && (
+                  <div className="w-full mt-8 p-4 bg-primary/5 border border-primary/20 rounded-2xl flex flex-col gap-3">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                       <Layers size={14} /> Combo Originale (Stock)
+                    </h4>
+                    <div className="flex justify-around items-center gap-4">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] text-slate-500 uppercase font-bold mb-1">Ratchet</span>
+                        <span className="text-xs font-black text-white">{activePart.stock_ratchet || '---'}</span>
+                      </div>
+                      <div className="w-px h-8 bg-white/10" />
+                      <div className="flex flex-col items-center">
+                        <span className="text-[8px] text-slate-500 uppercase font-bold mb-1">Bit</span>
+                        <span className="text-xs font-black text-white">{activePart.stock_bit || '---'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Variants Section */}
+              {variants.length > 1 && (
+                <div className="mb-10">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Color Variants / Special Editions</p>
+                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide px-1">
+                    {variants.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => setActivePart({ ...v, kind: activePart.kind })}
+                        className={`w-16 h-16 rounded-2xl border-2 flex-shrink-0 transition-all p-1 bg-white/5 ${
+                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-110' : 'border-white/5 opacity-40 hover:opacity-100'
+                        }`}
+                      >
+                        <PartImage src={v.image_url} name={v.name} type={activePart.kind} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Stats Visualization */}
               <div className="flex flex-col items-center gap-10 mb-12">
@@ -153,7 +225,7 @@ export default function PartDetailDrawer({ part, onClose, onUpdate }) {
                   <Info size={14} /> Analisi Tecnica
                 </h3>
                 <p className="text-sm text-slate-300 leading-relaxed italic opacity-80">
-                  {part.description || "Componente di alta ingegneria progettato per eccellere nelle competizioni professionali."}
+                  {activePart.description || "Componente di alta ingegneria progettato per eccellere nelle competizioni professionali."}
                 </p>
               </div>
 

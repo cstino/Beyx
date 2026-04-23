@@ -17,8 +17,15 @@ const tierColors = {
   C: 'text-slate-400 border-slate-500/50',
 };
 
+const archetypeColors = {
+  Attack: 'text-[#F43F5E]',
+  Defense: 'text-[#3B82F6]',
+  Stamina: 'text-[#22C55E]',
+  Balance: 'text-[#A855F7]',
+};
+
 export default function PartCard({ part, owned = false, onClick, className }) {
-  const { name, type, tier, stats, image_url } = part;
+  const { name, type, tier, image_url, kind } = part;
 
   return (
     <motion.div
@@ -43,14 +50,19 @@ export default function PartCard({ part, owned = false, onClick, className }) {
         <PartImage 
           src={image_url} 
           name={name} 
-          type={type} 
+          type={kind} 
           className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
         />
       </div>
 
       <div>
         <h3 className="text-sm uppercase font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{name}</h3>
-        <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mt-1">{type}</p>
+        <p className={cn(
+          "text-[9px] uppercase tracking-widest font-black mt-1",
+          archetypeColors[type] || 'text-slate-500'
+        )}>
+          {type || kind}
+        </p>
       </div>
 
       {/* Release Code Badge */}
