@@ -11,8 +11,8 @@ export default function StatRadar({ stats, color = '#3B82F6' }) {
     stats.attack || 0,
     stats.defense || 0,
     stats.stamina || 0,
-    stats.burst || 0,
-    stats.mobility || 0
+    stats.burst || stats.burst_resistance || 0,
+    stats.mobility || stats.dash_performance || 0
   ];
 
   const size = 200;

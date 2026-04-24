@@ -8,38 +8,40 @@ import { create } from 'zustand';
 const calculateScore = (blade, ratchet, bit, archetype = 'Balance') => {
   if (!blade || !ratchet || !bit) return null;
 
-  const bladeStats = blade.stats || {};
+  const bladeStats = blade.stats || blade.attributes || { attack: 5, defense: 5, stamina: 5, burst: 5, mobility: 5 };
   const ratchetMods = ratchet.stat_modifiers || {};
   const bitMods = bit.stat_modifiers || {};
 
-  // Clamp function to keep stats in a reasonable range (1-100)
-  const clamp = (v) => Math.min(100, Math.max(1, v));
+  // Final values (Base 1-10 + mods) clamped
+  const clamp = (v) => Math.min(10, Math.max(1, v));
 
-  // The final stat is: Blade Base Stat + (Modifier * 5)
-  // We multiply modifiers by 5 to make them significant on a 1-100 scale
   const stats = {
-    attack:   clamp((bladeStats.attack || 50) + (ratchetMods.attack || 0) * 5 + (bitMods.attack || 0) * 5),
-    defense:  clamp((bladeStats.defense || 50) + (ratchetMods.defense || 0) * 5 + (bitMods.defense || 0) * 5),
-    stamina:  clamp((bladeStats.stamina || 50) + (ratchetMods.stamina || 0) * 5 + (bitMods.stamina || 0) * 5),
-    burst:    clamp((bladeStats.burst || 50) + (ratchetMods.burst_resistance || 0) * 5 + (bitMods.burst_resistance || 0) * 5),
-    mobility: clamp((bladeStats.mobility || 50) + (ratchetMods.dash_performance || 0) * 5 + (bitMods.dash_performance || 0) * 5),
+    attack:   clamp((bladeStats.attack || 5) + (ratchetMods.attack || 0) + (bitMods.attack || 0)),
+    defense:  clamp((bladeStats.defense || 5) + (ratchetMods.defense || 0) + (bitMods.defense || 0)),
+    stamina:  clamp((bladeStats.stamina || 5) + (ratchetMods.stamina || 0) + (bitMods.stamina || 0)),
+    burst_resistance: clamp((bladeStats.burst || bladeStats.burst_resistance || 5) + (ratchetMods.burst_resistance || 0) + (bitMods.burst_resistance || 0)),
+    dash_performance: clamp((bladeStats.mobility || bladeStats.dash_performance || 5) + (ratchetMods.dash_performance || 0) + (bitMods.dash_performance || 0)),
   };
 
-  // Determine dominant archetype based on highest final stat
-  const entries = Object.entries(stats);
-  const dominant = entries.reduce((a, b) => a[1] > b[1] ? a : b)[0];
+  // Weighted overall score per archetype (Claude's formula)
+  const WEIGHTS = {
+    Attack:  { attack: 0.35, defense: 0.10, stamina: 0.05, burst_resistance: 0.25, dash_performance: 0.25 },
+    Defense: { attack: 0.10, defense: 0.35, stamina: 0.15, burst_resistance: 0.25, dash_performance: 0.15 },
+    Stamina: { attack: 0.05, defense: 0.15, stamina: 0.40, burst_resistance: 0.25, dash_performance: 0.15 },
+    Balance: { attack: 0.25, defense: 0.25, stamina: 0.25, burst_resistance: 0.15, dash_performance: 0.10 },
+  };
 
-  // Total Combo Weight (Real Grams)
+  const w = WEIGHTS[archetype] || WEIGHTS.Balance;
+  const overall = Object.entries(stats).reduce((sum, [k, v]) => sum + v * (w[k] || 0), 0);
+
+  // Total Combo Weight
   const totalWeight = (Number(blade.weight) || 0) + (Number(ratchet.weight) || 0) + (Number(bit.weight) || 0);
 
-  // Overall score (average of stats)
-  const overall = Math.round((Object.values(stats).reduce((a, b) => a + b, 0) / 5) * 10) / 10;
-
   return {
-    overall,
-    dominant: dominant.charAt(0).toUpperCase() + dominant.slice(1),
+    overall: Math.round(overall * 10) / 10,
+    dominant: archetype,
     weight: Math.round(totalWeight * 10) / 10,
-    breakdown: stats
+    breakdown: Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v * 10])) // Scale for Rader (1-100)
   };
 };
 

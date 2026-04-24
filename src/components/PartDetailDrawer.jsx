@@ -85,7 +85,39 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
     }
   };
 
-  const stats = activePart?.stats || { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 };
+  const [finalStats, setFinalStats] = useState(null);
+
+  useEffect(() => {
+    if (activePart?.kind === 'blade' && (activePart.stock_ratchet || activePart.stock_bit)) {
+      async function calculateStockStats() {
+        const [r, b] = await Promise.all([
+          supabase.from('ratchets').select('*').ilike('name', activePart.stock_ratchet).maybeSingle(),
+          supabase.from('bits').select('*').ilike('name', activePart.stock_bit).maybeSingle()
+        ]);
+        
+        // Simulo la logica del calculateScore del builder qui per coerenza
+        const bS = activePart.stats || activePart.attributes || { attack: 5, defense: 5, stamina: 5, burst: 5, mobility: 5 };
+        const rM = r.data?.stat_modifiers || {};
+        const bM = b.data?.stat_modifiers || {};
+        
+        const clamp = (v) => Math.min(10, Math.max(1, v));
+        const combined = {
+          attack:   clamp((bS.attack || 5) + (rM.attack || 0) + (bM.attack || 0)) * 10,
+          defense:  clamp((bS.defense || 5) + (rM.defense || 0) + (bM.defense || 0)) * 10,
+          stamina:  clamp((bS.stamina || 5) + (rM.stamina || 0) + (bM.stamina || 0)) * 10,
+          burst:    clamp((bS.burst || bS.burst_resistance || 5) + (rM.burst_resistance || 0) + (bM.burst_resistance || 0)) * 10,
+          mobility: clamp((bS.mobility || bS.dash_performance || 5) + (rM.dash_performance || 0) + (bM.dash_performance || 0)) * 10,
+        };
+        setFinalStats(combined);
+      }
+      calculateStockStats();
+    } else {
+      // Per Ratchet/Bit non mostriamo il radar
+      setFinalStats(null);
+    }
+  }, [activePart]);
+
+  const stats = finalStats || activePart?.stats || { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 };
   
   // Find dominant stat for radar color
   const dominantStat = Object.entries(stats).reduce((a, b) => a[1] > b[1] ? a : b)[0];
@@ -233,6 +265,28 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                       <h3 className="text-xs font-black uppercase tracking-widest text-white">Impatto Prestazioni</h3>
                     </div>
                     
+                    {/* Modifier Chips */}
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {activePart.stat_modifiers && Object.entries(activePart.stat_modifiers).map(([key, value]) => {
+                        if (value === 0) return null;
+                        const isPositive = value > 0;
+                        const labels = { attack: 'ATT', defense: 'DEF', stamina: 'STA', burst_resistance: 'BUR', dash_performance: 'MOB' };
+                        return (
+                          <span
+                            key={key}
+                            className={`text-[10px] font-black px-3 py-1.5 rounded-lg border flex items-center gap-1.5 ${
+                              isPositive
+                                ? 'text-green-400 border-green-400/20 bg-green-400/10'
+                                : 'text-red-400 border-red-400/20 bg-red-400/10'
+                            }`}
+                          >
+                            <span className="opacity-60">{labels[key]}</span>
+                            <span>{isPositive ? '+' : ''}{value}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+
                     <div className="space-y-4">
                       {['attack', 'defense', 'stamina', 'burst_resistance', 'dash_performance'].map((key) => {
                         const val = activePart.stat_modifiers?.[key] || 0;
