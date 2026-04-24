@@ -8,20 +8,26 @@ import Collection from './pages/Collection';
 import Builder from './pages/Builder';
 import Guide from './pages/Guide';
 import Battle from './pages/Battle';
+import New1v1Page from './pages/battle/New1v1Page';
+import BattleHistoryPage from './pages/battle/BattleHistoryPage';
+import New3v3Page from './pages/battle/New3v3Page';
+import NewTournamentPage from './pages/battle/NewTournamentPage';
 import Account from './pages/Account';
+import { useAuthStore } from './store/useAuthStore';
 
 function App() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, setUser, fetchProfile, setLoading, loading } = useAuthStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
     });
 
     return () => subscription.unsubscribe();
@@ -41,15 +47,19 @@ function App() {
       <Routes>
         <Route 
           path="/auth" 
-          element={!session ? <Auth /> : <Navigate to="/" replace />} 
+          element={!user ? <Auth /> : <Navigate to="/" replace />} 
         />
         
-        <Route element={session ? <Layout /> : <Navigate to="/auth" replace />}>
+        <Route element={user ? <Layout /> : <Navigate to="/auth" replace />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/collection" element={<Collection />} />
           <Route path="/builder" element={<Builder />} />
           <Route path="/guide" element={<Guide />} />
           <Route path="/battle" element={<Battle />} />
+          <Route path="/battle/new/1v1" element={<New1v1Page />} />
+          <Route path="/battle/new/3v3" element={<New3v3Page />} />
+          <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
+          <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

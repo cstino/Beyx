@@ -8,18 +8,18 @@ async function run() {
 
   const tiers = {
     blades: {
-      S: ['Wizard Rod', 'Phoenix Wing', 'Cobalt Dragoon', 'Dran Buster', 'Tyranno Beat'],
-      A: ['Dran Sword', 'Shark Edge', 'Hells Chain', 'Leon Claw', 'Unicorn Sting'],
-      B: ['Knight Shield', 'Viper Tail', 'Rhino Horn', 'Leon Crest']
+      S: ['Wizard Rod', 'Phoenix Wing', 'Aero Pegasus', 'Tyranno Beat', 'Cobalt Dragoon'],
+      A: ['Dran Sword', 'Shark Edge', 'Hells Chain', 'Leon Claw', 'Dran Buster', 'Unicorn Sting'],
+      B: ['Knight Shield', 'Viper Tail', 'Rhino Horn', 'Leon Crest', 'Hells Hammer']
     },
     ratchets: {
-      S: ['9-60', '5-60', '3-60'],
-      A: ['5-70', '9-70', '4-60'],
+      S: ['3-60', '5-60', '9-60'],
+      A: ['5-70', '9-70', '4-60', '1-60'],
       B: ['3-80', '4-80', '5-80']
     },
     bits: {
-      S: ['Ball', 'Orb', 'Disk Ball', 'Hexa', 'Glide'],
-      A: ['Flat', 'Low Flat', 'Taper', 'Rush', 'Point'],
+      S: ['Ball', 'Orb', 'Disc Ball', 'Hexa', 'Glide', 'Rush'],
+      A: ['Point', 'Flat', 'Low Flat', 'Taper', 'Low Rush'],
       B: ['Needle', 'High Needle', 'High Taper']
     }
   };

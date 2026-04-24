@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, LayoutGrid, Hammer, Trophy, User } from 'lucide-react';
+import { useUIStore } from '../store/useUIStore';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -17,8 +18,12 @@ const navItems = [
 ];
 
 export default function BottomNav() {
+  const modalOpen = useUIStore(s => s.modalOpen);
+
+  if (modalOpen) return null;
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-2">
       <div className="mx-auto max-w-lg glass-card flex items-center justify-around py-3 px-2">
         {navItems.map(({ icon: Icon, label, path }) => (
           <NavLink

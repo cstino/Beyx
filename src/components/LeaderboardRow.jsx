@@ -1,4 +1,5 @@
 import React from 'react';
+import { Avatar } from './Avatar';
 
 export function LeaderboardRow({ rank, blader }) {
   if (!blader) return null;
@@ -10,13 +11,7 @@ export function LeaderboardRow({ rank, blader }) {
              {rank.toString().padStart(2, '0')}
           </span>
           
-          <div className="w-12 h-12 rounded-full border border-white/10 bg-[#0A0A1A] p-0.5 overflow-hidden transition-transform group-hover:scale-105">
-             <img 
-               src={blader.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${blader.username}`} 
-               className="w-full h-full rounded-full object-cover" 
-               alt={blader.username} 
-             />
-          </div>
+          <Avatar avatarId={blader.avatar_id} size={48} />
           
           <div className="space-y-0.5">
             <h4 className="text-[14px] font-black uppercase text-white leading-tight tracking-tight">{blader.username}</h4>
