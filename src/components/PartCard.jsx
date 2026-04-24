@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Zap, Target, Star } from 'lucide-react';
+import { Shield, Zap, Target, Star, Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -72,8 +72,13 @@ export default function PartCard({ part, owned = false, onClick, className }) {
         </span>
       </div>
 
-      {!owned && (
-        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-white/5 rounded-md border border-white/5">
+
+      {owned ? (
+        <div className="absolute top-2 left-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(34,197,94,0.4)] border border-green-400/50 z-20">
+          <Check size={12} className="text-white" strokeWidth={4} />
+        </div>
+      ) : (
+        <div className="absolute top-2 left-2 px-1.5 py-0.5 bg-white/5 rounded-md border border-white/5 opacity-40">
           <span className="text-[7px] font-black uppercase text-white/30 tracking-tighter">Missing</span>
         </div>
       )}
