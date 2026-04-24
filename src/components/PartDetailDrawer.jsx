@@ -21,7 +21,7 @@ const archetypeColors = {
   Balance: '#A855F7',
 };
 
-export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate }) {
+export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate, onNavigate }) {
   const [activePart, setActivePart] = useState(initialPart);
   const [variants, setVariants] = useState([]);
   const [owned, setOwned] = useState(false);
@@ -158,15 +158,21 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate 
                        <Layers size={14} /> Combo Originale (Stock)
                     </h4>
                     <div className="flex justify-around items-center gap-4">
-                      <div className="flex flex-col items-center">
+                      <button 
+                        onClick={() => onNavigate && onNavigate(activePart.stock_ratchet, 'ratchets')}
+                        className="flex flex-col items-center group hover:bg-white/5 p-2 rounded-xl transition-all"
+                      >
                         <span className="text-[8px] text-slate-500 uppercase font-bold mb-1">Ratchet</span>
-                        <span className="text-xs font-black text-white">{activePart.stock_ratchet || '---'}</span>
-                      </div>
+                        <span className="text-xs font-black text-white group-hover:text-primary transition-colors">{activePart.stock_ratchet || '---'}</span>
+                      </button>
                       <div className="w-px h-8 bg-white/10" />
-                      <div className="flex flex-col items-center">
+                      <button 
+                        onClick={() => onNavigate && onNavigate(activePart.stock_bit, 'bits')}
+                        className="flex flex-col items-center group hover:bg-white/5 p-2 rounded-xl transition-all"
+                      >
                         <span className="text-[8px] text-slate-500 uppercase font-bold mb-1">Bit</span>
-                        <span className="text-xs font-black text-white">{activePart.stock_bit || '---'}</span>
-                      </div>
+                        <span className="text-xs font-black text-white group-hover:text-primary transition-colors">{activePart.stock_bit || '---'}</span>
+                      </button>
                     </div>
                   </div>
                 )}

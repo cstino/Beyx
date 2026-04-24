@@ -9,7 +9,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const WIKI_API = 'https://beyblade.fandom.com/api.php';
 
-async function getPartComposition(pageTitle) {
+const SOURCE_MAP = {
+  'lock chip':    'lock_chip_id',
+  'lockchip':     'lock_chip_id',
+  'main blade':   'main_blade_id',
+  'mainblade':    'main_blade_id',
+  'assist blade': 'assist_blade_id',
+  'assistblade':  'assist_blade_id',
+  'blade':        'blade_id',
+  'ratchet':      'ratchet_id',
+  'bit':          'bit_id',
+};
+
+async function getStockParts(pageTitle) {
   try {
     const { data } = await axios.get(WIKI_API, {
       params: {
@@ -26,39 +38,72 @@ async function getPartComposition(pageTitle) {
     if (!html) return null;
 
     const $ = cheerio.load(html);
-    const result = {};
+    const $infobox = $('aside.portable-infobox').first();
+    if (!$infobox.length) return null;
 
-    // Strategia Super-Robusta: Cerca IN TUTTE LE TABELLE
-    $('table').each((_, table) => {
-      const $table = $(table);
-      const rows = $table.find('tr');
+    const parts = {};
+    const description = $('.mw-parser-output > p')
+      .filter((_, p) => $(p).text().trim().length > 50)
+      .first()
+      .text()
+      .trim();
+
+    $infobox.find('[data-source]').each((_, el) => {
+      const source = $(el).attr('data-source')?.toLowerCase().trim();
+      const key = SOURCE_MAP[source];
+      if (!key) return;
+
+      const $value = $(el).find('.pi-data-value').first();
+      const text = $value.find('a').first().text().trim() || $value.text().trim();
       
-      // La tabella deve contenere le parole chiave nelle th o td
-      const fullText = $table.text().toLowerCase();
-      if (!fullText.includes('ratchet') || !fullText.includes('bit')) return;
-
-      rows.each((_, row) => {
-        const $cells = $(row).find('th, td');
-        if ($cells.length < 2) return;
-
-        const label = $cells.eq(0).text().trim().toLowerCase();
-        const value = $cells.eq(1).find('a').first().text().trim() || $cells.eq(1).text().trim();
-
-        if (label.includes('ratchet')) result.ratchet = value;
-        if (label.includes('bit')) result.bit = value;
-      });
-
-      if (result.ratchet && result.bit) return false; // Match trovato!
+      parts[source] = text;
     });
 
-    return result;
+    return { parts, description };
   } catch (error) {
     return null;
   }
 }
 
+async function lookupPartId(table, name) {
+  if (!name) return null;
+  // Cleanup name (e.g. "Disk Ball" -> "Disk Ball")
+  const { data } = await supabase.from(table).select('id').ilike('name', name.trim()).maybeSingle();
+  return data?.id || null;
+}
+
+async function searchAndScrape(query, blade) {
+  const searchRes = await axios.get(WIKI_API, {
+    params: { action: 'query', list: 'search', srsearch: query, format: 'json', formatversion: 2 },
+  });
+
+  const results = searchRes.data?.query?.search || [];
+  
+  // Filtro avanzato: evita liste e componenti singoli, e deve contenere il nome del Bey
+  const candidates = results.filter(r => {
+    const t = r.title.toLowerCase();
+    const n = blade.name.toLowerCase();
+    
+    // Escludi componenti e liste
+    if (/^(blade|bit|ratchet|lock chip|main blade|assist blade|list of)\s*[-–]/i.test(t)) return false;
+    if (t.includes('list of')) return false;
+
+    // Deve esserci un match parziale col nome (senza spazi per gestire i titoli della wiki)
+    const nameNoSpaces = n.replace(/\s+/g, '');
+    return t.includes(n) || t.includes(nameNoSpaces);
+  });
+
+  for (const candidate of candidates.slice(0, 3)) {
+    const data = await getStockParts(candidate.title);
+    if (data && data.parts && (data.parts.ratchet || data.parts.bit)) {
+      return { data, pageTitle: candidate.title };
+    }
+  }
+  return null;
+}
+
 async function run() {
-  console.log('🚀 Ricerca Combo Stock (Sincronizzazione Totale)...');
+  console.log('🚀 Sincronizzazione Smart-Retry (Wizard Rod Hunter)...');
   
   const { data: blades, error } = await supabase
     .from('blades')
@@ -67,54 +112,52 @@ async function run() {
   if (error) return console.error('❌ Errore DB:', error.message);
 
   for (const blade of blades) {
-      // Priorità 1: Nome completo + Code se esiste | Priorità 2: Solo Nome
-      const queries = [
-        blade.release_code ? `${blade.name} ${blade.release_code}` : null,
-        blade.name,
-        blade.release_code
-      ].filter(Boolean);
-
-      let found = false;
-
-      for (const q of queries) {
-        process.stdout.write(`🔍 [${q}] `);
-        try {
-          const searchRes = await axios.get(WIKI_API, {
-            params: {
-              action: 'query',
-              list: 'search',
-              srsearch: q,
-              format: 'json',
-              formatversion: 2,
-            },
-          });
-
-          const results = searchRes.data?.query?.search || [];
-          if (results.length === 0) {
-            console.log('⚠️ Nessun risultato.');
-            continue;
-          }
-
-          const pageTitle = results[0].title;
-          const parts = await getPartComposition(pageTitle);
-          
-          if (parts && (parts.ratchet || parts.bit)) {
-            await supabase.from('blades').update({
-              stock_ratchet: parts.ratchet,
-              stock_bit: parts.bit
-            }).eq('id', blade.id);
-            console.log(`✅ ${parts.ratchet} | ${parts.bit} (${pageTitle})`);
-            found = true;
-            break; 
-          } else {
-            console.log(`...`);
-          }
-        } catch (err) {
-          console.log(`❌ Errore.`);
-        }
-      }
+      process.stdout.write(`🔍 [${blade.name}] `);
       
-      if (!found) console.log('⚠️ Non identificato.');
+      try {
+        // Tentativo 1: Codice Release
+        let result = blade.release_code ? await searchAndScrape(blade.release_code, blade) : null;
+        
+        // Tentativo 2: Nome Blade (se il primo fallisce)
+        if (!result) {
+          result = await searchAndScrape(blade.name, blade);
+        }
+
+        if (result) {
+          const { data, pageTitle } = result;
+          const rId = await lookupPartId('ratchets', data.parts.ratchet);
+          const bId = await lookupPartId('bits', data.parts.bit);
+
+          await supabase.from('blades').update({
+            stock_ratchet: data.parts.ratchet,
+            stock_bit: data.parts.bit,
+            description: data.description
+          }).eq('id', blade.id);
+
+          // Popolamento releases se la tabella esiste
+          try {
+            await supabase.from('beyblade_releases').upsert({
+              product_code: blade.release_code || pageTitle,
+              name: `${blade.name} ${data.parts.ratchet || ''}${data.parts.bit || ''}`.trim(),
+              wiki_page: pageTitle,
+              description: data.description,
+              blade_id: blade.id,
+              ratchet_id: rId,
+              bit_id: bId
+            }, { onConflict: 'product_code' });
+          } catch (e) {
+            // Se la tabella non esiste ancora, ignoriamo
+          }
+
+          console.log(`✅ ${data.parts.ratchet || '?'} | ${data.parts.bit || '?'} (${pageTitle})`);
+        } else {
+          console.log('⚠️ Non identificato.');
+        }
+
+      } catch (err) {
+        console.log(`❌ Errore.`);
+      }
+
       await new Promise(r => setTimeout(r, 600));
   }
   console.log('\n🏁 Sincronizzazione completata!');

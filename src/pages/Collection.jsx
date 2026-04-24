@@ -39,6 +39,15 @@ export default function Collection() {
   const filteredParts = parts[activeType].filter(p => 
     p.name.toLowerCase().includes(search.toLowerCase())
   );
+  
+  const handleNavigatePart = (name, type) => {
+    if (!name || name === '---') return;
+    const found = parts[type].find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (found) {
+      setActiveType(type);
+      setSelectedPart(found);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto pb-32">
@@ -116,6 +125,7 @@ export default function Collection() {
         part={selectedPart} 
         onClose={() => setSelectedPart(null)}
         onUpdate={fetchData}
+        onNavigate={handleNavigatePart}
       />
     </div>
   );
