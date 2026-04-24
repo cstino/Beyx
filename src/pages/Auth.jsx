@@ -52,14 +52,12 @@ export default function Auth() {
 
         <div className="text-center mb-8 relative z-10">
           <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="flex justify-center mb-4"
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="flex justify-center mb-8"
           >
-            <div className="w-32 h-32 relative">
-              <Logo className="w-full h-full relative z-10" />
-            </div>
+            <Logo size="xl" />
           </motion.div>
 
           <h2 className="text-3xl font-display font-extrabold italic tracking-tighter leading-none">

@@ -1,0 +1,17 @@
+{
+  "name": "BeyManager X",
+  "short_name": "BeyX",
+  "description": "Elite Companion for Beyblade X Bladers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A1A",
+  "theme_color": "#E94560",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
