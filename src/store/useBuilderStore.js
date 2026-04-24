@@ -5,40 +5,41 @@ import { create } from 'zustand';
  * Manages selection and scoring logic
  */
 
-const calculateScore = (blade, r, b) => {
-  if (!blade || !r || !b) return null;
+const calculateScore = (blade, ratchet, bit, archetype = 'Balance') => {
+  if (!blade || !ratchet || !bit) return null;
 
-  // Raw statistical sum (Blade is base, Ratchet and Bit add/modify)
-  // Blade gives the core identity (base stats)
-  // Ratchet contributes to Weight, Defense (sides) and Burst resistance (height)
-  // Bit contributes to Performance (Stat offsets)
-  
+  const bladeStats = blade.stats || {};
+  const ratchetMods = ratchet.stat_modifiers || {};
+  const bitMods = bit.stat_modifiers || {};
+
+  // Clamp function to keep stats in a reasonable range (1-100)
+  const clamp = (v) => Math.min(100, Math.max(1, v));
+
+  // The final stat is: Blade Base Stat + (Modifier * 5)
+  // We multiply modifiers by 5 to make them significant on a 1-100 scale
   const stats = {
-    attack:   (blade.stats?.attack || 0) + (b.stats?.attack || 0),
-    defense:  (blade.stats?.defense || 0) + (r.sides * 3) + (b.stats?.defense || 0),
-    stamina:  (blade.stats?.stamina || 0) + (b.stats?.stamina || 0),
-    burst:    (blade.stats?.burst || 0) + (r.height / 10) + (b.stats?.burst || 0),
-    mobility: (blade.stats?.mobility || 0) + (b.stats?.mobility || 0)
+    attack:   clamp((bladeStats.attack || 50) + (ratchetMods.attack || 0) * 5 + (bitMods.attack || 0) * 5),
+    defense:  clamp((bladeStats.defense || 50) + (ratchetMods.defense || 0) * 5 + (bitMods.defense || 0) * 5),
+    stamina:  clamp((bladeStats.stamina || 50) + (ratchetMods.stamina || 0) * 5 + (bitMods.stamina || 0) * 5),
+    burst:    clamp((bladeStats.burst || 50) + (ratchetMods.burst_resistance || 0) * 5 + (bitMods.burst_resistance || 0) * 5),
+    mobility: clamp((bladeStats.mobility || 50) + (ratchetMods.dash_performance || 0) * 5 + (bitMods.dash_performance || 0) * 5),
   };
 
-  // Determine dominant archetype automatically
+  // Determine dominant archetype based on highest final stat
   const entries = Object.entries(stats);
   const dominant = entries.reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
-  // Overall score is a normalized sum of all stats
-  const totalRaw = Object.values(stats).reduce((a, b) => a + b, 0);
-  const overall = Math.round((totalRaw / 5) * 10) / 10;
+  // Total Combo Weight (Real Grams)
+  const totalWeight = (Number(blade.weight) || 0) + (Number(ratchet.weight) || 0) + (Number(bit.weight) || 0);
+
+  // Overall score (average of stats)
+  const overall = Math.round((Object.values(stats).reduce((a, b) => a + b, 0) / 5) * 10) / 10;
 
   return {
     overall,
     dominant: dominant.charAt(0).toUpperCase() + dominant.slice(1),
-    breakdown: {
-      attack:   Math.min(100, Math.round(stats.attack)),
-      defense:  Math.min(100, Math.round(stats.defense)),
-      stamina:  Math.min(100, Math.round(stats.stamina)),
-      burst:    Math.min(100, Math.round(stats.burst)),
-      mobility: Math.min(100, Math.round(stats.mobility)),
-    },
+    weight: Math.round(totalWeight * 10) / 10,
+    breakdown: stats
   };
 };
 

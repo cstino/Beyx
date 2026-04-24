@@ -63,6 +63,9 @@ export default function ComboResultDrawer({ combo, score, onClose, onSave, savin
                       <span className="px-2 py-0.5 bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest rounded-md border border-primary/20">
                         {score.dominant}
                       </span>
+                      <span className="px-2 py-0.5 bg-white/5 text-slate-400 text-[8px] font-black uppercase tracking-widest rounded-md border border-white/10">
+                        {score.weight}g
+                      </span>
                     </div>
                   </div>
                </div>

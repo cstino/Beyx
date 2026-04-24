@@ -137,7 +137,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                   className="text-[10px] font-black uppercase tracking-[0.2em]"
                   style={{ color: activePart.kind === 'blade' ? archetypeColors[activePart.type] : accentColor }}
                 >
-                  {activePart.type || activePart.kind} COMPONENT
+                  {activePart.type || (activePart.kind === 'ratchet' ? 'RATCHET' : 'BIT')} {activePart.kind !== 'blade' && 'COMPONENT'}
                 </p>
                 
                 <div className="flex gap-2 mt-4">
@@ -199,30 +199,82 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
               )}
 
               {/* Stats Visualization */}
-              <div className="flex flex-col items-center gap-10 mb-12">
-                <StatRadar stats={stats} color={accentColor} />
-                
-                <div className="w-full grid grid-cols-1 gap-3">
-                  {Object.entries(stats).map(([key, val]) => (
-                    <div key={key} className="glass-card p-4 border-white/[0.03]">
-                       <div className="flex justify-between items-center mb-2">
-                          <div className="flex items-center gap-2">
-                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statColors[key] }} />
-                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{key}</span>
-                          </div>
-                          <span className="text-sm font-black">{val}</span>
-                       </div>
-                       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                          <motion.div 
-                            initial={{ width: 0 }}
-                            animate={{ width: `${val}%` }}
-                            className="h-full"
-                            style={{ backgroundColor: statColors[key] }}
-                          />
-                       </div>
+              <div className="mb-12">
+                {activePart.kind === 'blade' ? (
+                  <div className="flex flex-col items-center gap-10">
+                    <StatRadar stats={stats} color={accentColor} />
+                    
+                    <div className="w-full grid grid-cols-1 gap-3">
+                      {Object.entries(stats).map(([key, val]) => (
+                        <div key={key} className="glass-card p-4 border-white/[0.03]">
+                           <div className="flex justify-between items-center mb-2">
+                              <div className="flex items-center gap-2">
+                                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: statColors[key] }} />
+                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{key}</span>
+                              </div>
+                              <span className="text-sm font-black">{val}</span>
+                           </div>
+                           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ width: `${val}%` }}
+                                className="h-full"
+                                style={{ backgroundColor: statColors[key] }}
+                              />
+                           </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Zap size={18} className="text-primary" />
+                      <h3 className="text-xs font-black uppercase tracking-widest text-white">Impatto Prestazioni</h3>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {['attack', 'defense', 'stamina', 'burst_resistance', 'dash_performance'].map((key) => {
+                        const val = activePart.stat_modifiers?.[key] || 0;
+                        const labels = { attack: 'Attacco', defense: 'Difesa', stamina: 'Stamina', burst_resistance: 'Burst Res.', dash_performance: 'Mobilità' };
+                        
+                        return (
+                          <div key={key} className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">{labels[key]}</span>
+                              <span className={`text-xs font-black ${val > 0 ? 'text-green-400' : val < 0 ? 'text-red-400' : 'text-slate-500'}`}>
+                                {val > 0 ? `+${val}` : val === 0 ? 'NEUTRO' : val}
+                              </span>
+                            </div>
+                            
+                            {/* Horizontal Comparison Bar */}
+                            <div className="relative h-2 bg-white/5 rounded-full overflow-hidden flex">
+                              <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-10" /> {/* Center line */}
+                              <div className="w-1/2 flex justify-end">
+                                {val < 0 && (
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${Math.abs(val) * 25}%` }}
+                                    className="h-full bg-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                                  />
+                                )}
+                              </div>
+                              <div className="w-1/2">
+                                {val > 0 && (
+                                  <motion.div 
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${val * 25}%` }}
+                                    className="h-full bg-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
