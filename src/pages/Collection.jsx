@@ -15,6 +15,7 @@ export default function Collection() {
   const [filterTier, setFilterTier] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterOwned, setFilterOwned] = useState('All');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -73,15 +74,27 @@ export default function Collection() {
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-          <input 
-            type="text" 
-            placeholder="Cerca parte..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input-field pl-12 bg-white/5"
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cerca parte..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input-field pl-12 bg-white/5"
+            />
+          </div>
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-3 rounded-xl border transition-all ${
+              showFilters 
+                ? 'bg-primary border-primary text-white shadow-glow-primary' 
+                : 'bg-white/5 border-white/5 text-slate-400'
+            }`}
+          >
+            <Filter size={20} />
+          </button>
         </div>
 
         <div className="flex gap-2 p-1 bg-white/5 rounded-xl">
@@ -98,62 +111,71 @@ export default function Collection() {
           ))}
         </div>
 
-        {/* --- Advanced Filters Bar --- */}
-        <div className="space-y-3 pb-2 pt-1 overflow-x-auto no-scrollbar">
-          {/* Tier Filter */}
-          <div className="flex gap-2 min-w-max px-1">
-            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Tier:</span>
-            {['All', 'S', 'A', 'B', 'C'].map(t => (
-              <button 
-                key={t}
-                onClick={() => setFilterTier(t)}
-                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                  filterTier === t 
-                    ? 'bg-white text-black border-white' 
-                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+        {/* --- Advanced Filters Bar (Collapsible) --- */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="space-y-3 pb-2 pt-1 overflow-hidden"
+            >
+              {/* Tier Filter */}
+              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
+                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Tier:</span>
+                {['All', 'S', 'A', 'B', 'C'].map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setFilterTier(t)}
+                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                      filterTier === t 
+                        ? 'bg-white text-black border-white' 
+                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
 
-          {/* Type Filter */}
-          <div className="flex gap-2 min-w-max px-1">
-            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Type:</span>
-            {['All', 'Attack', 'Defense', 'Stamina', 'Balance'].map(t => (
-              <button 
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                  filterType === t 
-                    ? 'bg-white text-black border-white' 
-                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
+              {/* Type Filter */}
+              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
+                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Type:</span>
+                {['All', 'Attack', 'Defense', 'Stamina', 'Balance'].map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setFilterType(t)}
+                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                      filterType === t 
+                        ? 'bg-white text-black border-white' 
+                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
 
-          {/* Owned Filter */}
-          <div className="flex gap-2 min-w-max px-1">
-            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Coll:</span>
-            {['All', 'Owned', 'Missing'].map(t => (
-              <button 
-                key={t}
-                onClick={() => setFilterOwned(t)}
-                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                  filterOwned === t 
-                    ? 'bg-white text-black border-white' 
-                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
+              {/* Owned Filter */}
+              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
+                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Coll:</span>
+                {['All', 'Owned', 'Missing'].map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setFilterOwned(t)}
+                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                      filterOwned === t 
+                        ? 'bg-white text-black border-white' 
+                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Grid Content */}
