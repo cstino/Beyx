@@ -95,18 +95,17 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
           supabase.from('bits').select('*').ilike('name', activePart.stock_bit).maybeSingle()
         ]);
         
-        // Simulo la logica del calculateScore del builder qui per coerenza
-        const bS = activePart.stats || activePart.attributes || { attack: 5, defense: 5, stamina: 5, burst: 5, mobility: 5 };
+        // Calcolo finale con i modificatori (scala 1-100+)
+        const bS = activePart.stats || activePart.attributes || { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 };
         const rM = r.data?.stat_modifiers || {};
         const bM = b.data?.stat_modifiers || {};
         
-        const clamp = (v) => Math.min(10, Math.max(1, v));
         const combined = {
-          attack:   clamp((bS.attack || 5) + (rM.attack || 0) + (bM.attack || 0)) * 10,
-          defense:  clamp((bS.defense || 5) + (rM.defense || 0) + (bM.defense || 0)) * 10,
-          stamina:  clamp((bS.stamina || 5) + (rM.stamina || 0) + (bM.stamina || 0)) * 10,
-          burst:    clamp((bS.burst || bS.burst_resistance || 5) + (rM.burst_resistance || 0) + (bM.burst_resistance || 0)) * 10,
-          mobility: clamp((bS.mobility || bS.dash_performance || 5) + (rM.dash_performance || 0) + (bM.dash_performance || 0)) * 10,
+          attack:   (bS.attack || 50) + (rM.attack || 0) * 5 + (bM.attack || 0) * 5,
+          defense:  (bS.defense || 50) + (rM.defense || 0) * 5 + (bM.defense || 0) * 5,
+          stamina:  (bS.stamina || 50) + (rM.stamina || 0) * 5 + (bM.stamina || 0) * 5,
+          burst:    (bS.burst || bS.burst_resistance || 50) + (rM.burst_resistance || 0) * 5 + (bM.burst_resistance || 0) * 5,
+          mobility: (bS.mobility || bS.dash_performance || 50) + (rM.dash_performance || 0) * 5 + (bM.dash_performance || 0) * 5,
         };
         setFinalStats(combined);
       }

@@ -12,15 +12,12 @@ const calculateScore = (blade, ratchet, bit, archetype = 'Balance') => {
   const ratchetMods = ratchet.stat_modifiers || {};
   const bitMods = bit.stat_modifiers || {};
 
-  // Final values (Base 1-10 + mods) clamped
-  const clamp = (v) => Math.min(10, Math.max(1, v));
-
   const stats = {
-    attack:   clamp((bladeStats.attack || 5) + (ratchetMods.attack || 0) + (bitMods.attack || 0)),
-    defense:  clamp((bladeStats.defense || 5) + (ratchetMods.defense || 0) + (bitMods.defense || 0)),
-    stamina:  clamp((bladeStats.stamina || 5) + (ratchetMods.stamina || 0) + (bitMods.stamina || 0)),
-    burst_resistance: clamp((bladeStats.burst || bladeStats.burst_resistance || 5) + (ratchetMods.burst_resistance || 0) + (bitMods.burst_resistance || 0)),
-    dash_performance: clamp((bladeStats.mobility || bladeStats.dash_performance || 5) + (ratchetMods.dash_performance || 0) + (bitMods.dash_performance || 0)),
+    attack:   (bladeStats.attack || 50) + (ratchetMods.attack || 0) * 2 + (bitMods.attack || 0) * 3,
+    defense:  (bladeStats.defense || 50) + (ratchetMods.defense || 0) * 2 + (bitMods.defense || 0) * 3,
+    stamina:  (bladeStats.stamina || 50) + (ratchetMods.stamina || 0) * 2 + (bitMods.stamina || 0) * 3,
+    burst:    (bladeStats.burst || bladeStats.burst_resistance || 50) + (ratchetMods.burst_resistance || 0) * 2 + (bitMods.burst_resistance || 0) * 3,
+    mobility: (bladeStats.mobility || bladeStats.dash_performance || 50) + (ratchetMods.dash_performance || 0) * 2 + (bitMods.dash_performance || 0) * 3,
   };
 
   // Weighted overall score per archetype (Claude's formula)
@@ -41,7 +38,7 @@ const calculateScore = (blade, ratchet, bit, archetype = 'Balance') => {
     overall: Math.round(overall * 10) / 10,
     dominant: archetype,
     weight: Math.round(totalWeight * 10) / 10,
-    breakdown: Object.fromEntries(Object.entries(stats).map(([k, v]) => [k, v * 10])) // Scale for Rader (1-100)
+    breakdown: stats
   };
 };
 

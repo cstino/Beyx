@@ -8,7 +8,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 async function run() {
   const { data, error } = await supabase
     .from('blades')
-    .select('name, stock_ratchet, stock_bit, description')
+    .select('*')
     .ilike('name', '%Wizard Rod%')
     .maybeSingle();
     
