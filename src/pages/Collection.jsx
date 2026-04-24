@@ -12,6 +12,9 @@ export default function Collection() {
   const [search, setSearch] = useState('');
   const [activeType, setActiveType] = useState('blades');
   const [selectedPart, setSelectedPart] = useState(null);
+  const [filterTier, setFilterTier] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [filterOwned, setFilterOwned] = useState('All');
 
   useEffect(() => {
     fetchData();
@@ -36,9 +39,18 @@ export default function Collection() {
     setLoading(false);
   }
 
-  const filteredParts = parts[activeType].filter(p => 
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredParts = parts[activeType].filter(p => {
+    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchTier = filterTier === 'All' || p.tier === filterTier;
+    // Note: for ratchets, type might be null, we handle it
+    const matchType = filterType === 'All' || p.type === filterType;
+    const isOwned = collection.has(p.id);
+    const matchOwned = filterOwned === 'All' || 
+                      (filterOwned === 'Owned' && isOwned) || 
+                      (filterOwned === 'Missing' && !isOwned);
+
+    return matchSearch && matchTier && matchType && matchOwned;
+  });
   
   const handleNavigatePart = (name, type) => {
     if (!name || name === '---') return;
@@ -84,6 +96,63 @@ export default function Collection() {
               {type}
             </button>
           ))}
+        </div>
+
+        {/* --- Advanced Filters Bar --- */}
+        <div className="space-y-3 pb-2 pt-1 overflow-x-auto no-scrollbar">
+          {/* Tier Filter */}
+          <div className="flex gap-2 min-w-max px-1">
+            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Tier:</span>
+            {['All', 'S', 'A', 'B', 'C'].map(t => (
+              <button 
+                key={t}
+                onClick={() => setFilterTier(t)}
+                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                  filterTier === t 
+                    ? 'bg-white text-black border-white' 
+                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Type Filter */}
+          <div className="flex gap-2 min-w-max px-1">
+            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Type:</span>
+            {['All', 'Attack', 'Defense', 'Stamina', 'Balance'].map(t => (
+              <button 
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                  filterType === t 
+                    ? 'bg-white text-black border-white' 
+                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Owned Filter */}
+          <div className="flex gap-2 min-w-max px-1">
+            <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Coll:</span>
+            {['All', 'Owned', 'Missing'].map(t => (
+              <button 
+                key={t}
+                onClick={() => setFilterOwned(t)}
+                className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
+                  filterOwned === t 
+                    ? 'bg-white text-black border-white' 
+                    : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
