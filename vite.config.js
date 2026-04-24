@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'BeyManager X',
         short_name: 'BeyX',
         description: 'Elite Beyblade X Companion',
-        theme_color: '#0A0A1A',
-        background_color: '#0A0A1A',
+        theme_color: '#0A0A1A', // quasi nero ma pastello
+        background_color: '#0A0A1A', // sfondo caricamento (splash screen)
         display: 'standalone',
         orientation: 'portrait',
         icons: [
