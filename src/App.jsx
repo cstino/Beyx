@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import Collection from './pages/Collection';
 import Builder from './pages/Builder';
 import Guide from './pages/Guide';
+import Battle from './pages/Battle';
+import Account from './pages/Account';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -47,6 +49,8 @@ function App() {
           <Route path="/collection" element={<Collection />} />
           <Route path="/builder" element={<Builder />} />
           <Route path="/guide" element={<Guide />} />
+          <Route path="/battle" element={<Battle />} />
+          <Route path="/account" element={<Account />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

@@ -10,7 +10,6 @@ import { StatCard } from '../components/StatCard';
 import { AcademyBanner } from '../components/AcademyBanner';
 import { SectionHeader } from '../components/SectionHeader';
 import { LeaderboardRow } from '../components/LeaderboardRow';
-import { PrimaryCTA } from '../components/PrimaryCTA';
 
 export default function Dashboard() {
   const [userId, setUserId] = useState(null);
@@ -48,12 +47,14 @@ export default function Dashboard() {
           total={parts.total}
           subtitle="In collezione" 
           accentColor="#4361EE"
+          onClick={() => navigate('/collection')}
         />
         <StatCard
           label="Combo" 
           value={combos.count}
           subtitle="Creati da te" 
           accentColor="#E94560"
+          onClick={() => navigate('/builder?view=saved')}
         />
       </div>
 
@@ -76,13 +77,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 6. Primary CTA */}
-      <div className="mx-4 mt-4">
-        <PrimaryCTA
-          label="ANALIZZA META & COMBO"
-          onClick={() => navigate('/builder')}
-        />
-      </div>
     </div>
   );
 }

@@ -1,8 +1,13 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
-export function StatCard({ label, value, total, subtitle, accentColor }) {
+export function StatCard({ label, value, total, subtitle, accentColor, onClick }) {
   return (
-    <div className="bg-[#11112B] border border-white/5 rounded-[22px] p-5 flex flex-col items-start relative overflow-hidden group">
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.97 }}
+      className="bg-[#11112B] border border-white/5 rounded-[22px] p-5 flex flex-col items-start relative overflow-hidden group w-full text-left transition-colors hover:bg-[#16163A]"
+    >
       {/* Visual Accent Line */}
       <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accentColor }} />
       
@@ -22,6 +27,6 @@ export function StatCard({ label, value, total, subtitle, accentColor }) {
         className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none" 
         style={{ background: `linear-gradient(45deg, ${accentColor}, transparent)` }}
       />
-    </div>
+    </motion.button>
   );
 }
