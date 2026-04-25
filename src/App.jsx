@@ -13,11 +13,12 @@ import BattleHistoryPage from './pages/battle/BattleHistoryPage';
 import New3v3Page from './pages/battle/New3v3Page';
 import NewTournamentPage from './pages/battle/NewTournamentPage';
 import Account from './pages/Account';
+import Admin from './pages/Admin';
 import ComboDetailPage from './pages/ComboDetailPage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
-  const { user, setUser, fetchProfile, setLoading, loading } = useAuthStore();
+  const { user, profile, setUser, fetchProfile, setLoading, loading } = useAuthStore();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -63,6 +64,10 @@ function App() {
           <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
           <Route path="/combo/:id" element={<ComboDetailPage />} />
+          <Route 
+            path="/admin" 
+            element={profile?.is_admin ? <Admin /> : <Navigate to="/" replace />} 
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

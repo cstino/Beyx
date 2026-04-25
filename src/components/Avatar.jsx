@@ -34,15 +34,10 @@ export const AVATAR_PRESETS = [
 
 export function getAvatarUrl(avatarId) {
   if (!avatarId) return null;
-  
-  // Check if it's a direct URL (like Dicebear)
   if (avatarId.startsWith('http')) return avatarId;
-
-  // Check if it's one of our dynamic bots
   const botMatch = AVATAR_PRESETS.find(p => p.id === avatarId && p.url);
   if (botMatch) return botMatch.url;
 
-  // Legacy & Local mapping
   const legacyMap = {
     'gold': '1', 'default': '1', 'yellow': '1',
     'red': '2', 'blue': '3', 'green': '4',
@@ -66,6 +61,12 @@ export function Avatar({
 }) {
   const url = getAvatarUrl(avatarId);
 
+  // Safari Mobile fix styles
+  const safariFix = {
+    WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+    transform: 'translateZ(0)',
+  };
+
   if (showFallback || !url) {
     return (
       <div
@@ -75,6 +76,7 @@ export function Avatar({
           height: size,
           fontSize: size * 0.4,
           background: '#F5A623',
+          ...safariFix
         }}
       >
         {username?.[0]?.toUpperCase() ?? '?'}
@@ -85,7 +87,7 @@ export function Avatar({
   return (
     <div 
         className="flex-shrink-0 rounded-2xl overflow-hidden bg-white/5"
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, ...safariFix }}
     >
       <img
         src={url}

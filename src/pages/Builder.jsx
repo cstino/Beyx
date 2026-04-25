@@ -9,6 +9,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import StatRadar from '../components/StatRadar';
 import { SavedComboCard } from '../components/builder/SavedComboCard';
 import { PageContainer } from '../components/PageContainer';
+import { useToastStore } from '../store/useToastStore';
 
 const TYPES = ['ALL', 'ATTACK', 'DEFENSE', 'STAMINA', 'BALANCE'];
 
@@ -83,6 +84,7 @@ export default function Builder() {
 
   const handleSave = async () => {
     if (!blade || !ratchet || !bit) return;
+    const toast = useToastStore.getState();
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -98,8 +100,9 @@ export default function Builder() {
       if (error) throw error;
       setSavedCombos([data, ...savedCombos]);
       setView('saved');
+      toast.success('Combo registrata nell\'Arena!');
     } catch (err) {
-      alert('Errore: ' + err.message);
+      toast.error('Registrazione fallita: ' + err.message);
     } finally {
       setSaving(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trophy, LogOut, Settings, Award } from 'lucide-react';
+import { Edit3, Trophy, LogOut, Settings, Award, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
 import { Avatar } from '../components/Avatar';
@@ -10,7 +11,8 @@ import { EditProfileModal } from '../components/account/EditProfileModal';
 import { PageContainer } from '../components/PageContainer';
 
 export default function AccountPage() {
-  const { user, profile, signOut } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, profile, signOut, fetchProfile } = useAuthStore();
   const [stats, setStats] = useState(null);
   const [achievements, setAchievements] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -18,9 +20,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (user) {
+      fetchProfile(user.id);
       loadAccountData();
     }
-  }, [user]);
+  }, [user, fetchProfile]);
 
   async function loadAccountData() {
     setLoading(true);
@@ -158,7 +161,16 @@ export default function AccountPage() {
         </section>
 
         {/* Actions */}
-        <div className="pt-8 space-y-3">
+        <div className="pt-8 space-y-3 pb-12">
+          {profile?.is_admin && (
+            <button 
+              onClick={() => navigate('/admin')}
+              className="w-full py-5 rounded-2xl bg-[#F5A623]/10 border border-[#F5A623]/20 flex items-center justify-center gap-3 text-[#F5A623] text-[10px] font-black tracking-[0.2em] uppercase hover:bg-[#F5A623]/20 transition-all shadow-lg shadow-[#F5A623]/5"
+            >
+              <Shield size={16} /> Bey Control Center
+            </button>
+          )}
+
           <button 
             onClick={signOut}
             className="w-full py-4 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center gap-3 text-white/40 text-[10px] font-black tracking-[0.2em] uppercase hover:bg-white/10 transition-colors"

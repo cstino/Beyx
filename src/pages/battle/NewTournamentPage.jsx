@@ -1,52 +1,110 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Trophy, LayoutGrid, X } from 'lucide-react';
+import { Trophy, LayoutGrid, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
-import New1v1Page from './New1v1Page';
-import New3v3Page from './New3v3Page';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUIStore } from '../../store/useUIStore';
 
 export default function NewTournamentPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const setHeader = useUIStore(s => s.setHeader);
+  const clearHeader = useUIStore(s => s.clearHeader);
+  
   const [stage, setStage] = useState('setup'); // 'setup' | 'active'
   const [tournament, setTournament] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null); // { rIndex, mIndex }
+
+  // Manage Global Header
+  useEffect(() => {
+    setHeader(stage === 'setup' ? 'Crea Torneo' : (tournament?.name || 'Torneo'), '/battle');
+    return () => clearHeader();
+  }, [stage, tournament, setHeader, clearHeader]);
 
   function generateBracket(participants) {
     const roundCount = Math.ceil(Math.log2(participants.length));
     const bracketSize = Math.pow(2, roundCount);
     
-    // Fill with players and byes
+    // 1. Initial round with potential BYEs
     const firstRoundMatches = [];
     for (let i = 0; i < bracketSize / 2; i++) {
-       firstRoundMatches.push({
-         p1: participants[i * 2] || null,
-         p2: participants[i * 2 + 1] || null,
-         winner: null,
-       });
+       const p1 = participants[i * 2] || { username: 'BYE', isBye: true };
+       const p2 = participants[i * 2 + 1] || { username: 'BYE', isBye: true };
+       
+       let winner = null;
+       if (p1.isBye) winner = 'p2';
+       else if (p2.isBye) winner = 'p1';
+
+       firstRoundMatches.push({ p1, p2, winner });
     }
 
     const rounds = [{ matches: firstRoundMatches }];
     let currentMatchCount = firstRoundMatches.length;
+    let rIdx = 0;
     
+    // 2. Generate subsequent rounds and handle BYE advancement
     while (currentMatchCount > 1) {
        currentMatchCount /= 2;
-       rounds.push({
-         matches: Array(currentMatchCount).fill(null).map(() => ({ p1: null, p2: null, winner: null }))
+       const nextMatches = Array(currentMatchCount).fill(null).map(() => ({ p1: null, p2: null, winner: null }));
+       
+       // Advance winners from current round to next matches
+       const currentMatches = rounds[rIdx].matches;
+       currentMatches.forEach((m, mIdx) => {
+         if (m.winner) {
+           const nextMIdx = Math.floor(mIdx / 2);
+           const winnerObj = m.winner === 'p1' ? m.p1 : m.p2;
+           if (mIdx % 2 === 0) nextMatches[nextMIdx].p1 = winnerObj;
+           else nextMatches[nextMIdx].p2 = winnerObj;
+         }
        });
+
+       // Check for new BYE-induced winners in the next matches
+       nextMatches.forEach(m => {
+          if (m.p1 && m.p2 && (m.p1.isBye || m.p2.isBye)) {
+            m.winner = m.p1.isBye ? 'p2' : 'p1';
+          }
+       });
+
+       rounds.push({ matches: nextMatches });
+       rIdx++;
+    }
+
+    return { rounds };
+  }
+
+  function generateRoundRobin(participants) {
+    const list = [...participants];
+    if (list.length % 2 !== 0) list.push({ username: 'FREE ROUND', isBye: true });
+    
+    const roundsCount = list.length - 1;
+    const matchesPerRound = list.length / 2;
+    const rounds = [];
+
+    for (let j = 0; j < roundsCount; j++) {
+      const matches = [];
+      for (let i = 0; i < matchesPerRound; i++) {
+        const p1 = list[i];
+        const p2 = list[list.length - 1 - i];
+        matches.push({ p1, p2, winner: null });
+      }
+      rounds.push({ matches });
+      list.splice(1, 0, list.pop());
     }
 
     return { rounds };
   }
 
   async function handleCreate(config) {
-    const structure = generateBracket(config.participants);
+    const name = config.name || `Torneo ${new Date().toLocaleDateString()}`;
+    const structure = config.format === 'bracket' 
+      ? generateBracket(config.participants) 
+      : generateRoundRobin(config.participants);
+
     const { data, error } = await supabase.from('tournaments').insert({
-      name: config.name,
+      name: name,
       format: config.format,
       battle_type: config.battleType,
       participants: config.participants,
@@ -70,16 +128,37 @@ export default function NewTournamentPage() {
     currentMatch.winner = winnerSide;
     const winner = winnerSide === 'p1' ? currentMatch.p1 : currentMatch.p2;
 
-    // Advance to next round if exists
-    if (rIndex < newStructure.rounds.length - 1) {
-       const nextMatch = newStructure.rounds[rIndex + 1].matches[Math.floor(mIndex / 2)];
-       if (mIndex % 2 === 0) nextMatch.p1 = winner;
-       else nextMatch.p2 = winner;
-    } else {
-       // Tournament Over
-       tournament.status = 'completed';
-       tournament.winner_user_id = winner.user_id;
-       tournament.winner_guest_name = winner.guest_name;
+    if (tournament.format === 'bracket') {
+      if (rIndex < newStructure.rounds.length - 1) {
+         let currentR = rIndex;
+         let currentM = mIndex;
+         let currentWinner = winner;
+
+         while (currentR < newStructure.rounds.length - 1) {
+            const nextR = currentR + 1;
+            const nextM = Math.floor(currentM / 2);
+            const targetPair = nextM;
+            
+            // Advance to next round
+            if (currentM % 2 === 0) newStructure.rounds[nextR].matches[targetPair].p1 = currentWinner;
+            else newStructure.rounds[nextR].matches[targetPair].p2 = currentWinner;
+
+            // Check if this results in another automatic BYE win
+            const nextMatch = newStructure.rounds[nextR].matches[targetPair];
+            if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
+               nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
+               currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
+               currentR = nextR;
+               currentM = nextM;
+            } else {
+               break;
+            }
+         }
+      } else {
+         tournament.status = 'completed';
+         tournament.winner_user_id = winner.user_id;
+         tournament.winner_guest_name = winner.guest_name;
+      }
     }
 
     setTournament({ ...tournament, structure: newStructure });
@@ -94,25 +173,7 @@ export default function NewTournamentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32 flex flex-col">
-      {/* Header */}
-      <div className="px-6 pt-10 pb-6 flex items-center justify-between sticky top-0 bg-[#0A0A1A]/80 backdrop-blur-xl z-30">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/battle')} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5">
-            <ChevronLeft size={22} />
-          </button>
-          <div>
-            <div className="text-[10px] font-black text-[#F5A623] tracking-[0.2em] uppercase">Arena Tournaments</div>
-            <h1 className="text-xl font-black text-white italic uppercase tracking-tighter leading-none">
-              {stage === 'setup' ? 'Crea Torneo' : tournament?.name}
-            </h1>
-          </div>
-        </div>
-        <div className="w-10 h-10 rounded-xl bg-[#F5A623]/10 flex items-center justify-center text-[#F5A623] border border-[#F5A623]/20">
-          <Trophy size={20} />
-        </div>
-      </div>
-
+    <div className="min-h-screen pb-32 flex flex-col pt-6">
       <div className="px-6 flex-1">
          {stage === 'setup' ? (
            <TournamentSetup onConfirm={handleCreate} />
@@ -124,7 +185,6 @@ export default function NewTournamentPage() {
          )}
       </div>
 
-      {/* Match Overlay Wizard */}
       <AnimatePresence>
         {activeMatch && (
           <motion.div
@@ -135,9 +195,6 @@ export default function NewTournamentPage() {
                <button onClick={() => setActiveMatch(null)} className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white/20"><X /></button>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar">
-              {/* Here we'd ideally load a sub-flow of 1v1 or 3v3 wizard, 
-                  but for the "MVP/Brief" we'll show a quick simulation button
-                  or we can link the real component with preset players */}
               <div className="px-6 py-12 text-center">
                  <div className="text-white/20 text-xs font-black tracking-widest uppercase mb-12 italic">Match in Corso...</div>
                  <div className="flex items-center justify-around mb-20">
