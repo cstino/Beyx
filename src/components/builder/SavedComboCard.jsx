@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Star } from 'lucide-react';
 
 const TYPE_COLORS = {
   attack:  '#E94560',
@@ -19,8 +19,11 @@ const TYPE_LABELS = {
 export function SavedComboCard({ combo, onClick }) {
   if (!combo) return null;
   
-  const accentColor = TYPE_COLORS[combo.combo_type] ?? '#4361EE';
-  const typeLabel = TYPE_LABELS[combo.combo_type] ?? 'COMBO';
+  // Determine dynamic type based on user stats or base stats
+  const stats = combo.user_stats || {};
+  const currentType = determineType(stats, combo.combo_type);
+  const accentColor = TYPE_COLORS[currentType] ?? '#4361EE';
+  const typeLabel = TYPE_LABELS[currentType] ?? 'COMBO';
 
   // Compose the full name
   const composedName = [
@@ -33,71 +36,76 @@ export function SavedComboCard({ combo, onClick }) {
     <motion.button
       onClick={() => onClick(combo)}
       whileTap={{ scale: 0.98 }}
-      className="w-full bg-[#12122A] rounded-[24px] overflow-hidden border border-white/5
+      className="w-full bg-[#12122A] rounded-[22px] overflow-hidden border border-white/5
         hover:border-white/15 transition-all text-left group shadow-lg"
-      style={{ borderLeft: `6px solid ${accentColor}` }}
+      style={{ borderLeft: `5px solid ${accentColor}` }}
     >
-      {/* Top row: badge + name */}
-      <div className="px-5 pt-5 pb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center">
+        {/* Left: Metadata & Name */}
+        <div className="flex-1 px-4 py-3 min-w-0">
+          <div className="flex items-center gap-2 mb-1.5">
             <span
-            className="text-[8px] font-black tracking-[0.2em] px-2 py-0.5 rounded-full"
-            style={{
+              className="text-[7px] font-black tracking-[0.2em] px-2 py-0.5 rounded-md"
+              style={{
                 color: accentColor,
                 background: `${accentColor}15`,
                 border: `1px solid ${accentColor}30`,
-            }}
+              }}
             >
-            {typeLabel}
+              {typeLabel}
             </span>
-            <div className="text-white font-black text-lg tracking-tighter truncate uppercase italic">
+            {combo.user_rating && (
+                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#F5A623]/10 border border-[#F5A623]/20 rounded-md">
+                    <Star size={8} className="text-[#F5A623] fill-[#F5A623]" />
+                    <span className="text-[8px] font-black text-[#F5A623]">{combo.user_rating}</span>
+                </div>
+            )}
+          </div>
+          <div className="text-white font-black text-base tracking-tighter truncate uppercase italic">
             {composedName || combo.name}
-            </div>
+          </div>
         </div>
-        <ChevronRight size={18} className="text-white/20 group-hover:text-white/50 transition-colors" strokeWidth={3} />
-      </div>
 
-      {/* Visual Parts Grid (with Images!) */}
-      <div className="px-5 pb-5 grid grid-cols-3 gap-3">
-        <VisualChip label="BLADE"   img={combo.blade?.image_url}   />
-        <VisualChip label="RATCHET" img={combo.ratchet?.image_url} />
-        <VisualChip label="BIT"     img={combo.bit?.image_url}     />
-      </div>
-
-      {/* Score bar */}
-      {combo.overall_score != null && (
-        <div className="px-5 py-2.5 bg-white/[0.03] border-t border-white/5 flex items-center justify-between">
-             <div className="flex-1 h-1 bg-white/5 rounded-full mr-4 max-w-[100px] overflow-hidden">
-                <div 
-                    className="h-full rounded-full" 
-                    style={{ 
-                        width: `${(combo.overall_score / 10) * 100}%`,
-                        background: accentColor 
-                    }} 
-                />
-             </div>
-             <div className="text-white font-black text-sm tabular-nums" style={{ color: accentColor }}>
-                {combo.overall_score.toFixed(1)} <span className="text-[10px] opacity-40 ml-0.5 whitespace-nowrap uppercase tracking-widest font-black">Score</span>
-             </div>
+        {/* Right: Compact Parts Icons */}
+        <div className="flex items-center gap-1.5 px-4">
+            <CompactChip img={combo.blade?.image_url} />
+            <CompactChip img={combo.ratchet?.image_url} />
+            <CompactChip img={combo.bit?.image_url} />
+            <ChevronRight size={16} className="text-white/10 group-hover:text-white/30 ml-1 transition-colors" />
         </div>
-      )}
+      </div>
     </motion.button>
   );
 }
 
-function VisualChip({ label, img }) {
+function CompactChip({ img }) {
   return (
-    <div className="bg-[#0A0A1A] rounded-2xl p-2 border border-white/5 flex flex-col items-center gap-1.5 aspect-square justify-center shadow-inner">
-      <div className="text-[7px] text-white/30 font-black tracking-[0.2em] uppercase">
-        {label}
-      </div>
-      <div className="w-10 h-10 flex items-center justify-center">
-        {img ? (
-            <img src={img} alt={label} className="w-full h-full object-contain drop-shadow-glow" />
-        ) : (
-            <div className="w-4 h-4 rounded-full bg-white/5" />
-        )}
-      </div>
+    <div className="w-10 h-10 bg-[#0A0A1A] rounded-xl border border-white/5 flex items-center justify-center shadow-inner overflow-hidden">
+      {img ? (
+          <img src={img} alt="part" className="w-7 h-7 object-contain drop-shadow-md" />
+      ) : (
+          <div className="w-2 h-2 rounded-full bg-white/5" />
+      )}
     </div>
   );
+}
+
+/**
+ * Logic to determine the Bey type based on its highest stat
+ */
+function determineType(stats, defaultType) {
+  if (!stats || Object.keys(stats).length === 0) return defaultType?.toLowerCase() || 'balance';
+  
+  const { attack, defense, stamina } = stats;
+  
+  // Weights (if values are closer than 10%, it's Balance)
+  const max = Math.max(attack || 0, defense || 0, stamina || 0);
+  
+  if (max < 40) return 'balance';
+  
+  if (attack === max) return 'attack';
+  if (defense === max) return 'defense';
+  if (stamina === max) return 'stamina';
+  
+  return 'balance';
 }

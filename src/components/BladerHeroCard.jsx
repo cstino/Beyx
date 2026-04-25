@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Avatar } from './Avatar';
 
 export function BladerHeroCard({ blader }) {
   if (!blader) return null;
@@ -7,6 +8,9 @@ export function BladerHeroCard({ blader }) {
   const xpBase = Math.pow(blader.level - 1, 2) * 50;
   const xpNext = Math.pow(blader.level, 2) * 50;
   const progress = ((blader.xp - xpBase) / (xpNext - xpBase)) * 100;
+
+  // Use avatar_id first (user choice), then fallback to avatar_url (dicebear defaults)
+  const currentAvatarId = blader.avatar_id || blader.avatar_url;
 
   return (
     <div className="mx-4 bg-[#11112B] border border-white/5 rounded-[28px] p-6 relative overflow-hidden shadow-[0_20px_40px_-20px_rgba(0,0,0,0.5)]">
@@ -19,11 +23,11 @@ export function BladerHeroCard({ blader }) {
              {/* Hex-ish rotating avatar container */}
              <div className="w-20 h-20 bg-gradient-to-br from-[#F5A623] to-[#FF7E5F] p-0.5 rounded-[24px] rotate-3 shadow-lg shadow-[#F5A623]/20">
                 <div className="w-full h-full bg-[#0A0A1A] rounded-[22px] flex items-center justify-center p-0.5 -rotate-3 overflow-hidden">
-                   <img 
-                    src={blader.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${blader.username}`} 
-                    className="w-full h-full rounded-[20px] object-cover" 
-                    alt={blader.username} 
-                  />
+                   <Avatar 
+                    avatarId={currentAvatarId} 
+                    username={blader.username} 
+                    size={72} 
+                   />
                 </div>
              </div>
              {/* Floating Level Badge */}
@@ -43,7 +47,7 @@ export function BladerHeroCard({ blader }) {
        <div className="space-y-3 relative z-10">
           <div className="flex justify-between items-end">
              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Progresso XP</span>
-             <span className="text-xs font-black text-white/80 tabular-nums">{blader.xp} <span className="text-white/20">/</span> {xpNext}</span>
+             <span className="text-xs font-black text-white/80 tabular-nums">{blader.xp} <span className="text-white/20">/</span> {xpNext} CP</span>
           </div>
           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-[1px]">
              <motion.div 

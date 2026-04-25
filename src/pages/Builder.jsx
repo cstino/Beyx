@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, ChevronRight, Search, Trash2 } from 'lucide-react';
+import { RotateCcw, ChevronRight, Search, Trash2, ArrowUpDown, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBuilderStore } from '../store/useBuilderStore';
 import PartCard from '../components/PartCard';
@@ -9,6 +9,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import StatRadar from '../components/StatRadar';
 import { SavedComboCard } from '../components/builder/SavedComboCard';
 import { PageContainer } from '../components/PageContainer';
+
+const TYPES = ['ALL', 'ATTACK', 'DEFENSE', 'STAMINA', 'BALANCE'];
 
 export default function Builder() {
   const [searchParams] = useSearchParams();
@@ -25,6 +27,10 @@ export default function Builder() {
   const initialView = searchParams.get('view') === 'saved' ? 'saved' : 'build';
   const [view, setView] = useState(initialView);
   const [savedCombos, setSavedCombos] = useState([]);
+  
+  // Sorting & Filtering state for saved combos
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' or 'asc'
+  const [filterType, setFilterType] = useState('ALL');
 
   useEffect(() => {
     async function fetchData() {
@@ -52,6 +58,27 @@ export default function Builder() {
     fetchData();
   }, []);
 
+  // Combined Filtering and Sorting logic
+  const filteredAndSortedCombos = useMemo(() => {
+    let result = [...savedCombos];
+
+    // 1. Filter by Type
+    if (filterType !== 'ALL') {
+      result = result.filter(c => {
+        const stats = c.user_stats || {};
+        const type = determineType(stats, c.combo_type);
+        return type.toUpperCase() === filterType;
+      });
+    }
+
+    // 2. Sort by Rating
+    return result.sort((a, b) => {
+      const valA = a.user_rating || 0;
+      const valB = b.user_rating || 0;
+      return sortOrder === 'desc' ? valB - valA : valA - valB;
+    });
+  }, [savedCombos, sortOrder, filterType]);
+
   const score = useMemo(() => getScore(), [blade, ratchet, bit, archetype]);
 
   const handleSave = async () => {
@@ -65,7 +92,7 @@ export default function Builder() {
         blade_id: blade.id,
         ratchet_id: ratchet.id,
         bit_id: bit.id,
-        combo_type: blade.type // Default to blade type
+        combo_type: blade.type 
       }).select('*, blade:blades(*), ratchet:ratchets(*), bit:bits(*)').single();
       
       if (error) throw error;
@@ -86,13 +113,8 @@ export default function Builder() {
 
   return (
     <PageContainer>
-      {/* 
-          1. View Toggle Header 
-          Sticks below the global Layout header (approx 56px height)
-      */}
-      <header 
-        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 pt-4 pb-4"
-      >
+      {/* 1. View Toggle Header */}
+      <header className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 pt-4 pb-4">
         <div className="px-4">
           <div className="flex gap-2 p-1 bg-[#12122A] rounded-xl border border-white/5">
             <button
@@ -117,10 +139,8 @@ export default function Builder() {
 
       {view === 'build' ? (
         <>
-          {/* 2. Selection Tracker (Sticky below the toggle) */}
-          <div 
-            className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5 shadow-lg"
-          >
+          {/* BUILDER VIEW CONTENT... */}
+          <div className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5 shadow-lg">
             <div className="flex items-center gap-4 mb-5">
               <div className="flex-1">
                 <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic">Crea Combo</h1>
@@ -133,7 +153,6 @@ export default function Builder() {
               </button>
             </div>
 
-            {/* Selection Progress Mini-display */}
             <div className="grid grid-cols-3 gap-2">
               {[
                 { part: blade, label: 'Blade', type: 'blades' },
@@ -157,7 +176,6 @@ export default function Builder() {
               ))}
             </div>
 
-            {/* Sub-Tabs (Blade/Ratchet/Bit) switcher */}
             <div className="flex gap-1 mt-6 p-1 bg-[#12122A] rounded-xl border border-white/5">
               {['blades', 'ratchets', 'bits'].map((type) => (
                 <button
@@ -173,7 +191,6 @@ export default function Builder() {
             </div>
           </div>
 
-          {/* 3. Scrollable Grid Area */}
           <div className="px-4 py-3">
             <div className="grid grid-cols-2 gap-4 mt-2">
               {parts[activeTab].map((p) => (
@@ -189,28 +206,54 @@ export default function Builder() {
           </div>
         </>
       ) : (
-        <div className="px-4 mt-8 space-y-4">
-          <div className="p-1">
-             <h2 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-6">
-                LE TUE CONFIGURAZIONI ({savedCombos.length})
-             </h2>
-             <div className="space-y-4">
-                {savedCombos.length === 0 ? (
-                    <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
-                    <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
-                        Nessuna combo salvata.<br/>Inizia a creare nell'arena!
-                    </p>
-                    </div>
-                ) : (
-                    savedCombos.map(c => (
-                    <SavedComboCard 
-                        key={c.id} 
-                        combo={c} 
-                        onClick={(combo) => navigate(`/combo/${combo.id}`)} 
-                    />
-                    ))
-                )}
+        <div className="px-4 mt-6">
+          {/* Filtering & Sorting Controls */}
+          <div className="mb-8 space-y-4">
+             <div className="flex items-center justify-between px-1">
+                <h2 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">
+                   VISTA FILTRATA ({filteredAndSortedCombos.length})
+                </h2>
+                <button 
+                   onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                   className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black text-white/50 active:scale-95 transition-all"
+                >
+                   <ArrowUpDown size={12} /> {sortOrder === 'desc' ? 'VOTO HIGH' : 'VOTO LOW'}
+                </button>
              </div>
+             
+             <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 px-1">
+                {TYPES.map(type => (
+                   <button
+                      key={type}
+                      onClick={() => setFilterType(type)}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${
+                         filterType === type 
+                           ? 'bg-[#E94560] border-[#E94560] text-white shadow-glow-primary' 
+                           : 'bg-white/5 border-white/5 text-white/40'
+                      }`}
+                   >
+                      {type}
+                   </button>
+                ))}
+             </div>
+          </div>
+          
+          <div className="space-y-3 pb-20">
+            {filteredAndSortedCombos.length === 0 ? (
+                <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
+                   <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
+                       Nessuna combo trovata.<br/>{filterType !== 'ALL' ? 'Prova con un altro filtro.' : 'Crea subito la prima!'}
+                   </p>
+                </div>
+            ) : (
+                filteredAndSortedCombos.map(c => (
+                <SavedComboCard 
+                    key={c.id} 
+                    combo={c} 
+                    onClick={(combo) => navigate(`/combo/${combo.id}`)} 
+                />
+                ))
+            )}
           </div>
         </div>
       )}
@@ -224,4 +267,18 @@ export default function Builder() {
       />
     </PageContainer>
   );
+}
+
+/**
+ * Logic to determine the Bey type based on its highest stat
+ */
+function determineType(stats, defaultType) {
+  if (!stats || Object.keys(stats).length === 0) return defaultType || 'balance';
+  const { attack, defense, stamina } = stats;
+  const max = Math.max(attack || 0, defense || 0, stamina || 0);
+  if (max < 40) return 'balance';
+  if (attack === max) return 'attack';
+  if (defense === max) return 'defense';
+  if (stamina === max) return 'stamina';
+  return 'balance';
 }

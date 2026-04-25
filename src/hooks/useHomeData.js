@@ -35,10 +35,12 @@ export function useHomeData(userId) {
           blader: {
             username: profile.data?.username,
             avatar_url: profile.data?.avatar_url,
+            avatar_id: profile.data?.avatar_id, // Added this!
+            title: profile.data?.title,         // Added for completeness
             level: currentLevel,
             xp: xp,
             xpNext: xpNext,
-            status: "Blader d'Elite",
+            status: profile.data?.title || "Blader d'Elite",
           },
           parts: { owned: ownedParts.count ?? 0, total: totalParts },
           combos: { count: userCombos.count ?? 0 },
@@ -52,6 +54,23 @@ export function useHomeData(userId) {
     }
     
     load();
+    
+    // Listen for profile changes to keep Dashboard in sync!
+    const channel = supabase
+      .channel('profile-sync')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'profiles',
+        filter: `id=eq.${userId}` 
+      }, () => {
+        load(); // Reload data on any profile update
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   return data;
