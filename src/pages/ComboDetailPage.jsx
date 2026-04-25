@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Trash2, Gauge, Scale, Cpu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Gauge, Scale, Cpu } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import StatRadar from '../components/StatRadar';
 import { PageContainer } from '../components/PageContainer';
