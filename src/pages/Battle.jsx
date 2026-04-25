@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Avatar } from '../components/Avatar';
+import { PageContainer } from '../components/PageContainer';
 
 const FORMATS = [
   {
@@ -57,7 +58,7 @@ export default function BattlePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32 px-4 pt-6">
+    <PageContainer className="px-4">
       {/* Title */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">

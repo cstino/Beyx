@@ -13,6 +13,7 @@ import BattleHistoryPage from './pages/battle/BattleHistoryPage';
 import New3v3Page from './pages/battle/New3v3Page';
 import NewTournamentPage from './pages/battle/NewTournamentPage';
 import Account from './pages/Account';
+import ComboDetailPage from './pages/ComboDetailPage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
           <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
           <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/combo/:id" element={<ComboDetailPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

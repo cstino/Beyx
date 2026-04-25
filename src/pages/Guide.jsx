@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Info, BookOpen, Layers, Zap, Shield, Star, Target, FastForward, Info as InfoIcon, ChevronRight } from 'lucide-react';
+import { PageContainer } from '../components/PageContainer';
 
 const sections = [
   {
@@ -45,7 +46,7 @@ const sections = [
 
 export default function Guide() {
   return (
-    <div className="max-w-4xl mx-auto pb-32 px-4 pt-6">
+    <PageContainer className="px-4">
       <header className="mb-10 text-center">
         <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/20">
           <BookOpen className="text-primary" size={32} />

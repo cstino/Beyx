@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useHomeData } from '../hooks/useHomeData';
+import { PageContainer } from '../components/PageContainer';
 
 // New Modular Components
 import { Logo } from '../components/Logo';
@@ -30,9 +31,9 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32">
+    <PageContainer>
       {/* 1. Logo Header */}
-      <div className="px-5 pt-6 pb-6">
+      <div className="px-5 pb-6">
         <Logo size="md" />
       </div>
 
@@ -77,6 +78,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-    </div>
+    </PageContainer>
   );
 }

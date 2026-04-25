@@ -1,28 +1,22 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { Zap, Shield, Star, Target, Info, Save, RotateCcw, ChevronRight } from 'lucide-react';
+import { RotateCcw, ChevronRight, Search, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBuilderStore } from '../store/useBuilderStore';
 import PartCard from '../components/PartCard';
 import ComboResultDrawer from '../components/ComboResultDrawer';
-
-const statColors = {
-  attack: '#ef4444',
-  defense: '#3b82f6',
-  stamina: '#22c55e',
-  burst: '#eab308',
-  mobility: '#a855f7'
-};
-
-import { useSearchParams } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import StatRadar from '../components/StatRadar';
+import { SavedComboCard } from '../components/builder/SavedComboCard';
+import { PageContainer } from '../components/PageContainer';
 
 export default function Builder() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { blade, ratchet, bit, archetype, select, setArchetype, reset, getScore } = useBuilderStore();
+  
   const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
+  const [ownedIds, setOwnedIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('blades');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -35,15 +29,24 @@ export default function Builder() {
   useEffect(() => {
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
-      const [b, r, bt, sc] = await Promise.all([
+      if (!user) return;
+
+      const [b, r, bt, sc, coll] = await Promise.all([
         supabase.from('blades').select('*').order('name'),
         supabase.from('ratchets').select('*').order('name'),
         supabase.from('bits').select('*').order('name'),
-        supabase.from('combos').select('*, blade:blades(*), ratchet:ratchets(*), bit:bits(*)').eq('user_id', user.id).order('created_at', { ascending: false })
+        supabase.from('combos').select(`
+          *,
+          blade:blade_id(*),
+          ratchet:ratchet_id(*),
+          bit:bit_id(*)
+        `).eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('user_collections').select('part_id').eq('user_id', user.id)
       ]);
       
       setParts({ blades: b.data || [], ratchets: r.data || [], bits: bt.data || [] });
       setSavedCombos(sc.data || []);
+      setOwnedIds(new Set((coll.data ?? []).map(c => c.part_id)));
       setLoading(false);
     }
     fetchData();
@@ -62,11 +65,11 @@ export default function Builder() {
         blade_id: blade.id,
         ratchet_id: ratchet.id,
         bit_id: bit.id,
+        combo_type: blade.type // Default to blade type
       }).select('*, blade:blades(*), ratchet:ratchets(*), bit:bits(*)').single();
       
       if (error) throw error;
       setSavedCombos([data, ...savedCombos]);
-      alert('Combo salvata!');
       setView('saved');
     } catch (err) {
       alert('Errore: ' + err.message);
@@ -81,37 +84,57 @@ export default function Builder() {
     if (!error) setSavedCombos(savedCombos.filter(c => c.id !== id));
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-[#E94560] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
-    <div className="max-w-4xl mx-auto pb-32 min-h-screen">
-      {/* Top View Toggle */}
-      <div className="flex gap-2 mx-4 mt-6 p-1 bg-[#12122A] rounded-xl border border-white/5">
-        <button
-          onClick={() => setView('build')}
-          className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
-            view === 'build' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
-          }`}
-        >
-          BUILDER
-        </button>
-        <button
-          onClick={() => setView('saved')}
-          className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
-            view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
-          }`}
-        >
-          SAVED
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#0A0A1A] pb-32">
+      {/* 
+          Main Container DIV (instead of PageContainer) because we want the 
+          Sticky Headers themselves to carry the safe-area padding to cover the top gap.
+      */}
+
+      {/* 1. Global View Toggle Header */}
+      <header 
+        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+      >
+        <div className="px-4 pb-4">
+          <div className="flex gap-2 p-1 bg-[#12122A] rounded-xl border border-white/5">
+            <button
+              onClick={() => setView('build')}
+              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
+                view === 'build' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
+              }`}
+            >
+              BUILDER
+            </button>
+            <button
+              onClick={() => setView('saved')}
+              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
+                view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
+              }`}
+            >
+              SAVED
+            </button>
+          </div>
+        </div>
+      </header>
 
       {view === 'build' ? (
         <>
-          {/* Dynamic Selection Header */}
-          <header className="sticky top-[80px] z-30 bg-[#0A0A1A]/90 backdrop-blur-xl pt-6 pb-6 px-4 mb-4 border-b border-white/5">
-            <div className="flex items-center gap-4 mb-6">
+          {/* 2. Selection Tracker (Sticky below the toggle) */}
+          <div 
+            className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5"
+          >
+            <div className="flex items-center gap-4 mb-5">
               <div className="flex-1">
-                <h1 className="text-2xl font-black uppercase tracking-tighter leading-none">Crea Combo</h1>
-                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] mt-1">
-                  {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Completa'}
+                <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white">Crea Combo</h1>
+                <p className="text-[10px] font-bold text-[#4361EE] uppercase tracking-[0.2em] mt-2">
+                  {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Finita'}
                 </p>
               </div>
               <button onClick={reset} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-95">
@@ -129,80 +152,74 @@ export default function Builder() {
                 <button 
                   key={idx}
                   onClick={() => setActiveTab(item.type)}
-                  className={`p-2 rounded-xl border text-left transition-all ${
+                  className={`p-2.5 rounded-xl border text-left transition-all ${
                     activeTab === item.type 
-                      ? 'bg-primary/20 border-primary/50 ring-2 ring-primary/20' 
+                      ? 'bg-[#4361EE]/10 border-[#4361EE]/50 ring-1 ring-[#4361EE]/20' 
                       : 'bg-white/5 border-white/5 opacity-60'
                   }`}
                 >
-                  <span className="text-[7px] uppercase font-black text-slate-500 block leading-none mb-1">{item.label}</span>
-                  <span className="text-[10px] font-black truncate block">
+                  <span className="text-[8px] uppercase font-black text-slate-500 block leading-none mb-1.5">{item.label}</span>
+                  <span className="text-[11px] font-black truncate block text-white">
                     {item.part ? item.part.name : '---'}
                   </span>
                 </button>
               ))}
             </div>
 
-            {/* Categories Tabs */}
-            <div className="flex gap-2 p-1 bg-white/5 rounded-xl mt-6 border border-white/5">
+            {/* Sub-Tabs (Blade/Ratchet/Bit) switcher */}
+            <div className="flex gap-1 mt-6 p-1 bg-[#12122A] rounded-xl border border-white/5">
               {['blades', 'ratchets', 'bits'].map((type) => (
                 <button
                   key={type}
                   onClick={() => setActiveTab(type)}
-                  className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                    activeTab === type ? 'bg-primary text-white shadow-glow-primary' : 'text-slate-500'
+                  className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                    activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
                   }`}
                 >
                   {type.slice(0, -1)}
                 </button>
               ))}
             </div>
-          </header>
+          </div>
 
-          <div className="px-4">
-            <div className="grid grid-cols-2 gap-4">
+          {/* 3. Scrollable Grid Area */}
+          <div className="px-4 py-3">
+            <div className="grid grid-cols-2 gap-4 mt-2">
               {parts[activeTab].map((p) => (
                 <PartCard 
                   key={p.id} 
                   part={p} 
-                  owned={true}
+                  owned={ownedIds.has(p.id)}
                   onClick={() => select(activeTab.slice(0, -1), p)}
-                  className={((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'border-primary ring-2 ring-primary/20 scale-[1.02]' : ''}
+                  className={((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
                 />
               ))}
             </div>
           </div>
         </>
       ) : (
-        <div className="px-4 mt-8 space-y-4">
-          <h2 className="text-xl font-black uppercase tracking-tight px-1">Le Tue Configurazioni</h2>
+        <div className="px-4 mt-6 space-y-3">
           {savedCombos.length === 0 ? (
-            <div className="p-12 text-center bg-white/5 rounded-3xl border border-dashed border-white/10">
-              <p className="text-sm text-slate-500 font-bold uppercase tracking-widest leading-loose">
-                Non hai ancora salvato<br/>nessuna combo.
+            <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
+              <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
+                Nessuna combo salvata.<br/>Inizia a creare nell'arena!
               </p>
             </div>
           ) : (
-            savedCombos.map(c => (
-              <div key={c.id} className="bg-[#12122A] p-5 rounded-3xl border border-white/5 flex gap-5 items-center group relative overflow-hidden">
-                <div className="w-20 h-20 flex-shrink-0">
-                  <StatRadar stats={c.blade?.stats || {}} color="#E94560" />
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <h3 className="font-black uppercase tracking-tighter truncate leading-none mb-2">{c.name}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="text-[8px] font-black px-2 py-1 bg-white/5 rounded-md text-slate-400 uppercase tracking-widest">{c.ratchet?.name}</span>
-                    <span className="text-[8px] font-black px-2 py-1 bg-white/5 rounded-md text-slate-400 uppercase tracking-widest">{c.bit?.name}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDelete(c.id)}
-                  className="p-3 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 size={18} />
-                </button>
+            <>
+              <h2 className="text-sm font-black text-white/30 uppercase tracking-[0.2em] mb-4 pl-1">
+                LE TUE CONFIGURAZIONI ({savedCombos.length})
+              </h2>
+              <div className="space-y-3">
+                {savedCombos.map(c => (
+                  <SavedComboCard 
+                    key={c.id} 
+                    combo={c} 
+                    onClick={(combo) => navigate(`/combo/${combo.id}`)} 
+                  />
+                ))}
               </div>
-            ))
+            </>
           )}
         </div>
       )}

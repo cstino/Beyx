@@ -7,6 +7,7 @@ import { Avatar } from '../components/Avatar';
 import { StatGrid } from '../components/account/StatGrid';
 import { AchievementsGrid } from '../components/account/AchievementsGrid';
 import { EditProfileModal } from '../components/account/EditProfileModal';
+import { PageContainer } from '../components/PageContainer';
 
 export default function AccountPage() {
   const { user, profile, signOut } = useAuthStore();
@@ -76,9 +77,9 @@ export default function AccountPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32">
+    <PageContainer>
       {/* Hero Header */}
-      <div className="relative px-6 pt-10 pb-12 overflow-hidden">
+      <div className="relative px-6 pb-12 overflow-hidden">
         {/* Abstract background glows */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[100px] -mr-32 -mt-32" />
         <div className="absolute top-1/2 left-0 w-64 h-64 bg-[#4361EE]/10 rounded-full blur-[100px] -ml-32" />
@@ -178,6 +179,6 @@ export default function AccountPage() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

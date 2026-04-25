@@ -65,7 +65,15 @@ export default function Collection() {
   return (
     <div className="max-w-4xl mx-auto pb-32">
       {/* Search & Tabs Header */}
-      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pt-6 pb-4 px-4 border-b border-white/5 space-y-4">
+      <header 
+        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 space-y-4"
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
+          paddingBottom: '16px',
+          paddingLeft: '16px',
+          paddingRight: '16px'
+        }}
+      >
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black uppercase tracking-tighter">Inventario Parti</h1>
           <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">

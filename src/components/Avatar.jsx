@@ -1,4 +1,5 @@
 import React from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 export const AVATAR_PRESETS = [
   { id: 'avatar-1' },
@@ -11,10 +12,10 @@ export const AVATAR_PRESETS = [
   { id: 'avatar-8' },
 ];
 
-// Helper to get the local public URL
 export function getAvatarUrl(avatarId) {
   if (!avatarId) return null;
-  // Handle legacy IDs if any still exist in local storage or transit
+
+  // Legacy ID mapping for backward compatibility
   const legacyMap = {
     'gold': 'avatar-1', 'default': 'avatar-1', 'yellow': 'avatar-1',
     'red': 'avatar-2',
@@ -27,19 +28,24 @@ export function getAvatarUrl(avatarId) {
   };
   
   const id = legacyMap[avatarId] || avatarId;
-  return `/avatar/${id}.png`;
+  
+  // Get public URL from Supabase avatars bucket
+  const { data } = supabase.storage
+    .from('avatars')
+    .getPublicUrl(`${id}.png`);
+
+  return data?.publicUrl ?? null;
 }
 
 export function Avatar({
   avatarId = 'avatar-1',
-  username,           // fallback for guests without an avatar
+  username,
   size = 68,
-  showFallback = false,  // true = show initial instead of image (guests)
+  showFallback = false,
 }) {
   const url = getAvatarUrl(avatarId);
 
   if (showFallback || !url) {
-    // Guest fallback: simple solid circle with initial
     return (
       <div
         className="rounded-xl flex items-center justify-center font-black text-[#0A0A1A] flex-shrink-0"
@@ -64,10 +70,11 @@ export function Avatar({
         src={url}
         alt={`Avatar ${avatarId}`}
         style={{ width: '100%', height: '100%' }}
-        className="object-contain drop-shadow-lg"
+        className="object-contain drop-shadow-md"
         onError={(e) => {
-          // If local image fails, hide or show fallback
-          e.target.style.opacity = '0';
+          // Hide broken image icon
+          e.currentTarget.style.visibility = 'hidden';
+          console.error(`Avatar failed to load: ${url}`);
         }}
       />
     </div>
