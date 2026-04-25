@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Zap, Target, Star, Check } from 'lucide-react';
+import { Shield, Zap, Target, Star, Check, Heart } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -24,7 +24,7 @@ const archetypeColors = {
   Balance: 'text-[#A855F7]',
 };
 
-export default function PartCard({ part, owned = false, onClick, className }) {
+export default function PartCard({ part, owned = false, wishlisted = false, onClick, className }) {
   const { name, type, tier, image_url, kind } = part;
 
   return (
@@ -55,8 +55,12 @@ export default function PartCard({ part, owned = false, onClick, className }) {
         />
       </div>
 
-      <div>
-        <h3 className="text-sm uppercase font-black tracking-tight leading-tight group-hover:text-primary transition-colors">{name}</h3>
+      <div className="flex flex-col">
+        <div className={cn("flex items-center gap-1.5 mb-1.5", (!wishlisted || owned) ? "invisible" : "")}>
+          <Heart size={10} className="text-[#4361EE] fill-[#4361EE]" />
+          <span className="text-[8px] font-black uppercase text-[#4361EE] tracking-widest">Wishlist</span>
+        </div>
+        <h3 className="text-sm uppercase font-black tracking-tight leading-tight group-hover:text-primary transition-colors truncate">{name}</h3>
         <p className={cn(
           "text-[9px] uppercase tracking-widest font-black mt-1",
           archetypeColors[type] || 'text-slate-500'

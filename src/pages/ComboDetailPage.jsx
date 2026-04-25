@@ -128,7 +128,7 @@ export default function ComboDetailPage() {
         </section>
 
         {/* User Evaluation Card - Conditional Content */}
-        <section className="bg-gradient-to-br from-[#1A1A3A] to-[#11112B] rounded-[32px] p-6 border border-white/5 shadow-2xl relative overflow-hidden">
+        <section className="bg-gradient-to-br from-[#1A1A3A] to-[#11112B] rounded-[32px] p-8 border border-white/5 shadow-2xl relative overflow-hidden">
            <div className="flex items-center gap-3 mb-8">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                 <Zap size={18} />
@@ -136,7 +136,7 @@ export default function ComboDetailPage() {
               <h2 className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em]">Valutazione sul Campo</h2>
            </div>
 
-           {userStats && Object.keys(userStats).length > 0 ? (
+           {combo.user_rating ? (
              <>
                <div className="h-64 mb-8 flex items-center justify-center">
                  <StatRadar stats={userStats} color="#E94560" />
@@ -156,23 +156,27 @@ export default function ComboDetailPage() {
                     <p className="text-white/60 text-xs font-medium leading-relaxed">{combo.user_notes}</p>
                  </div>
                )}
+               
+               <button 
+                  onClick={() => setReviewModalOpen(true)}
+                  className="w-full mt-4 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black text-white/40 uppercase tracking-widest border border-white/5 transition-all"
+               >
+                  Modifica Valutazione
+               </button>
              </>
            ) : (
-             <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
-                <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center border border-primary/20 animate-pulse">
-                   <Plus size={32} className="text-primary/40" />
+             <button 
+                onClick={() => setReviewModalOpen(true)}
+                className="w-full py-16 flex flex-col items-center justify-center gap-6 group active:scale-[0.98] transition-all"
+             >
+                <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center border border-dashed border-primary/30 group-hover:bg-primary/10 group-hover:border-primary/50 transition-all">
+                   <Plus size={32} className="text-primary/40 group-hover:text-primary transition-all" />
                 </div>
                 <div className="space-y-2">
-                   <h3 className="text-white font-black uppercase text-sm italic tracking-tight">Nessuna Analisi di Campo</h3>
-                   <p className="text-white/30 text-[10px] font-medium leading-relaxed px-8">Questa combo non è ancora stata testata nell'Arena.</p>
+                   <h3 className="text-white font-black uppercase text-sm italic tracking-tight group-hover:text-primary transition-colors">Inserisci la tua valutazione</h3>
+                   <p className="text-white/20 text-[9px] font-bold uppercase tracking-[0.2em]">Nessun dato registrato sul campo</p>
                 </div>
-                <button 
-                  onClick={() => setReviewModalOpen(true)}
-                  className="px-6 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-glow-primary active:scale-95 transition-all w-full max-w-[240px]"
-                >
-                  Valuta questa combo
-                </button>
-             </div>
+             </button>
            )}
         </section>
 
@@ -187,26 +191,41 @@ export default function ComboDetailPage() {
              { label: 'Blade', part: combo.blade },
              { label: 'Ratchet', part: combo.ratchet },
              { label: 'Bit', part: combo.bit },
-           ].map((item, i) => (
+           ].map((item, i) => {
+             const typeUpper = item.part.type ? item.part.type.toUpperCase() : null;
+             const typeColor = typeUpper === 'ATTACK' ? '#F43F5E' : 
+                               typeUpper === 'DEFENSE' ? '#3B82F6' : 
+                               typeUpper === 'STAMINA' ? '#22C55E' : 
+                               typeUpper === 'BALANCE' ? '#A855F7' : '#888';
+
+             return (
              <button 
                key={i}
                onClick={() => setActivePart(item.part)}
                className="w-full flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all active:scale-[0.98]"
              >
                 <div className="flex items-center gap-5">
-                   <div className="w-12 h-12 rounded-xl bg-[#0A0A1A] p-2 border border-white/10 overflow-hidden">
+                   <div className="w-12 h-12 rounded-xl bg-[#0A0A1A] p-2 border border-white/10 overflow-hidden flex items-center justify-center">
                       <img src={item.part.image_url} alt={item.part.name} className="w-full h-full object-contain" />
                    </div>
-                   <div className="text-left">
-                      <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">{item.label}</div>
-                      <div className="text-sm font-black text-white italic uppercase tracking-tight truncate max-w-[160px]">{item.part.name}</div>
+                   <div className="text-left flex flex-col justify-center">
+                      <div className="text-[10px] font-black text-white/30 uppercase tracking-widest">{item.label}</div>
+                      <div className="text-sm font-black text-white italic uppercase tracking-tight truncate max-w-[160px] leading-tight mb-0.5">{item.part.name}</div>
+                      {typeUpper && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: typeColor }} />
+                           <span className="text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: typeColor }}>
+                             {typeUpper}
+                           </span>
+                        </div>
+                      )}
                    </div>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/20">
                    <ChevronRight size={16} />
                 </div>
              </button>
-           ))}
+           )})}
         </section>
       </div>
 

@@ -24,24 +24,39 @@ export function ExpertReviewModal({ isOpen, onClose, combo, onSaved }) {
   }, [combo]);
 
   const handleSave = async () => {
-    setSaving(true);
-    const { error } = await supabase
-      .from('combos')
-      .update({
-        user_rating: rating,
-        user_notes: notes,
-        user_stats: stats
-      })
-      .eq('id', combo.id);
-
-    if (error) {
-      toast.error('Errore durante il salvataggio');
-    } else {
-      toast.success('Analisi salvata!');
-      onSaved();
-      onClose();
+    if (!combo?.id) {
+      console.error('Missing combo ID');
+      return;
     }
-    setSaving(false);
+    
+    setSaving(true);
+    console.log('Saving review for combo:', combo.id, { rating, notes, stats });
+
+    try {
+      const { error } = await supabase
+        .from('combos')
+        .update({
+          user_rating: rating,
+          user_notes: notes,
+          user_stats: stats
+        })
+        .eq('id', combo.id);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        useToastStore.getState().error('Errore: ' + error.message);
+      } else {
+        console.log('Save successful');
+        useToastStore.getState().success('Analisi salvata!');
+        if (onSaved) onSaved();
+        onClose();
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err);
+      useToastStore.getState().error('Errore imprevisto');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateStat = (key, val) => {

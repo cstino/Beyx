@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Package, Check, Plus, Loader2 } from 'lucide-react';
+import { Search, Filter, Package, Check, Plus, Loader2, Heart } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import PartCard from '../components/PartCard';
 import PartDetailDrawer from '../components/PartDetailDrawer';
@@ -8,7 +8,8 @@ import { PageContainer } from '../components/PageContainer';
 
 export default function Collection() {
   const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
-  const [collection, setCollection] = useState(new Set());
+  const [ownedSet, setOwnedSet] = useState(new Set());
+  const [wishlistSet, setWishlistSet] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeType, setActiveType] = useState('blades');
@@ -29,7 +30,7 @@ export default function Collection() {
       supabase.from('blades').select('*').order('name'),
       supabase.from('ratchets').select('*').order('name'),
       supabase.from('bits').select('*').order('name'),
-      supabase.from('user_collections').select('part_id').eq('user_id', user.id)
+      supabase.from('user_collections').select('part_id, is_wishlist').eq('user_id', user.id)
     ]);
 
     setParts({ 
@@ -37,7 +38,19 @@ export default function Collection() {
       ratchets: (r.data || []).map(p => ({ ...p, kind: 'ratchet' })), 
       bits: (bt.data || []).map(p => ({ ...p, kind: 'bit' })) 
     });
-    setCollection(new Set(coll.data?.map(c => c.part_id)));
+    
+    const owned = new Set();
+    const wish = new Set();
+    coll.data?.forEach(c => {
+      if (c.is_wishlist) {
+        wish.add(c.part_id);
+      } else {
+        owned.add(c.part_id);
+      }
+    });
+
+    setOwnedSet(owned);
+    setWishlistSet(wish);
     setLoading(false);
   }
 
@@ -45,10 +58,13 @@ export default function Collection() {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchTier = filterTier === 'All' || p.tier === filterTier;
     const matchType = filterType === 'All' || p.type === filterType;
-    const isOwned = collection.has(p.id);
+    const isOwned = ownedSet.has(p.id);
+    const isWishlist = wishlistSet.has(p.id);
+    
     const matchOwned = filterOwned === 'All' || 
                       (filterOwned === 'Owned' && isOwned) || 
-                      (filterOwned === 'Missing' && !isOwned);
+                      (filterOwned === 'Wishlist' && isWishlist) ||
+                      (filterOwned === 'Missing' && !isOwned && !isWishlist);
 
     return matchSearch && matchTier && matchType && matchOwned;
   });
@@ -76,11 +92,13 @@ export default function Collection() {
       >
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black uppercase tracking-tighter italic">Inventario</h1>
-          <div className="flex items-center gap-2 px-3 py-1 bg-[#4361EE]/10 rounded-full border border-[#4361EE]/20">
-            <Package size={14} className="text-[#4361EE]" />
-            <span className="text-[10px] font-black text-white">
-                {collection.size} <span className="opacity-30">/ {parts.blades.length + parts.ratchets.length + parts.bits.length}</span>
-            </span>
+          <div className="flex items-center gap-3">
+             <div className="flex items-center gap-2 px-3 py-1 bg-[#4361EE]/10 rounded-full border border-[#4361EE]/20">
+               <Package size={14} className="text-[#4361EE]" />
+               <span className="text-[10px] font-black text-white">
+                   {ownedSet.size} <span className="opacity-30">/ {parts.blades.length + parts.ratchets.length + parts.bits.length}</span>
+               </span>
+             </div>
           </div>
         </div>
 
@@ -129,8 +147,8 @@ export default function Collection() {
               exit={{ height: 0, opacity: 0 }}
               className="space-y-4 pb-2 pt-2 overflow-hidden border-t border-white/5"
             >
-              {/* Filter groups ... (similar to before but cleaner) */}
               <div className="flex flex-col gap-3">
+                 <FilterGroup label="Stato" items={['All', 'Owned', 'Wishlist', 'Missing']} active={filterOwned} onChange={setFilterOwned} />
                  <FilterGroup label="Tier" items={['All', 'S', 'A', 'B', 'C']} active={filterTier} onChange={setFilterTier} />
                  <FilterGroup label="Type" items={['All', 'Attack', 'Defense', 'Stamina', 'Balance']} active={filterType} onChange={setFilterType} />
               </div>
@@ -159,9 +177,16 @@ export default function Collection() {
                 >
                   <PartCard 
                     part={part} 
-                    owned={collection.has(part.id)}
+                    owned={ownedSet.has(part.id)}
+                    wishlisted={wishlistSet.has(part.id)}
                     onClick={() => setSelectedPart(part)}
-                    className={collection.has(part.id) ? 'border-[#4361EE]/40' : 'border-white/5'}
+                    className={
+                      ownedSet.has(part.id) 
+                      ? 'border-[#4361EE]/40' 
+                      : wishlistSet.has(part.id) 
+                      ? 'border-[#4361EE]/60 shadow-[0_0_15px_rgba(67,97,238,0.15)] bg-gradient-to-b from-[#12122A] to-[#0A0A1A]' 
+                      : 'border-white/5'
+                    }
                   />
                 </motion.div>
               ))}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Trash2, Weight, Layers, ShieldCheck, Zap, Star, Target, Info } from 'lucide-react';
+import { X, Plus, Trash2, Weight, Layers, ShieldCheck, Zap, Star, Target, Info, Heart, Check } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import PartImage from './PartImage';
 import StatRadar from './StatRadar';
@@ -25,6 +25,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
   const [activePart, setActivePart] = useState(initialPart);
   const [variants, setVariants] = useState([]);
   const [owned, setOwned] = useState(false);
+  const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
 
@@ -39,15 +40,26 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user.id);
       
-      // Check ownership of active variant
+      // Check ownership/wishlist of active variant
       const { data: ownership } = await supabase
         .from('user_collections')
-        .select('id')
+        .select('id, is_wishlist')
         .eq('user_id', user.id)
         .eq('part_id', activePart.id)
         .maybeSingle();
       
-      setOwned(!!ownership);
+      if (ownership) {
+         if (ownership.is_wishlist) {
+            setWishlisted(true);
+            setOwned(false);
+         } else {
+            setOwned(true);
+            setWishlisted(false);
+         }
+      } else {
+         setOwned(false);
+         setWishlisted(false);
+      }
 
       // Fetch other variants (same name, different ID)
       const tableName = activePart.kind === 'ratchet' ? 'ratchets' : activePart.kind === 'bit' ? 'bits' : 'blades';
@@ -61,22 +73,36 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
     fetchData();
   }, [activePart]);
 
-  const handleToggle = async () => {
+  const handleToggle = async (isWishlistToggle = false) => {
     if (!userId || loading) return;
     setLoading(true);
 
     try {
-      if (owned) {
-        await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', activePart.id);
-        setOwned(false);
+      // Safe wipe first to circumvent missing unique constraint on (user_id, part_id)
+      await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', activePart.id);
+
+      if (isWishlistToggle) {
+         if (wishlisted) {
+            setWishlisted(false);
+         } else {
+            await supabase.from('user_collections').insert({ 
+                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: true 
+            });
+            setWishlisted(true);
+            setOwned(false);
+         }
       } else {
-        await supabase.from('user_collections').insert({
-          user_id: userId,
-          part_id: activePart.id,
-          part_type: activePart.kind || 'blade'
-        });
-        setOwned(true);
+         if (owned) {
+            setOwned(false);
+         } else {
+            await supabase.from('user_collections').insert({ 
+                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: false 
+            });
+            setOwned(true);
+            setWishlisted(false);
+         }
       }
+      
       if (onUpdate) onUpdate();
     } catch (err) {
       console.error(err);
@@ -340,25 +366,41 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                 </p>
               </div>
 
-              {/* Action Button */}
-              <button
-                onClick={handleToggle}
-                disabled={loading}
-                className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
-                  owned 
-                    ? 'bg-red-500/10 border border-red-500/20 text-red-500' 
-                    : 'text-white shadow-glow-primary hover:scale-[1.02]'
-                }`}
-                style={!owned ? { backgroundColor: accentColor } : {}}
-              >
-                {loading ? (
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : owned ? (
-                  <><Trash2 size={20} /> Rimuovi dalla Collezione</>
-                ) : (
-                  <><Plus size={20} /> Aggiungi alla Collezione</>
-                )}
-              </button>
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                  <button
+                    onClick={() => handleToggle(false)}
+                    disabled={loading}
+                    className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
+                      owned 
+                        ? 'bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20' 
+                        : 'text-white shadow-glow-primary hover:scale-[1.02]'
+                    }`}
+                    style={!owned ? { backgroundColor: accentColor } : {}}
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : owned ? (
+                      <><Trash2 size={18} /> Rimuovi</>
+                    ) : (
+                      <><Check size={18} strokeWidth={3} /> Lo Possiedo</>
+                    )}
+                  </button>
+                  
+                  {!owned && (
+                      <button
+                        onClick={() => handleToggle(true)}
+                        disabled={loading}
+                        className={`w-16 flex-shrink-0 flex items-center justify-center rounded-2xl border transition-all ${
+                            wishlisted 
+                            ? 'bg-[#4361EE]/10 border-[#4361EE]/50 text-[#4361EE]'
+                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                        }`}
+                      >
+                         <Heart size={22} className={wishlisted ? 'fill-[#4361EE] text-[#4361EE]' : ''} />
+                      </button>
+                  )}
+              </div>
             </div>
           </motion.div>
         </>
