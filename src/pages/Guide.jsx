@@ -97,6 +97,6 @@ export default function Guide() {
           Ricorda che una combo vincente non è solo quella con le stats più alte, ma quella che meglio si adatta allo stadio e al launcher che usi!
         </p>
       </div>
-    </div>
+    </PageContainer>
   );
 }

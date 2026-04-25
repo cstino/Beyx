@@ -186,6 +186,6 @@ export default function BattlePage() {
           ))
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
