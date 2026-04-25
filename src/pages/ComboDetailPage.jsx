@@ -109,14 +109,16 @@ export default function ComboDetailPage() {
               </div>
            </div>
 
-           <div className="h-64 mb-8">
+           <div className="h-64 mb-8 flex items-center justify-center">
              <StatRadar stats={theoreticalStats} color="#4361EE" />
            </div>
 
            <div className="grid grid-cols-2 gap-8 pt-6 border-t border-white/5">
               <div className="text-center">
                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Base OVR</div>
-                 <div className="text-2xl font-black text-white italic leading-none">5.9</div>
+                 <div className="text-2xl font-black text-white italic leading-none">
+                   {(Object.values(theoreticalStats).reduce((a,b)=>a+b, 0) / 50).toFixed(1)}
+                 </div>
               </div>
               <div className="text-center">
                  <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Type</div>
@@ -134,11 +136,19 @@ export default function ComboDetailPage() {
               <h2 className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em]">Valutazione sul Campo</h2>
            </div>
 
-           {userStats ? (
+           {userStats && Object.keys(userStats).length > 0 ? (
              <>
-               <div className="h-64 mb-8">
+               <div className="h-64 mb-8 flex items-center justify-center">
                  <StatRadar stats={userStats} color="#E94560" />
                </div>
+
+               {combo.user_rating && (
+                 <div className="flex items-center justify-center gap-3 mb-8">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest">Expert OVR</div>
+                    <div className="text-3xl font-black text-[#F5A623] italic leading-none">{Number(combo.user_rating).toFixed(1)}</div>
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest">/ 10.0</div>
+                 </div>
+               )}
 
                {combo.user_notes && (
                  <div className="mt-8 p-5 bg-white/5 rounded-2xl border-l-4 border-primary italic">
@@ -146,12 +156,6 @@ export default function ComboDetailPage() {
                     <p className="text-white/60 text-xs font-medium leading-relaxed">{combo.user_notes}</p>
                  </div>
                )}
-
-               <div className="flex items-center justify-center gap-1 mt-6">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} className={i < (combo.user_rating || 0) ? "text-[#F5A623] fill-[#F5A623]" : "text-white/10"} />
-                  ))}
-               </div>
              </>
            ) : (
              <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
@@ -160,13 +164,13 @@ export default function ComboDetailPage() {
                 </div>
                 <div className="space-y-2">
                    <h3 className="text-white font-black uppercase text-sm italic tracking-tight">Nessuna Analisi di Campo</h3>
-                   <p className="text-white/30 text-[10px] font-medium leading-relaxed px-8">Inserisci le tue statistiche reali per personalizzare l'analisi della combo.</p>
+                   <p className="text-white/30 text-[10px] font-medium leading-relaxed px-8">Questa combo non è ancora stata testata nell'Arena.</p>
                 </div>
                 <button 
                   onClick={() => setReviewModalOpen(true)}
                   className="px-6 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-glow-primary active:scale-95 transition-all w-full max-w-[240px]"
                 >
-                  Valuta Ora
+                  Valuta questa combo
                 </button>
              </div>
            )}
