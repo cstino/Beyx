@@ -1,39 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Trash2, Gauge, Scale, Edit2, Save, X, Microscope, Swords } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, ChevronRight, Edit2, Shield, Zap, Target, ArrowRight, Star, Quote, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import StatRadar from '../components/StatRadar';
 import { PageContainer } from '../components/PageContainer';
-import { motion, AnimatePresence } from 'framer-motion';
 import PartDetailDrawer from '../components/PartDetailDrawer';
-
-const TYPE_COLORS = {
-  attack: '#E94560', defense: '#4361EE',
-  stamina: '#F5A623', balance: '#A855F7',
-};
+import { ExpertReviewModal } from '../components/ExpertReviewModal';
 
 export default function ComboDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [combo, setCombo] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Edit Mode state
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedStats, setEditedStats] = useState({});
-  const [editedNotes, setEditedNotes] = useState('');
-  const [editedRating, setEditedRating] = useState(5);
-  const [saving, setSaving] = useState(false);
-
-  // Part Detail state
-  const [selectedPart, setSelectedPart] = useState(null);
+  const [activePart, setActivePart] = useState(null);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCombo();
   }, [id]);
 
   async function fetchCombo() {
-    const { data, error } = await supabase.from('combos')
+    const { data, error } = await supabase
+      .from('combos')
       .select(`
         *,
         blade:blade_id(*),
@@ -42,255 +31,192 @@ export default function ComboDetailPage() {
       `)
       .eq('id', id)
       .single();
-    
-    if (error || !data) {
-      navigate('/builder?view=saved');
+
+    if (error) {
+      console.error('Error fetching combo:', error);
+      navigate('/');
       return;
     }
     setCombo(data);
-    setEditedStats(data.user_stats || computeFinalStats(data));
-    setEditedNotes(data.notes || '');
-    setEditedRating(data.user_rating || 5);
     setLoading(false);
   }
 
-  if (loading || !combo) return (
+  const theoreticalStats = useMemo(() => {
+    if (!combo) return null;
+    const b = combo.blade.stats || {};
+    const bt = combo.bit.stats || { attack: 10, defense: 10, stamina: 10, burst: 10, mobility: 10 };
+    return {
+      attack:   (b.attack || 0) + (bt.attack || 0),
+      defense:  (b.defense || 0) + (bt.defense || 0),
+      stamina:  (b.stamina || 0) + (bt.stamina || 0),
+      burst:    (b.burst || 0) + (bt.burst || 0),
+      mobility: (b.mobility || 0) + (bt.mobility || 0),
+    };
+  }, [combo]);
+
+  // If user hasn't evaluated yet, this will be null/empty
+  const userStats = combo?.user_stats;
+
+  if (loading) return (
     <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-[#E94560] border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  const accentColor = TYPE_COLORS[combo.combo_type?.toLowerCase()] ?? '#4361EE';
-  const baseStats = computeFinalStats(combo);
-  const totalWeight = (combo.blade?.weight ?? 0) + (combo.ratchet?.weight ?? 0) + (combo.bit?.weight ?? 0);
-
-  async function handleSaveReview() {
-    setSaving(true);
-    const { error } = await supabase.from('combos')
-      .update({
-        user_stats: editedStats,
-        notes: editedNotes,
-        user_rating: editedRating
-      })
-      .eq('id', id);
-
-    if (!error) {
-      await fetchCombo();
-      setIsEditing(false);
-    }
-    setSaving(false);
-  }
-
-  async function handleDelete() {
-    if (!confirm('Eliminare questo combo?')) return;
-    await supabase.from('combos').delete().eq('id', id);
-    navigate('/builder?view=saved');
-  }
-
   return (
-    <PageContainer className="pt-6 relative pb-20">
-      {/* Header */}
-      <div className="px-4 mb-8 flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="p-3 rounded-2xl bg-white/5 text-white/50 transition-all active:scale-95">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1">
-            <div className="text-[10px] font-black tracking-[0.3em] uppercase mb-1 flex items-center gap-2" style={{ color: accentColor }}>
-                <span className="w-2 h-2 rounded-full" style={{ background: accentColor }} />
-                {combo.combo_type || 'Custom'}
+    <PageContainer className="pb-32">
+      {/* Header with Fixed Button and Truncated Title */}
+      <div className="px-6 py-6 flex items-center justify-between gap-4 sticky top-0 bg-[#0A0A1A]/80 backdrop-blur-xl z-30 border-b border-white/5">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <button 
+            onClick={() => navigate('/builder?view=saved')} 
+            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5 flex-shrink-0"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+               <span className="text-[10px] font-black text-primary uppercase tracking-widest">{combo.combo_type || 'Balance'}</span>
             </div>
-            <h1 className="text-2xl font-black uppercase text-white tracking-tighter italic truncate">
-                {combo.blade?.name} {combo.ratchet?.name}{combo.bit?.name}
+            <h1 className="text-xl font-black text-white italic uppercase tracking-tighter leading-tight truncate">
+              {combo.name}
             </h1>
+          </div>
         </div>
-        <button onClick={() => setIsEditing(true)} className="p-3 rounded-2xl bg-[#4361EE]/10 text-[#4361EE] border border-[#4361EE]/20 active:scale-95">
+        
+        <button 
+          onClick={() => setReviewModalOpen(true)}
+          className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(233,69,96,0.1)] flex-shrink-0 active:scale-90 transition-all"
+        >
           <Edit2 size={20} />
         </button>
       </div>
 
-      <div className="px-4 space-y-6">
-        {/* 1. APP ANALYSIS SECTION */}
-        <section className="bg-[#12122A] rounded-[32px] p-6 border border-white/5 overflow-hidden">
-            <div className="flex items-center justify-between mb-6">
-               <div className="flex items-center gap-2">
-                  <Microscope size={16} className="text-[#4361EE]" />
-                  <span className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">Analisi Teorica App</span>
-               </div>
-               <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-black text-white italic">
-                  {totalWeight.toFixed(1)}g
-               </div>
-            </div>
-            <div className="flex justify-center mb-6">
-               <StatRadar stats={baseStats} color="#4361EE" />
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-white/5">
-                <div className="text-center">
-                    <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">BASE OVR</div>
-                    <div className="text-xl font-black text-white">{(Object.values(baseStats).reduce((a,b)=>a+b,0)/50).toFixed(1)}</div>
-                </div>
-                <div className="text-center">
-                    <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">TYPE</div>
-                    <div className="text-xl font-black uppercase italic" style={{ color: accentColor }}>{combo.combo_type || '---'}</div>
-                </div>
-            </div>
+      <div className="px-5 space-y-8 mt-6">
+        
+        {/* App Analysis Card */}
+        <section className="bg-[#12122A] rounded-[32px] p-6 border border-white/5 shadow-2xl relative overflow-hidden">
+           <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-lg bg-[#4361EE]/10 flex items-center justify-center text-[#4361EE]">
+                   <Shield size={18} />
+                 </div>
+                 <h2 className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em]">Analisi Teorica App</h2>
+              </div>
+              <div className="px-3 py-1 bg-white/5 rounded-full text-[10px] font-bold text-white/60">
+                 {combo.blade.weight + 5}g
+              </div>
+           </div>
+
+           <div className="h-64 mb-8">
+             <StatRadar stats={theoreticalStats} color="#4361EE" />
+           </div>
+
+           <div className="grid grid-cols-2 gap-8 pt-6 border-t border-white/5">
+              <div className="text-center">
+                 <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Base OVR</div>
+                 <div className="text-2xl font-black text-white italic leading-none">5.9</div>
+              </div>
+              <div className="text-center">
+                 <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Type</div>
+                 <div className="text-lg font-black text-primary italic uppercase leading-none">{combo.combo_type || 'Balance'}</div>
+              </div>
+           </div>
         </section>
 
-        {/* 2. USER EVALUATION SECTION */}
-        <section className={`rounded-[32px] p-6 border transition-all ${combo.user_stats ? 'bg-[#1A1A3A] border-[#E94560]/20 shadow-2xl' : 'bg-white/[0.02] border-white/5'}`}>
-            <div className="flex items-center justify-between mb-6">
-               <div className="flex items-center gap-2">
-                  <Swords size={16} className="text-[#E94560]" />
-                  <span className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">Valutazione sul Campo</span>
+        {/* User Evaluation Card - Conditional Content */}
+        <section className="bg-gradient-to-br from-[#1A1A3A] to-[#11112B] rounded-[32px] p-6 border border-white/5 shadow-2xl relative overflow-hidden">
+           <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Zap size={18} />
+              </div>
+              <h2 className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em]">Valutazione sul Campo</h2>
+           </div>
+
+           {userStats ? (
+             <>
+               <div className="h-64 mb-8">
+                 <StatRadar stats={userStats} color="#E94560" />
                </div>
-               {combo.user_rating && (
-                  <div className="px-3 py-1 bg-[#E94560] rounded-full text-[11px] font-black text-white">
-                     {combo.user_rating} / 10
-                  </div>
+
+               {combo.user_notes && (
+                 <div className="mt-8 p-5 bg-white/5 rounded-2xl border-l-4 border-primary italic">
+                    <Quote size={16} className="text-primary/20 mb-2" />
+                    <p className="text-white/60 text-xs font-medium leading-relaxed">{combo.user_notes}</p>
+                 </div>
                )}
-            </div>
 
-            {combo.user_stats ? (
-                <>
-                    <div className="flex justify-center mb-6">
-                       <StatRadar stats={combo.user_stats} color="#E94560" />
-                    </div>
-                    {combo.notes && (
-                        <div className="mt-4 p-4 bg-black/20 rounded-2xl border border-white/5">
-                           <div className="text-[8px] font-black text-[#E94560] tracking-widest uppercase mb-2">NOTE TATTICHE</div>
-                           <p className="text-xs text-white/60 italic leading-relaxed">{combo.notes}</p>
-                        </div>
-                    )}
-                </>
-            ) : (
-                <div className="py-10 text-center">
-                    <button onClick={() => setIsEditing(true)} className="px-6 py-3 rounded-xl bg-white/5 text-[10px] font-black text-white/40 uppercase tracking-widest hover:bg-white/10 transition-all">
-                       Inserisci tua analisi
-                    </button>
-                    <p className="text-[8px] font-black text-white/10 uppercase tracking-widest mt-4">Nessun dato registrato</p>
+               <div className="flex items-center justify-center gap-1 mt-6">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} size={14} className={i < (combo.user_rating || 0) ? "text-[#F5A623] fill-[#F5A623]" : "text-white/10"} />
+                  ))}
+               </div>
+             </>
+           ) : (
+             <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
+                <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center border border-primary/20 animate-pulse">
+                   <Plus size={32} className="text-primary/40" />
                 </div>
-            )}
+                <div className="space-y-2">
+                   <h3 className="text-white font-black uppercase text-sm italic tracking-tight">Nessuna Analisi di Campo</h3>
+                   <p className="text-white/30 text-[10px] font-medium leading-relaxed px-8">Inserisci le tue statistiche reali per personalizzare l'analisi della combo.</p>
+                </div>
+                <button 
+                  onClick={() => setReviewModalOpen(true)}
+                  className="px-6 py-4 bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-glow-primary active:scale-95 transition-all w-full max-w-[240px]"
+                >
+                  Valuta Ora
+                </button>
+             </div>
+           )}
         </section>
 
-        {/* 3. PARTS BREAKDOWN */}
-        <div className="space-y-3 pt-4">
-            <h3 className="text-[10px] font-black text-white/20 tracking-[0.3em] uppercase pl-1 mb-4">COMPONENT BREAKDOWN</h3>
-            <PartRow label="BLADE" part={combo.blade} onClick={() => setSelectedPart(combo.blade)} />
-            <PartRow label="RATCHET" part={combo.ratchet} onClick={() => setSelectedPart(combo.ratchet)} />
-            <PartRow label="BIT" part={combo.bit} onClick={() => setSelectedPart(combo.bit)} />
-        </div>
+        {/* Components List - Interactive */}
+        <section className="space-y-4">
+           <div className="flex items-center gap-2 mb-2">
+              <div className="w-[3px] h-3 bg-white/20" />
+              <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Configurazione</h2>
+           </div>
 
-        {/* Delete Zone */}
-        <div className="px-4 py-12 opacity-30 hover:opacity-100 transition-opacity">
-           <button onClick={handleDelete} className="w-full py-4 rounded-2xl border border-white/5 text-xs font-black tracking-widest text-red-500/50 uppercase flex items-center justify-center gap-3">
-              <Trash2 size={16} /> ELIMINA CONFIGURAZIONE
-           </button>
-        </div>
+           {[
+             { label: 'Blade', part: combo.blade },
+             { label: 'Ratchet', part: combo.ratchet },
+             { label: 'Bit', part: combo.bit },
+           ].map((item, i) => (
+             <button 
+               key={i}
+               onClick={() => setActivePart(item.part)}
+               className="w-full flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-all active:scale-[0.98]"
+             >
+                <div className="flex items-center gap-5">
+                   <div className="w-12 h-12 rounded-xl bg-[#0A0A1A] p-2 border border-white/10 overflow-hidden">
+                      <img src={item.part.image_url} alt={item.part.name} className="w-full h-full object-contain" />
+                   </div>
+                   <div className="text-left">
+                      <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">{item.label}</div>
+                      <div className="text-sm font-black text-white italic uppercase tracking-tight truncate max-w-[160px]">{item.part.name}</div>
+                   </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/20">
+                   <ChevronRight size={16} />
+                </div>
+             </button>
+           ))}
+        </section>
       </div>
 
       <PartDetailDrawer 
-        part={selectedPart}
-        onClose={() => setSelectedPart(null)}
+        part={activePart} 
+        onClose={() => setActivePart(null)} 
       />
 
-      {/* EDIT MODAL OVERLAY */}
-      <AnimatePresence>
-        {isEditing && (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center px-2">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsEditing(false)} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
-            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="relative w-full max-w-lg bg-[#12122A] rounded-t-[40px] border-t border-white/10 p-8 flex flex-col h-[90vh] overflow-y-auto no-scrollbar shadow-2xl">
-               <div className="w-12 h-1 bg-white/20 rounded-full mx-auto mb-8" />
-               <div className="flex items-center justify-between mb-10">
-                  <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Analisi Expert</h2>
-                  <button onClick={() => setIsEditing(false)} className="p-3 bg-white/5 rounded-2xl text-white/40"><X size={20}/></button>
-               </div>
-
-               {/* Rating Select */}
-               <div className="mb-10 text-center bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                  <div className="text-[10px] font-black text-white/20 tracking-[0.3em] uppercase mb-4">Voto Complessivo (1-10)</div>
-                  <div className="flex justify-center gap-2 overflow-x-auto no-scrollbar pb-2">
-                     {[...Array(10)].map((_, i) => (
-                        <button key={i} onClick={() => setEditedRating(i + 1)} className={`min-w-[40px] h-10 rounded-xl font-black text-sm transition-all ${editedRating === i + 1 ? 'bg-[#E94560] text-white scale-110 shadow-glow-primary' : 'bg-white/5 text-white/30'}`}>
-                           {i + 1}
-                        </button>
-                     ))}
-                  </div>
-               </div>
-
-               {/* Stats Sliders */}
-               <div className="space-y-8 mb-12">
-                  <div className="text-[10px] font-black text-[#E94560] tracking-[0.3em] uppercase mb-6 flex items-center gap-2">
-                     <div className="w-4 h-[1px] bg-[#E94560]" /> Performance Reale
-                  </div>
-                  {['attack', 'defense', 'stamina', 'burst', 'mobility'].map(key => (
-                     <div key={key}>
-                        <div className="flex justify-between items-center mb-4">
-                           <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">{key}</span>
-                           <span className="text-sm font-black text-[#E94560] italic">{editedStats[key] || 50}</span>
-                        </div>
-                        <input type="range" min="0" max="100" step="1" value={editedStats[key] || 50} onChange={e => setEditedStats({...editedStats, [key]: parseInt(e.target.value)})} className="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-[#E94560]" />
-                     </div>
-                  ))}
-               </div>
-
-               {/* Notes Textarea */}
-               <div className="mb-12">
-                  <div className="text-[10px] font-black text-white/20 tracking-[0.3em] uppercase mb-4">Note Tattiche</div>
-                  <textarea value={editedNotes} onChange={e => setEditedNotes(e.target.value)} placeholder="Scrivi qui i segreti di questa combo..." className="w-full h-32 bg-white/5 border border-white/5 rounded-3xl p-6 text-sm text-white/70 outline-none focus:border-[#4361EE]/30 transition-all font-medium resize-none shadow-inner" />
-               </div>
-
-               <button onClick={handleSaveReview} disabled={saving} className="w-full py-5 bg-[#E94560] rounded-[24px] text-white font-black text-xs tracking-[0.2em] uppercase shadow-glow-primary transition-transform active:scale-95 disabled:opacity-50">
-                  {saving ? 'Registrazione...' : 'Salva Valutazione'}
-               </button>
-               <div className="h-10" />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ExpertReviewModal
+        isOpen={reviewModalOpen}
+        onClose={() => setReviewModalOpen(false)}
+        combo={combo}
+        onSaved={fetchCombo}
+      />
     </PageContainer>
   );
-}
-
-function PartRow({ label, part, onClick }) {
-  if (!part) return null;
-  const partType = part.type?.toLowerCase();
-  const typeColor = TYPE_COLORS[partType] || 'rgba(255,255,255,0.2)';
-
-  return (
-    <button 
-      onClick={onClick}
-      className="w-full bg-[#12122A] rounded-3xl p-5 flex items-center gap-5 border border-white/5 transition-all hover:bg-[#1A1A3A] text-left active:scale-[0.98]"
-    >
-      <div className="w-16 h-16 rounded-2xl bg-[#0A0A1A] flex items-center justify-center border border-white/5 overflow-hidden">
-        <img src={part.image_url} alt={part.name} className="w-12 h-12 object-contain" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[9px] text-white/30 font-black tracking-[0.3em] uppercase mb-1">{label}</div>
-        <div className="text-white font-black text-base truncate uppercase italic tracking-tight mb-1">{part.name}</div>
-        
-        <div className="flex items-center gap-1.5">
-           <div className="w-1.5 h-1.5 rounded-full" style={{ background: typeColor }} />
-           <span className="text-[9px] font-black uppercase tracking-widest italic" style={{ color: typeColor }}>
-              {part.type || (part.height ? `${part.height} HEIGHT` : 'CLASSIC')}
-           </span>
-        </div>
-      </div>
-      <ChevronRight size={18} className="text-white/10" />
-    </button>
-  );
-}
-
-function computeFinalStats(combo) {
-  const b = combo.blade?.stats ?? {};
-  const r = combo.ratchet?.stat_modifiers ?? {};
-  const t = combo.bit?.stats ?? {}; // Map to correct bits stats col if exists
-  const val = (v) => (v ?? 50);
-  const clamp = v => Math.max(0, Math.min(100, v));
-
-  return {
-    attack:  clamp(val(b.attack)  + (r.attack ?? 0)  + (t.attack ?? 0)),
-    defense: clamp(val(b.defense) + (r.defense ?? 0) + (t.defense ?? 0)),
-    stamina: clamp(val(b.stamina) + (r.stamina ?? 0) + (t.stamina ?? 0)),
-    burst:   clamp(val(b.burst||b.burst_resistance)   + (r.burst_resistance ?? 0) + (t.burst_resistance ?? 0)),
-    mobility: clamp(val(b.mobility||b.dash_performance) + (r.dash_performance ?? 0) + (t.dash_performance ?? 0)),
-  };
 }
