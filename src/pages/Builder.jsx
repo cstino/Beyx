@@ -78,12 +78,6 @@ export default function Builder() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Eliminare questa combo?')) return;
-    const { error } = await supabase.from('combos').delete().eq('id', id);
-    if (!error) setSavedCombos(savedCombos.filter(c => c.id !== id));
-  };
-
   if (loading) return (
     <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-[#E94560] border-t-transparent rounded-full animate-spin" />
@@ -91,18 +85,15 @@ export default function Builder() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32">
+    <PageContainer>
       {/* 
-          Main Container DIV (instead of PageContainer) because we want the 
-          Sticky Headers themselves to carry the safe-area padding to cover the top gap.
+          1. View Toggle Header 
+          Sticks below the global Layout header (approx 56px height)
       */}
-
-      {/* 1. Global View Toggle Header */}
       <header 
-        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 pt-4 pb-4"
       >
-        <div className="px-4 pb-4">
+        <div className="px-4">
           <div className="flex gap-2 p-1 bg-[#12122A] rounded-xl border border-white/5">
             <button
               onClick={() => setView('build')}
@@ -128,11 +119,11 @@ export default function Builder() {
         <>
           {/* 2. Selection Tracker (Sticky below the toggle) */}
           <div 
-            className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5"
+            className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5 shadow-lg"
           >
             <div className="flex items-center gap-4 mb-5">
               <div className="flex-1">
-                <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white">Crea Combo</h1>
+                <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic">Crea Combo</h1>
                 <p className="text-[10px] font-bold text-[#4361EE] uppercase tracking-[0.2em] mt-2">
                   {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Finita'}
                 </p>
@@ -159,7 +150,7 @@ export default function Builder() {
                   }`}
                 >
                   <span className="text-[8px] uppercase font-black text-slate-500 block leading-none mb-1.5">{item.label}</span>
-                  <span className="text-[11px] font-black truncate block text-white">
+                  <span className="text-[11px] font-black truncate block text-white uppercase italic">
                     {item.part ? item.part.name : '---'}
                   </span>
                 </button>
@@ -198,29 +189,29 @@ export default function Builder() {
           </div>
         </>
       ) : (
-        <div className="px-4 mt-6 space-y-3">
-          {savedCombos.length === 0 ? (
-            <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
-              <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
-                Nessuna combo salvata.<br/>Inizia a creare nell'arena!
-              </p>
-            </div>
-          ) : (
-            <>
-              <h2 className="text-sm font-black text-white/30 uppercase tracking-[0.2em] mb-4 pl-1">
+        <div className="px-4 mt-8 space-y-4">
+          <div className="p-1">
+             <h2 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em] mb-6">
                 LE TUE CONFIGURAZIONI ({savedCombos.length})
-              </h2>
-              <div className="space-y-3">
-                {savedCombos.map(c => (
-                  <SavedComboCard 
-                    key={c.id} 
-                    combo={c} 
-                    onClick={(combo) => navigate(`/combo/${combo.id}`)} 
-                  />
-                ))}
-              </div>
-            </>
-          )}
+             </h2>
+             <div className="space-y-4">
+                {savedCombos.length === 0 ? (
+                    <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
+                    <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
+                        Nessuna combo salvata.<br/>Inizia a creare nell'arena!
+                    </p>
+                    </div>
+                ) : (
+                    savedCombos.map(c => (
+                    <SavedComboCard 
+                        key={c.id} 
+                        combo={c} 
+                        onClick={(combo) => navigate(`/combo/${combo.id}`)} 
+                    />
+                    ))
+                )}
+             </div>
+          </div>
         </div>
       )}
 
@@ -231,6 +222,6 @@ export default function Builder() {
         onSave={handleSave}
         saving={saving}
       />
-    </div>
+    </PageContainer>
   );
 }

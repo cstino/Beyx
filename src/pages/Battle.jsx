@@ -58,7 +58,7 @@ export default function BattlePage() {
   }
 
   return (
-    <PageContainer className="px-4">
+    <PageContainer className="px-4 pt-6">
       {/* Title */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">

@@ -4,8 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useHomeData } from '../hooks/useHomeData';
 import { PageContainer } from '../components/PageContainer';
 
-// New Modular Components
-import { Logo } from '../components/Logo';
+// Modular Components
 import { BladerHeroCard } from '../components/BladerHeroCard';
 import { StatCard } from '../components/StatCard';
 import { AcademyBanner } from '../components/AcademyBanner';
@@ -32,15 +31,12 @@ export default function Dashboard() {
 
   return (
     <PageContainer>
-      {/* 1. Logo Header */}
-      <div className="px-5 pb-6">
-        <Logo size="md" />
+      {/* 1. Hero Card - Top element now that logo is global */}
+      <div className="pt-6">
+        <BladerHeroCard blader={blader} />
       </div>
 
-      {/* 2. Hero Card */}
-      <BladerHeroCard blader={blader} />
-
-      {/* 3. Stats Row */}
+      {/* 2. Stats Row */}
       <div className="grid grid-cols-2 gap-3 mx-4 mt-5 mb-5">
         <StatCard
           label="Parti" 
@@ -59,12 +55,12 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* 4. Academy Banner */}
+      {/* 3. Academy Banner */}
       <div className="mx-4 mb-8">
         <AcademyBanner onClick={() => navigate('/guide')} />
       </div>
 
-      {/* 5. Top Bladers Section */}
+      {/* 4. Top Bladers Section */}
       <div className="mx-4 mb-8">
         <SectionHeader
           title="Top Bladers" 

@@ -4,6 +4,7 @@ import { Search, Filter, Package, Check, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import PartCard from '../components/PartCard';
 import PartDetailDrawer from '../components/PartDetailDrawer';
+import { PageContainer } from '../components/PageContainer';
 
 export default function Collection() {
   const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
@@ -43,7 +44,6 @@ export default function Collection() {
   const filteredParts = parts[activeType].filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchTier = filterTier === 'All' || p.tier === filterTier;
-    // Note: for ratchets, type might be null, we handle it
     const matchType = filterType === 'All' || p.type === filterType;
     const isOwned = collection.has(p.id);
     const matchOwned = filterOwned === 'All' || 
@@ -57,28 +57,30 @@ export default function Collection() {
     if (!name || name === '---') return;
     const found = parts[type].find(p => p.name.toLowerCase() === name.toLowerCase());
     if (found) {
-      setActiveType(type);
+      setActiveTabFromType(type);
       setSelectedPart(found);
     }
   };
 
+  const setActiveTabFromType = (type) => {
+    if (type === 'blade') setActiveType('blades');
+    if (type === 'ratchet') setActiveType('ratchets');
+    if (type === 'bit') setActiveType('bits');
+  };
+
   return (
-    <div className="max-w-4xl mx-auto pb-32">
-      {/* Search & Tabs Header */}
+    <PageContainer>
+      {/* Search & Tabs Header - Sticky below Layout header */}
       <header 
-        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 space-y-4"
-        style={{
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)',
-          paddingBottom: '16px',
-          paddingLeft: '16px',
-          paddingRight: '16px'
-        }}
+        className="sticky top-0 z-30 bg-[#0A0A1A] border-b border-white/5 space-y-4 pt-6 pb-6 px-4 shadow-lg"
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-black uppercase tracking-tighter">Inventario Parti</h1>
-          <div className="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20">
-            <Package size={14} className="text-primary" />
-            <span className="text-[10px] font-black">{collection.size} / {parts.blades.length + parts.ratchets.length + parts.bits.length}</span>
+          <h1 className="text-2xl font-black uppercase tracking-tighter italic">Inventario</h1>
+          <div className="flex items-center gap-2 px-3 py-1 bg-[#4361EE]/10 rounded-full border border-[#4361EE]/20">
+            <Package size={14} className="text-[#4361EE]" />
+            <span className="text-[10px] font-black text-white">
+                {collection.size} <span className="opacity-30">/ {parts.blades.length + parts.ratchets.length + parts.bits.length}</span>
+            </span>
           </div>
         </div>
 
@@ -90,14 +92,14 @@ export default function Collection() {
               placeholder="Cerca parte..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-field pl-12 bg-white/5"
+              className="w-full h-12 bg-white/5 border border-white/5 rounded-xl pl-12 text-sm font-bold text-white placeholder:text-slate-600 focus:border-[#4361EE]/50 transition-all outline-none"
             />
           </div>
           <button 
             onClick={() => setShowFilters(!showFilters)}
             className={`p-3 rounded-xl border transition-all ${
               showFilters 
-                ? 'bg-primary border-primary text-white shadow-glow-primary' 
+                ? 'bg-[#4361EE] border-[#4361EE] text-white shadow-glow-primary' 
                 : 'bg-white/5 border-white/5 text-slate-400'
             }`}
           >
@@ -110,8 +112,8 @@ export default function Collection() {
             <button
               key={type}
               onClick={() => setActiveType(type)}
-              className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                activeType === type ? 'bg-primary text-white shadow-glow-primary' : 'text-slate-500'
+              className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                activeType === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-slate-500'
               }`}
             >
               {type}
@@ -119,67 +121,18 @@ export default function Collection() {
           ))}
         </div>
 
-        {/* --- Advanced Filters Bar (Collapsible) --- */}
         <AnimatePresence>
           {showFilters && (
             <motion.div 
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="space-y-3 pb-2 pt-1 overflow-hidden"
+              className="space-y-4 pb-2 pt-2 overflow-hidden border-t border-white/5"
             >
-              {/* Tier Filter */}
-              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
-                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Tier:</span>
-                {['All', 'S', 'A', 'B', 'C'].map(t => (
-                  <button 
-                    key={t}
-                    onClick={() => setFilterTier(t)}
-                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                      filterTier === t 
-                        ? 'bg-white text-black border-white' 
-                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              {/* Type Filter */}
-              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
-                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Type:</span>
-                {['All', 'Attack', 'Defense', 'Stamina', 'Balance'].map(t => (
-                  <button 
-                    key={t}
-                    onClick={() => setFilterType(t)}
-                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                      filterType === t 
-                        ? 'bg-white text-black border-white' 
-                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-
-              {/* Owned Filter */}
-              <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar">
-                <span className="text-[8px] font-black uppercase text-white/20 self-center mr-1">Coll:</span>
-                {['All', 'Owned', 'Missing'].map(t => (
-                  <button 
-                    key={t}
-                    onClick={() => setFilterOwned(t)}
-                    className={`px-3 py-1 rounded-full text-[9px] font-black border transition-all ${
-                      filterOwned === t 
-                        ? 'bg-white text-black border-white' 
-                        : 'bg-white/5 border-white/10 text-white/40 hover:bg-white/10'
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+              {/* Filter groups ... (similar to before but cleaner) */}
+              <div className="flex flex-col gap-3">
+                 <FilterGroup label="Tier" items={['All', 'S', 'A', 'B', 'C']} active={filterTier} onChange={setFilterTier} />
+                 <FilterGroup label="Type" items={['All', 'Attack', 'Defense', 'Stamina', 'Balance']} active={filterType} onChange={setFilterType} />
               </div>
             </motion.div>
           )}
@@ -190,14 +143,11 @@ export default function Collection() {
       <div className="p-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center p-20 gap-4">
-            <Loader2 className="animate-spin text-primary" size={32} />
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Sincronizzazione Database...</p>
+            <Loader2 className="animate-spin text-[#4361EE]" size={32} />
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Caricamento...</p>
           </div>
         ) : (
-          <motion.div 
-            layout
-            className="grid grid-cols-2 gap-4"
-          >
+          <motion.div layout className="grid grid-cols-2 gap-4">
             <AnimatePresence mode='popLayout'>
               {filteredParts.map((part) => (
                 <motion.div
@@ -211,7 +161,7 @@ export default function Collection() {
                     part={part} 
                     owned={collection.has(part.id)}
                     onClick={() => setSelectedPart(part)}
-                    className={collection.has(part.id) ? 'border-primary/40' : 'border-white/5'}
+                    className={collection.has(part.id) ? 'border-[#4361EE]/40' : 'border-white/5'}
                   />
                 </motion.div>
               ))}
@@ -226,6 +176,27 @@ export default function Collection() {
         onUpdate={fetchData}
         onNavigate={handleNavigatePart}
       />
-    </div>
+    </PageContainer>
   );
+}
+
+function FilterGroup({ label, items, active, onChange }) {
+    return (
+        <div className="flex gap-2 min-w-max px-1 overflow-x-auto no-scrollbar items-center">
+            <span className="text-[8px] font-black uppercase text-white/20 w-8">{label}:</span>
+            {items.map(t => (
+                <button 
+                key={t}
+                onClick={() => onChange(t)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black border transition-all ${
+                    active === t 
+                    ? 'bg-white text-black border-white' 
+                    : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'
+                }`}
+                >
+                {t}
+                </button>
+            ))}
+        </div>
+    )
 }

@@ -77,7 +77,7 @@ export default function AccountPage() {
   );
 
   return (
-    <PageContainer>
+    <PageContainer className="pt-6">
       {/* Hero Header */}
       <div className="relative px-6 pb-12 overflow-hidden">
         {/* Abstract background glows */}
