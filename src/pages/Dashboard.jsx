@@ -57,7 +57,7 @@ export default function Dashboard() {
 
       {/* 3. Academy Banner */}
       <div className="mx-4 mb-8">
-        <AcademyBanner onClick={() => navigate('/guide')} />
+        <AcademyBanner onClick={() => navigate('/academy')} />
       </div>
 
       {/* 4. Top Bladers Section */}

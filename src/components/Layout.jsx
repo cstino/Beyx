@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import { Logo } from './Logo';
 import { useUIStore } from '../store/useUIStore';
@@ -8,7 +8,20 @@ import { ToastContainer } from './Toast';
 
 export default function Layout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { headerTitle, backPath } = useUIStore();
+
+  const getFallbackTitle = (path) => {
+    if (path === '/') return 'HOME';
+    if (path.startsWith('/collection')) return 'COLLECTION';
+    if (path.startsWith('/builder')) return 'BUILDER';
+    if (path.startsWith('/battle')) return 'BATTLE';
+    if (path.startsWith('/account')) return 'ACCOUNT';
+    if (path.startsWith('/academy')) return 'X ACADEMY';
+    return '';
+  };
+
+  const displayTitle = headerTitle || getFallbackTitle(location.pathname);
 
   return (
     <div className="flex flex-col min-h-screen pb-24 bg-[#0A0A1A]">
@@ -21,32 +34,30 @@ export default function Layout() {
           paddingBottom: '12px'
         }}
       >
-        <div className="flex items-center gap-4 flex-1 overflow-hidden">
-          {backPath ? (
+        {/* Left: Back Button or Empty Space */}
+        <div className="flex-1 flex justify-start">
+          {backPath && (
             <button 
               onClick={() => navigate(backPath)} 
               className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5 active:scale-90 transition-all flex-shrink-0"
             >
               <ChevronLeft size={20} />
             </button>
-          ) : (
-            <Logo size="sm" />
-          )}
-
-          {headerTitle && (
-            <div className="flex-1 min-w-0">
-               <h1 className="text-sm font-black text-white italic uppercase tracking-tight truncate">
-                  {headerTitle}
-               </h1>
-            </div>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-           {/* Dynamic dot/status */}
-           <div className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-           </div>
+        {/* Center: Title */}
+        <div className="flex-[2] flex justify-center items-center overflow-hidden px-2">
+          {displayTitle && (
+            <h1 className="text-[13px] font-black text-white uppercase tracking-wider truncate">
+              {displayTitle}
+            </h1>
+          )}
+        </div>
+
+        {/* Right: Logo */}
+        <div className="flex-1 flex justify-end">
+          <Logo size="sm" />
         </div>
       </header>
       

@@ -15,6 +15,9 @@ import NewTournamentPage from './pages/battle/NewTournamentPage';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
 import ComboDetailPage from './pages/ComboDetailPage';
+import { AcademyPage } from './pages/AcademyPage';
+import { AcademyLevelPage } from './pages/AcademyLevelPage';
+import { AcademyLessonPage } from './pages/AcademyLessonPage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
@@ -64,6 +67,9 @@ function App() {
           <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
           <Route path="/combo/:id" element={<ComboDetailPage />} />
+          <Route path="/academy" element={<AcademyPage />} />
+          <Route path="/academy/:levelId" element={<AcademyLevelPage />} />
+          <Route path="/academy/:levelId/:lessonId" element={<AcademyLessonPage />} />
           <Route 
             path="/admin" 
             element={profile?.is_admin ? <Admin /> : <Navigate to="/" replace />} 
