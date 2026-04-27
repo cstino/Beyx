@@ -23,7 +23,7 @@ export default function LeaderboardPage() {
     setLoading(true);
     let query = supabase
       .from('profiles')
-      .select('id, username, avatar_id, title, elo, elo_peak, elo_matches')
+      .select('id, username, avatar_id, title, elo, elo_peak, elo_matches, xp')
       .gte('elo_matches', 5) // Solo chi ha completato il placement
       .order('elo', { ascending: false })
       .limit(100);
@@ -157,14 +157,20 @@ export default function LeaderboardPage() {
                   </div>
                 </div>
 
-                {/* Avatar Placeholder */}
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0 text-slate-500 overflow-hidden">
-                   <Users size={20} />
-                </div>
+                {/* Avatar */}
+                <Avatar
+                  avatarId={user.avatar_id}
+                  size={44}
+                />
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="text-white font-black uppercase text-sm truncate tracking-tight">{user.username}</div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-white font-black uppercase text-sm truncate tracking-tight">{user.username}</span>
+                    <span className="bg-primary/20 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-[4px] border border-primary/20">
+                      LV.{Math.max(1, Math.floor(Math.sqrt((user.xp || 0) / 50)) + 1)}
+                    </span>
+                  </div>
                   <div className="text-[10px] text-slate-500 font-bold uppercase truncate tracking-widest">{user.title || 'Novizio'}</div>
                 </div>
 

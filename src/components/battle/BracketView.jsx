@@ -46,35 +46,57 @@ export function BracketView({ tournament, onSelectMatch }) {
 
   // Classic Bracket View
   return (
-    <div className="space-y-12 pb-24 overflow-x-auto no-scrollbar">
-      <div className="flex gap-12 min-w-max px-4">
+    <div className="pb-24 overflow-x-auto no-scrollbar">
+      <div className="flex gap-16 min-w-max px-8 pt-8">
         {rounds.map((round, rIndex) => (
-          <div key={rIndex} className="flex flex-col gap-8 justify-around">
-            <div className="text-[10px] font-black text-white/20 tracking-[0.3em] uppercase mb-4 text-center">
-              {rIndex === rounds.length - 1 ? 'Finale' : rIndex === rounds.length - 2 ? 'Semifinali' : `Round ${rIndex + 1}`}
+          <div key={rIndex} className="flex flex-col">
+            {/* Round Title */}
+            <div className="text-[10px] font-black text-white/20 tracking-[0.3em] uppercase mb-12 text-center h-4">
+              {rIndex === rounds.length - 1 ? 'Finale' : rIndex === rounds.length - 2 ? 'Semifinali' : rIndex === rounds.length - 3 ? 'Quarti' : `Round ${rIndex + 1}`}
             </div>
             
-            {round.matches.map((match, mIndex) => {
-              const active = !match.winner && match.p1 && match.p2 && !match.p1?.isBye && !match.p2?.isBye;
-              const completed = !!match.winner;
+            <div className="flex-1 flex flex-col justify-around">
+              {round.matches.map((match, mIndex) => {
+                const active = !match.winner && match.p1 && match.p2 && !match.p1?.isBye && !match.p2?.isBye;
+                const completed = !!match.winner;
+                
+                // Calculate vertical spacing based on round
+                // Each round matches should be vertically centered relative to the ones before
+                const matchHeight = 84; // Approx height of MatchCard
+                const roundSpacing = Math.pow(2, rIndex) * 20;
 
-              return (
-                <div key={mIndex} className="relative">
-                  {/* Connection lines */}
-                  {rIndex < rounds.length - 1 && (
-                    <div className="absolute top-1/2 -right-12 w-12 h-[2px] bg-white/5" />
-                  )}
+                return (
+                  <div 
+                    key={mIndex} 
+                    className="relative flex items-center"
+                    style={{ margin: `${roundSpacing}px 0`, minHeight: matchHeight }}
+                  >
+                    {/* Connection lines to NEXT round */}
+                    {rIndex < rounds.length - 1 && (
+                      <div className="absolute top-1/2 -right-16 w-16 h-[2px] bg-white/5 flex items-center">
+                         {/* Fork visualizer */}
+                         <div className={`absolute right-0 w-[2px] bg-white/5
+                           ${mIndex % 2 === 0 ? 'h-[100%] top-0' : 'h-[100%] bottom-0'}
+                         `} style={{ height: `calc(50% + ${roundSpacing}px + 4px)` }} />
+                      </div>
+                    )}
 
-                  <MatchCard 
-                    match={match}
-                    active={active}
-                    completed={completed}
-                    onClick={() => active && onSelectMatch(rIndex, mIndex)}
-                    className="w-48"
-                  />
-                </div>
-              );
-            })}
+                    {/* Connection lines from PREVIOUS round */}
+                    {rIndex > 0 && (
+                       <div className="absolute top-1/2 -left-16 w-8 h-[2px] bg-white/5" />
+                    )}
+
+                    <MatchCard 
+                      match={match}
+                      active={active}
+                      completed={completed}
+                      onClick={() => active && onSelectMatch(rIndex, mIndex)}
+                      className="w-56 z-10"
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </div>

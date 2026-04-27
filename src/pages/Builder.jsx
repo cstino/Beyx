@@ -21,6 +21,7 @@ export default function Builder() {
   
   const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
   const [ownedIds, setOwnedIds] = useState(new Set());
+  const [wishlistIds, setWishlistIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('blades');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,12 +57,22 @@ export default function Builder() {
           ratchet:ratchet_id(*),
           bit:bit_id(*)
         `).eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('user_collections').select('part_id').eq('user_id', user.id)
+        supabase.from('user_collections').select('part_id, is_wishlist').eq('user_id', user.id)
       ]);
       
       setParts({ blades: b.data || [], ratchets: r.data || [], bits: bt.data || [] });
       setSavedCombos(sc.data || []);
-      setOwnedIds(new Set((coll.data ?? []).map(c => c.part_id)));
+      
+      // Filtriamo solo ciò che è effettivamente posseduto (is_wishlist = false)
+      const owned = new Set();
+      const wish = new Set();
+      coll.data?.forEach(c => {
+        if (c.is_wishlist) wish.add(c.part_id);
+        else owned.add(c.part_id);
+      });
+      
+      setOwnedIds(owned);
+      setWishlistIds(wish); // Aggiungiamo stato locale per wishlist se serve
       setLoading(false);
     }
     fetchData();
@@ -235,8 +246,12 @@ export default function Builder() {
                   key={p.id} 
                   part={p} 
                   owned={ownedIds.has(p.id)}
+                  wishlisted={wishlistIds.has(p.id)}
                   onClick={() => select(activeTab.slice(0, -1), p)}
-                  className={((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
+                  className={`
+                    ${((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
+                    ${wishlistIds.has(p.id) && !ownedIds.has(p.id) ? 'border-[#4361EE]/40' : ''}
+                  `}
                 />
               ))}
             </div>

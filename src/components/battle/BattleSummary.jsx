@@ -1,10 +1,21 @@
 import React from 'react';
 import { ShieldCheck, Trophy, Info } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { calculateEloChange } from '../../utils/elo';
 
 export function BattleSummary({ battle, onSave }) {
   const p1Label = battle.player1.user_id ? 'TU' : (battle.player1.guest_name || 'P1');
   const p2Label = battle.player2.guest_name || 'AVVERSARIO';
+
+  const predicted = battle.is_official && battle.player1.user_id && battle.player2.user_id ? calculateEloChange({
+    winnerElo: battle.winner_side === 'p1' ? battle.player1.elo : battle.player2.elo,
+    loserElo:  battle.winner_side === 'p1' ? battle.player2.elo : battle.player1.elo,
+    winnerMatches: battle.winner_side === 'p1' ? battle.player1.elo_matches : battle.player2.elo_matches,
+    loserMatches:  battle.winner_side === 'p1' ? battle.player2.elo_matches : battle.player1.elo_matches,
+    winnerScore: 4, // Simplified for now
+    loserScore: 0,  // Simplified for now
+    battleType: '1v1'
+  }) : null;
 
   return (
     <div className="space-y-8">
@@ -26,6 +37,11 @@ export function BattleSummary({ battle, onSave }) {
             <div className="text-[10px] font-black text-white/60 truncate uppercase tracking-tighter">
               {p1Label}
             </div>
+            {predicted && (
+              <div className={`text-[10px] font-black mt-1 ${battle.winner_side === 'p1' ? 'text-green-400' : 'text-red-400'}`}>
+                {battle.winner_side === 'p1' ? `+${predicted.winnerDelta}` : predicted.loserDelta} ELO
+              </div>
+            )}
           </div>
 
           {/* VS & Result */}
@@ -49,6 +65,11 @@ export function BattleSummary({ battle, onSave }) {
             <div className="text-[10px] font-black text-white/60 truncate uppercase tracking-tighter">
               {p2Label}
             </div>
+            {predicted && (
+              <div className={`text-[10px] font-black mt-1 ${battle.winner_side === 'p2' ? 'text-green-400' : 'text-red-400'}`}>
+                {battle.winner_side === 'p2' ? `+${predicted.winnerDelta}` : predicted.loserDelta} ELO
+              </div>
+            )}
           </div>
         </div>
 

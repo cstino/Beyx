@@ -15,7 +15,7 @@ export function PlayerPicker({ battle, onChange, onNext }) {
   async function fetchUsers() {
     const { data } = await supabase
       .from('profiles')
-      .select('id, username, avatar_id, avatar_color')
+      .select('id, username, avatar_id, avatar_color, elo, elo_matches, placement_done')
       .neq('id', battle.player1.user_id);
     setUsers(data ?? []);
     setLoading(false);
@@ -30,7 +30,14 @@ export function PlayerPicker({ battle, onChange, onNext }) {
   function selectUser(user) {
     onChange({
       ...battle,
-      player2: { user_id: user.id, guest_name: null, combo_id: null },
+      player2: { 
+        user_id: user.id, 
+        guest_name: null, 
+        combo_id: null,
+        elo: user.elo,
+        elo_matches: user.elo_matches,
+        placement_done: user.placement_done
+      },
     });
   }
 

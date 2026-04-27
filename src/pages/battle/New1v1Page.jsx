@@ -14,10 +14,17 @@ const STEPS = ['players', 'combos', 'outcome', 'confirm'];
 
 export default function New1v1Page() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const [step, setStep] = useState(0);
   const [battle, setBattle] = useState({
-    player1: { user_id: user?.id, guest_name: null, combo_id: null },
+    player1: { 
+      user_id: user?.id, 
+      guest_name: null, 
+      combo_id: null,
+      elo: profile?.elo || 1000,
+      elo_matches: profile?.elo_matches || 0,
+      placement_done: profile?.placement_done || false
+    },
     player2: { user_id: null, guest_name: null, combo_id: null },
     winner_side: null,     // 'p1' | 'p2' | 'draw'
     win_type: null,        // 'burst' | 'ko' | 'spin_finish' | 'xtreme'

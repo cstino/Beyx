@@ -8,43 +8,49 @@ import { OfficialToggle } from '../../components/battle/OfficialToggle';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 
+import { PlayerPicker } from '../../components/battle/PlayerPicker';
+
+const SETUP_STEPS = ['OPPONENT', 'MY_DECK', 'OPP_DECK', 'OFFICIAL'];
+
 export default function New3v3Page() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const [stage, setStage] = useState('decks'); // 'decks' | 'playing' | 'done'
+  const [stage, setStage] = useState('setup'); // 'setup' | 'playing' | 'done'
+  const [setupStep, setSetupStep] = useState(0);
+  
+  const [battle, setBattle] = useState({
+    player1: { user_id: user?.id },
+    player2: { user_id: null, guest_name: null },
+    is_official: false,
+  });
+
   const [myDeck, setMyDeck] = useState(null);
   const [oppDeck, setOppDeck] = useState(null);
-  const [isOfficial, setIsOfficial] = useState(false);
 
   async function handleMatchComplete(results) {
-    const tournamentId = crypto.randomUUID(); // Mock tournament link for group
-    
-    // Save all battles in the match
     const battlesToSave = results.map(res => ({
       format:              '3v3',
       player1_user_id:     user?.id,
-      player2_user_id:     oppDeck?.user_id,
-      player2_guest_name:  oppDeck ? null : 'Avversario',
+      player2_user_id:     battle.player2.user_id,
+      player2_guest_name:  battle.player2.guest_name,
       winner_side:         res.winner_side,
       win_type:            res.win_type,
       points_p1:           res.winner_side === 'p1' ? res.points : 0,
       points_p2:           res.winner_side === 'p2' ? res.points : 0,
-      is_official:         isOfficial,
+      is_official:         battle.is_official,
       created_by:          user?.id,
     }));
 
     const { error } = await supabase.from('battles').insert(battlesToSave);
-    
-    if (error) {
-      console.error('Error saving 3v3 battles:', error);
-    }
-    
+    if (error) console.error('Error saving 3v3 battles:', error);
     setStage('done');
   }
 
   const prev = () => {
-    if (stage === 'decks') navigate(-1);
-    else if (stage === 'playing') setStage('decks');
+    if (stage === 'done') return;
+    if (stage === 'playing') { setStage('setup'); return; }
+    if (setupStep === 0) navigate(-1);
+    else setSetupStep(s => s - 1);
   };
 
   return (
@@ -57,7 +63,7 @@ export default function New3v3Page() {
           </button>
           <div>
             <div className="text-[10px] font-black text-[#4361EE] tracking-[0.2em] uppercase">
-              {stage === 'decks' ? 'Configurazione' : 'In Corso'}
+              {stage === 'setup' ? `Setup ${setupStep + 1}/4` : 'In Corso'}
             </div>
             <div className="text-white font-black text-xl uppercase tracking-tight italic">
               Sfida Team 3v3
@@ -69,22 +75,55 @@ export default function New3v3Page() {
         </div>
       </div>
 
-      <div className="px-6- flex-1 px-6">
-        {stage === 'decks' && (
-          <div className="space-y-8">
-            <DeckSelector
-              onConfirm={(my, opp) => {
-                setMyDeck(my);
-                setOppDeck(opp);
-                setStage('playing');
-              }}
-            />
-            <OfficialToggle 
-              isOfficial={isOfficial}
-              canBeOfficial={user?.id && oppDeck?.user_id}
-              reason={!(user?.id && oppDeck?.user_id) ? "Seleziona deck associati a utenti registrati per match ufficiali" : ""}
-              onChange={setIsOfficial}
-            />
+      <div className="px-6 flex-1">
+        {stage === 'setup' && (
+          <div className="space-y-6">
+            {setupStep === 0 && (
+              <PlayerPicker 
+                battle={battle} 
+                onChange={setBattle} 
+                onNext={() => setSetupStep(1)} 
+              />
+            )}
+            
+            {setupStep === 1 && (
+              <DeckSelector 
+                title="Scegli il tuo Deck"
+                onConfirm={(deck) => {
+                  setMyDeck(deck);
+                  if (battle.player2.user_id) setSetupStep(2);
+                  else setSetupStep(3);
+                }} 
+              />
+            )}
+
+            {setupStep === 2 && (
+              <DeckSelector 
+                title={`Scegli il Deck di ${battle.player2.user_id ? 'Avversario' : ''}`}
+                userId={battle.player2.user_id}
+                onConfirm={(deck) => {
+                  setOppDeck(deck);
+                  setSetupStep(3);
+                }} 
+              />
+            )}
+
+            {setupStep === 3 && (
+              <div className="space-y-8 py-4">
+                <OfficialToggle 
+                  isOfficial={battle.is_official}
+                  canBeOfficial={battle.player1.user_id && battle.player2.user_id}
+                  reason={!(battle.player1.user_id && battle.player2.user_id) ? "Entrambi i team devono avere un capitano registrato per match ufficiali" : ""}
+                  onChange={(val) => setBattle(prev => ({ ...prev, is_official: val }))}
+                />
+                <button 
+                  onClick={() => setStage('playing')}
+                  className="w-full py-5 rounded-2xl bg-primary text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary"
+                >
+                  Inizia Match 3v3
+                </button>
+              </div>
+            )}
           </div>
         )}
         

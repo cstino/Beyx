@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Avatar } from '../components/Avatar';
 import { StatGrid } from '../components/account/StatGrid';
 import { EloSection } from '../components/account/EloSection';
+import { RankBadge } from '../components/RankBadge';
 import { AchievementsGrid } from '../components/account/AchievementsGrid';
 import { EditProfileModal } from '../components/account/EditProfileModal';
 import { PageContainer } from '../components/PageContainer';
@@ -104,8 +105,18 @@ export default function AccountPage() {
           </div>
 
           <div className="mt-6 text-center">
-            <div className="text-primary font-black text-[10px] tracking-[0.3em] uppercase mb-1 drop-shadow-glow">
-              Blader Lv.{getLevel(profile?.xp)}
+            <div className="flex items-center justify-center gap-3 mb-2 opacity-80">
+              <div className="text-primary font-black text-[10px] tracking-[0.3em] uppercase drop-shadow-glow">
+                Lv.{getLevel(profile?.xp)}
+              </div>
+              <div className="w-[1px] h-2.5 bg-white/10" />
+              <RankBadge 
+                elo={profile?.elo || 1000} 
+                placementDone={profile?.placement_done} 
+                size="sm" 
+                showName={true} 
+                showElo={false} 
+              />
             </div>
             <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter leading-none">
               {profile?.username || 'Guerriero'}

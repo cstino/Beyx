@@ -3,40 +3,46 @@ import { Package, Plus, Check, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function DeckSelector({ onConfirm }) {
+export function DeckSelector({ onConfirm, userId = null, title = "Seleziona il tuo Deck per il 3v3" }) {
   const [decks, setDecks] = useState([]);
-  const [combos, setCombos] = useState([]);
-  const [selectedMyDeck, setSelectedMyDeck] = useState(null);
-  const [selectedOppDeck, setSelectedOppDeck] = useState(null); // Optional for guests
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [userId]);
 
   async function fetchData() {
-    const { data: d } = await supabase.from('decks').select('*');
-    const { data: c } = await supabase.from('combos').select('id, name, combo_type');
+    let query = supabase.from('decks').select('*');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    } else {
+      // Default to current user if no userId provided
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) query = query.eq('user_id', user.id);
+    }
+    
+    const { data: d } = await query;
     setDecks(d ?? []);
-    setCombos(c ?? []);
     setLoading(false);
   }
 
-  const canProceed = selectedMyDeck !== null;
+  const [selectedDeck, setSelectedDeck] = useState(null);
+
+  const canProceed = selectedDeck !== null;
 
   return (
     <div className="space-y-6">
       <div className="text-white/60 text-sm font-medium">
-        Seleziona il tuo Deck per il 3v3
+        {title}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
         {decks.map(deck => {
-          const isSelected = selectedMyDeck?.id === deck.id;
+          const isSelected = selectedDeck?.id === deck.id;
           return (
             <button
               key={deck.id}
-              onClick={() => setSelectedMyDeck(isSelected ? null : deck)}
+              onClick={() => setSelectedDeck(isSelected ? null : deck)}
               className={`p-5 rounded-3xl border-2 transition-all text-left relative overflow-hidden
                 ${isSelected ? 'bg-primary/10 border-primary shadow-glow-primary' : 'bg-[#12122A] border-white/5 opacity-60 hover:opacity-100'}`}
             >
@@ -57,20 +63,22 @@ export function DeckSelector({ onConfirm }) {
           );
         })}
 
-        <button className="p-5 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center gap-2 opacity-30 hover:opacity-50 transition-opacity">
-          <Plus size={24} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Crea Nuovo Deck</span>
-        </button>
+        {!userId && (
+          <button className="p-5 rounded-3xl border-2 border-dashed border-white/5 flex flex-col items-center justify-center gap-2 opacity-30 hover:opacity-50 transition-opacity">
+            <Plus size={24} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Crea Nuovo Deck</span>
+          </button>
+        )}
       </div>
 
       <div className="pt-8">
         <button
-          onClick={() => onConfirm(selectedMyDeck, null)}
+          onClick={() => onConfirm(selectedDeck)}
           disabled={!canProceed}
           className="w-full py-5 rounded-2xl font-black text-[11px] tracking-[0.2em] text-white disabled:opacity-50 shadow-xl uppercase"
           style={{ background: 'linear-gradient(135deg, #E94560, #C9304A)' }}
         >
-          Vai all'Arena 3v3
+          {userId ? "Conferma Deck Avversario" : "Conferma il tuo Deck"}
         </button>
       </div>
     </div>

@@ -12,6 +12,7 @@ import New1v1Page from './pages/battle/New1v1Page';
 import BattleHistoryPage from './pages/battle/BattleHistoryPage';
 import New3v3Page from './pages/battle/New3v3Page';
 import NewTournamentPage from './pages/battle/NewTournamentPage';
+import TournamentJoinPage from './pages/battle/TournamentJoinPage';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
 import ComboDetailPage from './pages/ComboDetailPage';
@@ -65,6 +66,7 @@ function App() {
           <Route path="/battle/new/1v1" element={<New1v1Page />} />
           <Route path="/battle/new/3v3" element={<New3v3Page />} />
           <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
+          <Route path="/battle/tournament/:id/join" element={<TournamentJoinPage />} />
           <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />
