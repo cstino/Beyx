@@ -56,3 +56,16 @@
 .glow-text-accent {
   text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
 }
+
+@keyframes beyblade-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-beyblade {
+  animation: beyblade-spin 4s linear infinite;
+}

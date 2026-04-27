@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Star } from 'lucide-react';
+import { ChevronRight, Star, Trash2 } from 'lucide-react';
 
 const TYPE_COLORS = {
   attack:  '#E94560',
@@ -16,7 +16,7 @@ const TYPE_LABELS = {
   balance: 'BALANCE',
 };
 
-export function SavedComboCard({ combo, onClick }) {
+export function SavedComboCard({ combo, onClick, onDelete }) {
   if (!combo) return null;
   
   // Determine dynamic type based on user stats or base stats
@@ -33,48 +33,60 @@ export function SavedComboCard({ combo, onClick }) {
   ].filter(Boolean).join(' ');
 
   return (
-    <motion.button
-      onClick={() => onClick(combo)}
-      whileTap={{ scale: 0.98 }}
-      className="w-full bg-[#12122A] rounded-[22px] overflow-hidden border border-white/5
-        hover:border-white/15 transition-all text-left group shadow-lg"
-      style={{ borderLeft: `5px solid ${accentColor}` }}
-    >
-      <div className="flex items-center">
-        {/* Left: Metadata & Name */}
-        <div className="flex-1 px-4 py-3 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span
-              className="text-[7px] font-black tracking-[0.2em] px-2 py-0.5 rounded-md"
-              style={{
-                color: accentColor,
-                background: `${accentColor}15`,
-                border: `1px solid ${accentColor}30`,
-              }}
-            >
-              {typeLabel}
-            </span>
-            {combo.user_rating && (
-                <div className="flex items-center gap-1 px-2 py-0.5 bg-[#F5A623]/10 border border-[#F5A623]/20 rounded-md">
-                    <Star size={8} className="text-[#F5A623] fill-[#F5A623]" />
-                    <span className="text-[8px] font-black text-[#F5A623]">{combo.user_rating}</span>
-                </div>
-            )}
-          </div>
-          <div className="text-white font-black text-base tracking-tighter truncate uppercase italic">
-            {composedName || combo.name}
-          </div>
-        </div>
+    <div className="relative group">
+       <motion.button
+         onClick={() => onClick(combo)}
+         whileTap={{ scale: 0.98 }}
+         className="w-full bg-[#12122A] rounded-[22px] overflow-hidden border border-white/5
+           hover:border-white/15 transition-all text-left shadow-lg"
+         style={{ borderLeft: `5px solid ${accentColor}` }}
+       >
+         <div className="flex items-center">
+           {/* Left: Metadata & Name */}
+           <div className="flex-1 px-4 py-3 min-w-0">
+             <div className="flex items-center gap-2 mb-1.5">
+               <span
+                 className="text-[7px] font-black tracking-[0.2em] px-2 py-0.5 rounded-md"
+                 style={{
+                   color: accentColor,
+                   background: `${accentColor}15`,
+                   border: `1px solid ${accentColor}30`,
+                 }}
+               >
+                 {typeLabel}
+               </span>
+               {combo.user_rating && (
+                   <div className="flex items-center gap-1 px-2 py-0.5 bg-[#F5A623]/10 border border-[#F5A623]/20 rounded-md">
+                       <Star size={8} className="text-[#F5A623] fill-[#F5A623]" />
+                       <span className="text-[8px] font-black text-[#F5A623]">{combo.user_rating}</span>
+                   </div>
+               )}
+             </div>
+             <div className="text-white font-black text-base tracking-tighter truncate uppercase italic">
+               {composedName || combo.name}
+             </div>
+           </div>
+   
+           {/* Right: Compact Parts Icons */}
+           <div className="flex items-center gap-1.5 px-4 pr-12">
+               <CompactChip img={combo.blade?.image_url} />
+               <CompactChip img={combo.ratchet?.image_url} />
+               <CompactChip img={combo.bit?.image_url} />
+           </div>
+         </div>
+       </motion.button>
 
-        {/* Right: Compact Parts Icons */}
-        <div className="flex items-center gap-1.5 px-4">
-            <CompactChip img={combo.blade?.image_url} />
-            <CompactChip img={combo.ratchet?.image_url} />
-            <CompactChip img={combo.bit?.image_url} />
-            <ChevronRight size={16} className="text-white/10 group-hover:text-white/30 ml-1 transition-colors" />
-        </div>
-      </div>
-    </motion.button>
+       {/* Floating Delete Action */}
+       <button 
+         onClick={(e) => {
+           e.stopPropagation();
+           onDelete(combo);
+         }}
+         className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100"
+       >
+         <Trash2 size={14} />
+       </button>
+    </div>
   );
 }
 

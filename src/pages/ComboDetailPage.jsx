@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Edit2, Shield, Zap, Target, ArrowRight, Star, Quote, Plus } from 'lucide-react';
+import { ChevronRight, Edit2, Shield, Zap, Quote, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import StatRadar from '../components/StatRadar';
 import { PageContainer } from '../components/PageContainer';
 import PartDetailDrawer from '../components/PartDetailDrawer';
 import { ExpertReviewModal } from '../components/ExpertReviewModal';
+import { useUIStore } from '../store/useUIStore';
 
 export default function ComboDetailPage() {
   const { id } = useParams();
@@ -16,9 +17,14 @@ export default function ComboDetailPage() {
   const [activePart, setActivePart] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
 
+  const { setHeader, clearHeader } = useUIStore();
+
   useEffect(() => {
+    setHeader(combo ? combo.name : 'DETTAGLI COMBO', '/builder?view=saved');
     fetchCombo();
-  }, [id]);
+    
+    return () => clearHeader();
+  }, [id, combo?.name, setHeader, clearHeader]);
 
   async function fetchCombo() {
     const { data, error } = await supabase
@@ -65,32 +71,25 @@ export default function ComboDetailPage() {
 
   return (
     <PageContainer className="pb-32">
-      {/* Header with Fixed Button and Truncated Title */}
-      <div className="px-6 py-6 flex items-center justify-between gap-4 sticky top-0 bg-[#0A0A1A]/80 backdrop-blur-xl z-30 border-b border-white/5">
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <button 
-            onClick={() => navigate('/builder?view=saved')} 
-            className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5 flex-shrink-0"
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div className="min-w-0">
+      <div className="px-5 mt-6 mb-2 flex items-center justify-between">
+         <div className="flex flex-col">
             <div className="flex items-center gap-2 mb-1">
                <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-               <span className="text-[10px] font-black text-primary uppercase tracking-widest">{combo.combo_type || 'Balance'}</span>
+               <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none">
+                 {combo.combo_type || 'Balance'}
+               </span>
             </div>
-            <h1 className="text-xl font-black text-white italic uppercase tracking-tighter leading-tight truncate">
-              {combo.name}
-            </h1>
-          </div>
-        </div>
-        
-        <button 
-          onClick={() => setReviewModalOpen(true)}
-          className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(233,69,96,0.1)] flex-shrink-0 active:scale-90 transition-all"
-        >
-          <Edit2 size={20} />
-        </button>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-tight">
+               {combo.name}
+            </h2>
+         </div>
+         
+         <button 
+           onClick={() => setReviewModalOpen(true)}
+           className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-[0_0_20px_rgba(233,69,96,0.1)] flex-shrink-0 active:scale-90 transition-all"
+         >
+           <Edit2 size={20} />
+         </button>
       </div>
 
       <div className="px-5 space-y-8 mt-6">

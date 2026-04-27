@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function Logo({ size = 'md', className = '' }) {
+export function Logo({ size = 'md', className = '', spin = false }) {
   // Ultra-visible height classes
   const heightClasses = {
     sm: 'h-6',
@@ -9,7 +9,8 @@ export function Logo({ size = 'md', className = '' }) {
     xl: 'h-40', // majestic size for auth/loading
   };
 
-  const finalClassName = className || `${heightClasses[size]} w-auto`;
+  const spinClass = spin ? 'animate-beyblade' : '';
+  const finalClassName = className || `${heightClasses[size]} w-auto ${spinClass}`;
 
   return (
     <div className="inline-flex items-center justify-center">

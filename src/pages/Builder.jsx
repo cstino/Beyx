@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, ChevronRight, Search, Trash2, ArrowUpDown, Filter } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useBuilderStore } from '../store/useBuilderStore';
+import { useUIStore } from '../store/useUIStore';
 import PartCard from '../components/PartCard';
 import ComboResultDrawer from '../components/ComboResultDrawer';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -32,8 +33,15 @@ export default function Builder() {
   // Sorting & Filtering state for saved combos
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' or 'asc'
   const [filterType, setFilterType] = useState('ALL');
+  
+  const [comboToDelete, setComboToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const { setHeader, clearHeader } = useUIStore();
 
   useEffect(() => {
+    setHeader('BUILDER', '');
+    
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -105,6 +113,32 @@ export default function Builder() {
       toast.error('Registrazione fallita: ' + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => clearHeader();
+  }, [clearHeader]);
+
+  const confirmDelete = async () => {
+    if (!comboToDelete) return;
+    const toast = useToastStore.getState();
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('combos')
+        .delete()
+        .eq('id', comboToDelete.id);
+
+      if (error) throw error;
+
+      setSavedCombos(savedCombos.filter(c => c.id !== comboToDelete.id));
+      toast.success('Combo eliminata con successo');
+    } catch (err) {
+      toast.error('Errore durante l\'eliminazione: ' + err.message);
+    } finally {
+      setDeleting(false);
+      setComboToDelete(null);
     }
   };
 
@@ -254,6 +288,7 @@ export default function Builder() {
                     key={c.id} 
                     combo={c} 
                     onClick={(combo) => navigate(`/combo/${combo.id}`)} 
+                    onDelete={(combo) => setComboToDelete(combo)}
                 />
                 ))
             )}
@@ -268,6 +303,57 @@ export default function Builder() {
         onSave={handleSave}
         saving={saving}
       />
+
+      {/* 4. Delete Confirmation Modal */}
+      <AnimatePresence>
+        {comboToDelete && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setComboToDelete(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-[#12122A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[50px] -mr-16 -mt-16" />
+              
+              <div className="relative z-10 text-center">
+                <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Trash2 size={28} className="text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-black text-white uppercase italic tracking-tighter mb-2">Elimina Combo?</h3>
+                <p className="text-slate-400 text-sm font-medium leading-relaxed mb-8">
+                  Sei sicuro di voler eliminare <span className="text-white font-bold">"{comboToDelete.name}"</span>? Questa azione è irreversibile.
+                </p>
+                
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={confirmDelete}
+                    disabled={deleting}
+                    className="w-full py-4 bg-red-500 hover:bg-red-600 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-red-500/20 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {deleting ? 'ELIMINAZIONE...' : 'SÌ, ELIMINA'}
+                  </button>
+                  <button
+                    onClick={() => setComboToDelete(null)}
+                    className="w-full py-4 bg-white/5 hover:bg-white/10 text-slate-400 font-bold uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+                  >
+                    ANNULLA
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </PageContainer>
   );
 }
@@ -276,7 +362,7 @@ export default function Builder() {
  * Logic to determine the Bey type based on its highest stat
  */
 function determineType(stats, defaultType) {
-  if (!stats || Object.keys(stats).length === 0) return defaultType || 'balance';
+  if (!stats || Object.keys(stats).length === 0) return defaultType?.toLowerCase() || 'balance';
   const { attack, defense, stamina } = stats;
   const max = Math.max(attack || 0, defense || 0, stamina || 0);
   if (max < 40) return 'balance';

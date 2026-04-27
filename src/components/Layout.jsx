@@ -57,7 +57,7 @@ export default function Layout() {
 
         {/* Right: Logo */}
         <div className="flex-1 flex justify-end">
-          <Logo size="sm" />
+          <Logo size="sm" spin={true} />
         </div>
       </header>
       
