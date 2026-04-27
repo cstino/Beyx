@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, Search, Save, X, Settings, Shield, Zap, Target, ArrowUpRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Save, X, Settings, Shield, Zap, Target, ArrowUpRight, Copy, Layers, Upload, ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PageContainer } from '../components/PageContainer';
 import { useToastStore } from '../store/useToastStore';
@@ -44,11 +44,15 @@ export default function Admin() {
   async function handleSave(formData) {
     const toast = useToastStore.getState();
     const table = activeTab;
-    const isEditing = !!editingItem.id;
+    const isEditing = !!formData.id; // Check if the data itself has an ID
     
+    // We clean the formData to avoid sending undefined/null ID which causes issues
+    const dataToSave = { ...formData };
+    if (!isEditing) delete dataToSave.id;
+
     const { error } = isEditing 
-      ? await supabase.from(table).update(formData).eq('id', editingItem.id)
-      : await supabase.from(table).insert([formData]);
+      ? await supabase.from(table).update(dataToSave).eq('id', dataToSave.id)
+      : await supabase.from(table).insert([dataToSave]);
 
     if (!error) {
       setEditingItem(null);
@@ -144,10 +148,23 @@ export default function Admin() {
                       <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">{item.release_code || 'Speciale'}</span>
                       <div className="w-1 h-1 rounded-full bg-white/10" />
                       <span className="text-[9px] font-bold text-[#F5A623] uppercase">{item.type || activeTab.slice(0, -1)}</span>
+                      {item.variants?.length > 0 && (
+                        <>
+                          <div className="w-1 h-1 rounded-full bg-white/10" />
+                          <span className="text-[9px] font-bold text-blue-400 uppercase">+{item.variants.length} Varianti</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => setEditingItem({ ...item, id: undefined, release_code: (item.release_code || '') + ' CLONE' })}
+                    className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/20 hover:bg-blue-500/10 hover:text-blue-400 transition-all"
+                    title="Duplica come variante"
+                  >
+                    <Copy size={16} />
+                  </button>
                   <button 
                     onClick={() => setEditingItem(item)}
                     className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 hover:bg-[#F5A623]/10 hover:text-[#F5A623] transition-all"
@@ -172,17 +189,24 @@ export default function Admin() {
 
 function PartForm({ type, initialData, onSave, onCancel }) {
   const [formData, setFormData] = useState({
-    name: '',
-    release_code: '',
-    image_url: '',
-    type: 'Attack',
-    weight: 35.0,
-    sides: 3,
-    height: 60,
-    tip_shape: '',
-    stats: { attack: 50, defense: 50, stamina: 50, burst: 50, mobility: 50 },
+    stock_ratchet: '',
+    stock_bit: '',
+    variants: [],
     ...initialData
   });
+
+  const [availableParts, setAvailableParts] = useState({ ratchets: [], bits: [] });
+
+  useEffect(() => {
+    if (type === 'blades') {
+      Promise.all([
+        supabase.from('ratchets').select('name').order('name'),
+        supabase.from('bits').select('name').order('name')
+      ]).then(([r, b]) => {
+        setAvailableParts({ ratchets: r.data || [], bits: b.data || [] });
+      });
+    }
+  }, [type]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -193,6 +217,32 @@ function PartForm({ type, initialData, onSave, onCancel }) {
       ...prev,
       stats: { ...prev.stats, [stat]: parseInt(value) }
     }));
+  };
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const toast = useToastStore.getState();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${type}/${fileName}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('parts-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('parts-images')
+        .getPublicUrl(filePath);
+
+      handleChange('image_url', publicUrl);
+      toast.success('Immagine caricata con successo');
+    } catch (error) {
+      toast.error('Errore caricamento: ' + error.message);
+    }
   };
 
   return (
@@ -230,13 +280,30 @@ function PartForm({ type, initialData, onSave, onCancel }) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">URL Immagine</label>
-          <input 
-            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none focus:border-[#F5A623]/30"
-            value={formData.image_url}
-            onChange={e => handleChange('image_url', e.target.value)}
-            placeholder="URL immagine componente..."
-          />
+          <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Immagine Componente</label>
+          <div className="flex gap-4">
+            <div className="w-24 h-24 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+              {formData.image_url ? (
+                <img src={formData.image_url} alt="Preview" className="w-full h-full object-contain" />
+              ) : (
+                <ImageIcon className="text-white/10" size={32} />
+              )}
+              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
+                <Upload size={20} className="text-white mb-1" />
+                <span className="text-[8px] font-black text-white uppercase">Upload</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+              </label>
+            </div>
+            <div className="flex-1 space-y-2">
+               <input 
+                 className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-[11px] font-bold outline-none focus:border-[#F5A623]/30"
+                 value={formData.image_url}
+                 onChange={e => handleChange('image_url', e.target.value)}
+                 placeholder="O incolla URL immagine..."
+               />
+               <p className="text-[9px] text-white/20 px-2 italic">Puoi caricare un file o incollare un link diretto.</p>
+            </div>
+          </div>
         </div>
 
         {/* Type Specific Fields */}
@@ -281,6 +348,37 @@ function PartForm({ type, initialData, onSave, onCancel }) {
                     <span className="text-xs font-black text-[#F5A623] w-8">{formData.stats?.[stat] || 0}</span>
                  </div>
                ))}
+            </div>
+            
+            {/* Stock Combo Editor */}
+            <div className="p-4 rounded-3xl bg-white/5 border border-white/5 space-y-4">
+               <h4 className="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                 <Layers size={14} /> Configurazione Stock (Combo Originale)
+               </h4>
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Ratchet Ufficiale</label>
+                    <select 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none appearance-none"
+                      value={formData.stock_ratchet || ''}
+                      onChange={e => handleChange('stock_ratchet', e.target.value)}
+                    >
+                      <option value="">Nessuno</option>
+                      {availableParts.ratchets.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Bit Ufficiale</label>
+                    <select 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white font-bold outline-none appearance-none"
+                      value={formData.stock_bit || ''}
+                      onChange={e => handleChange('stock_bit', e.target.value)}
+                    >
+                      <option value="">Nessuno</option>
+                      {availableParts.bits.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                    </select>
+                  </div>
+               </div>
             </div>
           </>
         )}
@@ -334,6 +432,83 @@ function PartForm({ type, initialData, onSave, onCancel }) {
             </div>
           </div>
         )}
+
+        {/* --- VARIANTS SECTION --- */}
+        <div className="p-6 rounded-[32px] bg-white/5 border border-white/5 space-y-6">
+           <div className="flex items-center justify-between">
+              <h4 className="text-[10px] font-black text-[#F5A623] uppercase tracking-[0.2em] flex items-center gap-2">
+                <Layers size={14} /> Varianti Estetiche
+              </h4>
+              <button 
+                type="button"
+                onClick={() => {
+                  const newVariants = [...(formData.variants || []), { release_code: '', image_url: '' }];
+                  handleChange('variants', newVariants);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-white/5 text-white/40 text-[8px] font-black uppercase tracking-widest border border-white/10"
+              >
+                + Aggiungi
+              </button>
+           </div>
+
+           {(formData.variants || []).length > 0 && (
+             <div className="space-y-4">
+                {formData.variants.map((variant, idx) => (
+                  <div key={idx} className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3 relative">
+                     <button 
+                        type="button"
+                        onClick={() => {
+                          const newVariants = formData.variants.filter((_, i) => i !== idx);
+                          handleChange('variants', newVariants);
+                        }}
+                        className="absolute top-2 right-2 p-2 text-white/10 hover:text-red-500"
+                     >
+                        <Trash2 size={12} />
+                     </button>
+                     <div className="flex gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+                           {variant.image_url ? <img src={variant.image_url} alt="v" className="w-full h-full object-contain" /> : <ImageIcon className="text-white/10" size={20} />}
+                           <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                              <Upload size={14} className="text-white" />
+                              <input type="file" onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const fileExt = file.name.split('.').pop();
+                                const filePath = `${type}/var-${Date.now()}.${fileExt}`;
+                                const { data } = await supabase.storage.from('parts-images').upload(filePath, file);
+                                if (data) {
+                                  const { data: { publicUrl } } = supabase.storage.from('parts-images').getPublicUrl(filePath);
+                                  const newVs = [...formData.variants];
+                                  newVs[idx].image_url = publicUrl;
+                                  handleChange('variants', newVs);
+                                }
+                              }} className="hidden" />
+                           </label>
+                        </div>
+                        <div className="flex-1 space-y-2">
+                           <input 
+                              placeholder="Codice" className="w-full bg-white/5 border border-white/10 rounded-xl p-2 text-white text-[10px] font-bold"
+                              value={variant.release_code || ''} onChange={e => {
+                                const newVs = [...formData.variants];
+                                newVs[idx].release_code = e.target.value;
+                                handleChange('variants', newVs);
+                              }}
+                           />
+                           <input 
+                              placeholder="URL Immagine" className="w-full bg-white/5 border border-white/10 rounded-xl p-2 text-white text-[10px] font-bold"
+                              value={variant.image_url || ''} onChange={e => {
+                                const newVs = [...formData.variants];
+                                newVs[idx].image_url = e.target.value;
+                                handleChange('variants', newVs);
+                              }}
+                           />
+                        </div>
+                     </div>
+                  </div>
+                ))}
+             </div>
+           )}
+        </div>
       </div>
 
       <div className="sticky bottom-8 left-0 right-0 px-2">

@@ -61,14 +61,34 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
          setWishlisted(false);
       }
 
-      // Fetch other variants (same name, different ID)
+      // Fetch other variants (consolidated + siblings)
       const tableName = activePart.kind === 'ratchet' ? 'ratchets' : activePart.kind === 'bit' ? 'bits' : 'blades';
-      const { data: others } = await supabase
+      const { data: siblings } = await supabase
         .from(tableName)
         .select('*')
         .eq('name', activePart.name);
+
+      // Merge and unique-ify
+      const consolidated = (activePart.variants || []).map((v, i) => ({
+        ...activePart,
+        id: `${activePart.id}_v${i}`,
+        release_code: v.release_code,
+        image_url: v.image_url,
+        is_consolidated: true
+      }));
+
+      const all = [activePart, ...consolidated, ...(siblings || [])];
+      const unique = [];
+      const keys = new Set();
+      all.forEach(v => {
+        const key = `${v.release_code}-${v.image_url}`;
+        if (!keys.has(key)) {
+          unique.push(v);
+          keys.add(key);
+        }
+      });
       
-      setVariants(others || []);
+      setVariants(unique);
     }
     fetchData();
   }, [activePart]);
@@ -244,11 +264,16 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                       <button
                         key={v.id}
                         onClick={() => setActivePart({ ...v, kind: activePart.kind })}
-                        className={`w-16 h-16 rounded-2xl border-2 flex-shrink-0 transition-all p-1 bg-white/5 ${
-                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-110' : 'border-white/5 opacity-40 hover:opacity-100'
-                        }`}
+                        className="flex flex-col items-center gap-2 group"
                       >
-                        <PartImage src={v.image_url} name={v.name} type={activePart.kind} />
+                        <div className={`w-16 h-16 rounded-2xl border-2 flex-shrink-0 transition-all p-1 bg-white/5 ${
+                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-110' : 'border-white/5 opacity-40 group-hover:opacity-100'
+                        }`}>
+                          <PartImage src={v.image_url} name={v.name} type={activePart.kind} />
+                        </div>
+                        <span className={`text-[8px] font-black uppercase tracking-tighter ${activePart.id === v.id ? 'text-primary' : 'text-white/20'}`}>
+                          {v.release_code || 'CODE'}
+                        </span>
                       </button>
                     ))}
                   </div>
