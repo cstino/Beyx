@@ -23,7 +23,11 @@ export function useHomeData(userId) {
             supabase.from('ratchets').select('id', { count: 'exact', head: true }),
             supabase.from('bits').select('id', { count: 'exact', head: true }),
             supabase.from('combos').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-            supabase.from('leaderboard').select('*').limit(3),
+            supabase.from('profiles')
+              .select('id, username, avatar_id, title, elo, elo_peak, elo_matches')
+              .gte('elo_matches', 5)
+              .order('elo', { ascending: false })
+              .limit(3),
           ]);
 
         const totalParts = (totalBlades.count ?? 0) + (totalRatchets.count ?? 0) + (totalBits.count ?? 0);
@@ -41,6 +45,10 @@ export function useHomeData(userId) {
             xp: xp,
             xpNext: xpNext,
             status: profile.data?.title || "Blader d'Elite",
+            elo: profile.data?.elo ?? 1000,
+            elo_peak: profile.data?.elo_peak ?? 1000,
+            elo_matches: profile.data?.elo_matches ?? 0,
+            placement_done: profile.data?.placement_done ?? false,
           },
           parts: { owned: ownedParts.count ?? 0, total: totalParts },
           combos: { count: userCombos.count ?? 0 },

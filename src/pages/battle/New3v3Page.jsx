@@ -4,6 +4,7 @@ import { ChevronLeft, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DeckSelector } from '../../components/battle/DeckSelector';
 import { Match3v3Tracker } from '../../components/battle/Match3v3Tracker';
+import { OfficialToggle } from '../../components/battle/OfficialToggle';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -13,6 +14,7 @@ export default function New3v3Page() {
   const [stage, setStage] = useState('decks'); // 'decks' | 'playing' | 'done'
   const [myDeck, setMyDeck] = useState(null);
   const [oppDeck, setOppDeck] = useState(null);
+  const [isOfficial, setIsOfficial] = useState(false);
 
   async function handleMatchComplete(results) {
     const tournamentId = crypto.randomUUID(); // Mock tournament link for group
@@ -27,6 +29,7 @@ export default function New3v3Page() {
       win_type:            res.win_type,
       points_p1:           res.winner_side === 'p1' ? res.points : 0,
       points_p2:           res.winner_side === 'p2' ? res.points : 0,
+      is_official:         isOfficial,
       created_by:          user?.id,
     }));
 
@@ -68,13 +71,21 @@ export default function New3v3Page() {
 
       <div className="px-6- flex-1 px-6">
         {stage === 'decks' && (
-          <DeckSelector
-            onConfirm={(my, opp) => {
-              setMyDeck(my);
-              setOppDeck(opp);
-              setStage('playing');
-            }}
-          />
+          <div className="space-y-8">
+            <DeckSelector
+              onConfirm={(my, opp) => {
+                setMyDeck(my);
+                setOppDeck(opp);
+                setStage('playing');
+              }}
+            />
+            <OfficialToggle 
+              isOfficial={isOfficial}
+              canBeOfficial={user?.id && oppDeck?.user_id}
+              reason={!(user?.id && oppDeck?.user_id) ? "Seleziona deck associati a utenti registrati per match ufficiali" : ""}
+              onChange={setIsOfficial}
+            />
+          </div>
         )}
         
         {stage === 'playing' && (

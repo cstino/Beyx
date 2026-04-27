@@ -1,5 +1,6 @@
 import React from 'react';
 import { Avatar } from './Avatar';
+import { RankBadge } from './RankBadge';
 
 export function LeaderboardRow({ rank, blader }) {
   if (!blader) return null;
@@ -21,9 +22,8 @@ export function LeaderboardRow({ rank, blader }) {
           </div>
        </div>
        
-       <div className="text-right">
-          <p className="text-[14px] font-black text-[#4361EE] leading-none mb-1 tracking-tighter">{blader.xp}</p>
-          <p className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">XP</p>
+       <div className="flex items-center gap-3">
+          <RankBadge elo={blader.elo || 1000} placementDone={blader.placement_done} size="sm" showName={true} showDivision={true} showElo={false} />
        </div>
     </div>
   );

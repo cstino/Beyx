@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuthStore } from '../store/useAuthStore';
 import { Avatar } from '../components/Avatar';
 import { StatGrid } from '../components/account/StatGrid';
+import { EloSection } from '../components/account/EloSection';
 import { AchievementsGrid } from '../components/account/AchievementsGrid';
 import { EditProfileModal } from '../components/account/EditProfileModal';
 import { PageContainer } from '../components/PageContainer';
@@ -137,6 +138,9 @@ export default function AccountPage() {
 
       {/* Main Content */}
       <div className="px-6 space-y-10">
+        {/* Elo Section */}
+        {profile && <EloSection profile={profile} />}
+
         {/* Stats Grid */}
         <section>
           <div className="flex items-center gap-2 mb-4">

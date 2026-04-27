@@ -18,6 +18,7 @@ import ComboDetailPage from './pages/ComboDetailPage';
 import { AcademyPage } from './pages/AcademyPage';
 import { AcademyLevelPage } from './pages/AcademyLevelPage';
 import { AcademyLessonPage } from './pages/AcademyLessonPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
@@ -66,6 +67,7 @@ function App() {
           <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
           <Route path="/battle/history" element={<BattleHistoryPage />} />
           <Route path="/account" element={<Account />} />
+          <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/combo/:id" element={<ComboDetailPage />} />
           <Route path="/academy" element={<AcademyPage />} />
           <Route path="/academy/:levelId" element={<AcademyLevelPage />} />

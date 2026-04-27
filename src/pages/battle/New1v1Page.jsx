@@ -6,6 +6,7 @@ import { PlayerPicker } from '../../components/battle/PlayerPicker';
 import { ComboPicker } from '../../components/battle/ComboPicker';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
 import { BattleSummary } from '../../components/battle/BattleSummary';
+import { OfficialToggle } from '../../components/battle/OfficialToggle';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 
@@ -20,6 +21,7 @@ export default function New1v1Page() {
     player2: { user_id: null, guest_name: null, combo_id: null },
     winner_side: null,     // 'p1' | 'p2' | 'draw'
     win_type: null,        // 'burst' | 'ko' | 'spin_finish' | 'xtreme'
+    is_official: false,
     notes: '',
   });
 
@@ -40,6 +42,7 @@ export default function New1v1Page() {
       win_type:            battle.win_type,
       points_p1:           battle.winner_side === 'p1' ? points : 0,
       points_p2:           battle.winner_side === 'p2' ? points : 0,
+      is_official:         battle.is_official,
       notes:               battle.notes,
       created_by:          user?.id,
     });
@@ -107,11 +110,20 @@ export default function New1v1Page() {
             transition={{ duration: 0.3, ease: "circOut" }}
           >
             {step === 0 && (
-              <PlayerPicker
-                battle={battle}
-                onChange={setBattle}
-                onNext={next}
-              />
+              <div className="space-y-6">
+                <PlayerPicker
+                  battle={battle}
+                  onChange={setBattle}
+                  onNext={next}
+                />
+                
+                <OfficialToggle 
+                  isOfficial={battle.is_official}
+                  canBeOfficial={battle.player1.user_id && battle.player2.user_id}
+                  reason={!(battle.player1.user_id && battle.player2.user_id) ? "Entrambi i player devono essere registrati per match ufficiali" : ""}
+                  onChange={(val) => setBattle(prev => ({ ...prev, is_official: val }))}
+                />
+              </div>
             )}
             {step === 1 && (
               <ComboPicker
