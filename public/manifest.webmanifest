@@ -8,10 +8,16 @@
   "theme_color": "#0A0A1A",
   "icons": [
     {
-      "src": "/icon-512.png",
+      "src": "/beyx_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/beyx_icon512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }

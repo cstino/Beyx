@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon-512.png', 'assets/academy/*.png'],
+      includeAssets: ['favicon.ico', 'beyx_icon.svg', 'beyx_icon512.png', 'assets/academy/*.png'],
       manifest: {
         name: 'BeyManager X',
         short_name: 'BeyX',
@@ -18,10 +18,16 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: '/icon-512.png',
+            src: '/beyx_icon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any'
+          },
+          {
+            src: '/beyx_icon512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable'
           }
         ]
       }
