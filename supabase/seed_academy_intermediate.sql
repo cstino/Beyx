@@ -11,7 +11,7 @@ INSERT INTO academy_lessons (id, level_id, title, subtitle, duration_min, xp_rew
   {"type":"paragraph","text":"Ogni Beyblade X appartiene a uno di **quattro archetipi**, che ne definiscono lo stile di gioco e la strategia. Capire come funziona ciascuno è il primo passo per scegliere bene le tue parti e costruire combo vincenti."},
   {"type":"heading","level":2,"text":"Il triangolo delle debolezze"},
   {"type":"paragraph","text":"Tre dei quattro archetipi formano un classico triangolo tipo *carta-forbici-sasso*. Conoscerlo è fondamentale per capire i matchup:"},
-  {"type":"diagram","src":"https://placeholder-diagram.png","caption":"Attack batte Stamina, Stamina batte Defense, Defense batte Attack"},
+  {"type":"diagram","src":"/academy/archetypes_triangle.png","caption":"Attack batte Stamina, Stamina batte Defense, Defense batte Attack"},
   {"type":"list","items":[
     "**Attack** vince contro **Stamina** (impatto distrugge la rotazione)",
     "**Stamina** vince contro **Defense** (sopravvive più a lungo)",
@@ -146,7 +146,7 @@ INSERT INTO academy_lessons (id, level_id, title, subtitle, duration_min, xp_rew
   {"type":"paragraph","text":"Il **Ratchet** è il componente più sottovalutato dai principianti, ma per i giocatori esperti è cruciale tanto quanto il Blade. Influenza burst resistance, baricentro, stabilità e altezza di impatto."},
   {"type":"heading","level":2,"text":"Decodificare il nome"},
   {"type":"paragraph","text":"I Ratchet hanno una nomenclatura precisa. Prendiamo come esempio **`4-60`**:"},
-  {"type":"diagram","src":"https://placeholder-diagram.png","caption":"4 = numero di lati | 60 = altezza in millimetri"},
+  {"type":"diagram","src":"/academy/ratchet_naming.png","caption":"4 = numero di lati | 60 = altezza in millimetri"},
   {"type":"heading","level":3,"text":"Primo numero (lati)"},
   {"type":"paragraph","text":"Indica il numero di **sporgenze** (lati) del Ratchet. Più sono, maggiore è la resistenza al burst perché più ''denti'' devono saltare per smontare il Beyblade."},
   {"type":"list","items":[
@@ -371,7 +371,7 @@ INSERT INTO academy_lessons (id, level_id, title, subtitle, duration_min, xp_rew
 '[
   {"type":"paragraph","text":"Conoscere come si scontrano gli archetipi è essenziale per fare scelte intelligenti durante un match. Non si tratta solo del triangolo classico — ogni matchup ha sfumature, controgiochi e variabili."},
   {"type":"heading","level":2,"text":"La matrice dei matchup"},
-  {"type":"diagram","src":"https://placeholder-matchup-matrix.png","caption":"La matrice dei matchup classica in Beyblade X"},
+  {"type":"diagram","src":"/academy/matchup_matrix.png","caption":"La matrice dei matchup classica in Beyblade X"},
   {"type":"paragraph","text":"In percentuale di vittoria approssimativa (con combo equivalenti):"},
   {"type":"list","items":[
     "**Attack vs Stamina**: 60-70% Attack",
