@@ -76,3 +76,17 @@
 .animate-beyblade {
   animation: beyblade-spin 4s linear infinite;
 }
+
+.animate-beyblade-slow {
+  animation: beyblade-spin 12s linear infinite;
+}
+
+/* Fix Chrome/Edge autofill white background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active  {
+    -webkit-box-shadow: 0 0 0 100px #12122A inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
+}

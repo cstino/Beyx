@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Github } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { Logo } from '../components/Logo';
 
@@ -23,12 +23,7 @@ export default function Auth() {
       } else {
         const { error } = await supabase.auth.signUp({ 
           email, 
-          password,
-          options: {
-            data: {
-              full_name: '', // In seguito aggiungiamo input nome
-            }
-          }
+          password
         });
         if (error) throw error;
         alert('Controlla la tua email per confermare la registrazione!');
@@ -115,16 +110,7 @@ export default function Auth() {
           </button>
         </form>
 
-        <div className="mt-8 text-center space-y-4">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-surface px-2 text-slate-500">Oppure continua con</span></div>
-          </div>
-
-          <button className="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl py-3 flex items-center justify-center gap-2 transition-all">
-            <Github size={20} />
-            GitHub
-          </button>
+        <div className="mt-8 text-center">
 
           <p className="text-xs text-slate-500">
             {isLogin ? "Non hai un account?" : "Hai già un account?"}
