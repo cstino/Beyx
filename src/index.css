@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'CreateFuture';
+  src: url('/fonts/CreateFutureRegular-m2Mw2.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @layer base {
   :root {
     --primary: 221.2 83.2% 53.3%;

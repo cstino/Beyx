@@ -20,10 +20,14 @@ import { AcademyPage } from './pages/AcademyPage';
 import { AcademyLevelPage } from './pages/AcademyLevelPage';
 import { AcademyLessonPage } from './pages/AcademyLessonPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import { SplashScreen } from './components/SplashScreen';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
   const { user, profile, setUser, fetchProfile, setLoading, loading } = useAuthStore();
+  const [splashDone, setSplashDone] = useState(
+    () => sessionStorage.getItem('splashDone') === 'true'
+  );
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -40,9 +44,18 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('splashDone', 'true');
+    setSplashDone(true);
+  };
+
+  if (!splashDone) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-[#0A0A1A] flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p className="text-primary font-display font-bold animate-pulse uppercase tracking-[0.2em]">Sincronizzazione...</p>
       </div>
