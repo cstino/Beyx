@@ -10,7 +10,7 @@ INSERT INTO academy_lessons (id, level_id, title, subtitle, duration_min, xp_rew
 '[
   {"type":"paragraph","text":"Una **Tier List** è una classifica gerarchica che ordina le parti (o le combo intere) dalla più forte alla più debole nel meta competitivo. Conoscere la Tier List ti aiuta a fare scelte informate, ma capirla è più importante che memorizzarla."},
   {"type":"heading","level":2,"text":"I tier classici"},
-  {"type":"diagram","src":"/academy/tier_list.png","caption":"La gerarchia dei tier dal più forte al più debole"},
+  {"type":"diagram","src":"assets/academy/tierlist.png","caption":"La gerarchia dei tier dal più forte al più debole"},
   {"type":"list","items":[
     "**S Tier** (oro): Meta-defining. Domina il torneo, must-have. Quasi tutte le top combo le includono",
     "**A Tier** (viola): Molto forte, competitivo. Performance sopra la media in più matchup",

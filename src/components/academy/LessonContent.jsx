@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Info, AlertTriangle, CheckCircle2, Quote } from 'lucide-react';
 import { InlineQuiz } from './InlineQuiz';
+import { academyAssets } from '../../data/academyAssets';
 
 export function LessonContent({ blocks }) {
   return (
@@ -83,10 +84,15 @@ function Paragraph({ text }) {
 }
 
 function ImageBlock({ src, alt, caption }) {
+  // Cerca l'asset sia con che senza slash iniziale per massima compatibilità
+  const cleanSrc = src.startsWith('/') ? src.substring(1) : src;
+  const embeddedAsset = academyAssets[src] || academyAssets[cleanSrc];
+  const finalSrc = embeddedAsset || (src.startsWith('/') ? src : `/${src}`);
+  
   return (
     <figure className="my-2">
       <img
-        src={src}
+        src={finalSrc}
         alt={alt}
         className="w-full rounded-xl border border-white/5"
         loading="lazy"
@@ -101,9 +107,14 @@ function ImageBlock({ src, alt, caption }) {
 }
 
 function DiagramBlock({ src, caption }) {
+  // Cerca l'asset sia con che senza slash iniziale per massima compatibilità
+  const cleanSrc = src.startsWith('/') ? src.substring(1) : src;
+  const embeddedAsset = academyAssets[src] || academyAssets[cleanSrc];
+  const finalSrc = embeddedAsset || (src.startsWith('/') ? src : `/${src}`);
+  
   return (
     <figure className="my-2 bg-[#12122A] rounded-xl p-4 border border-[#4361EE]/20">
-      <img src={src} alt={caption} className="w-full" loading="lazy" />
+      <img src={finalSrc} alt={caption} className="w-full" loading="lazy" />
       <figcaption className="text-[#4361EE] text-xs text-center mt-3 font-bold tracking-wider uppercase">
         {caption}
       </figcaption>
