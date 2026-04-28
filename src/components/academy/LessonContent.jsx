@@ -69,16 +69,19 @@ function Heading({ level, text }) {
   );
 }
 
-function Paragraph({ text }) {
-  // Simple markdown: **bold**, *italic*, `code`
-  const html = text
+const parseMarkdown = (text) => {
+  if (!text) return '';
+  return text
     .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
     .replace(/\*(.+?)\*/g, '<em class="text-white/90 italic">$1</em>')
     .replace(/`(.+?)`/g, '<code class="bg-white/10 px-1.5 py-0.5 rounded text-[#4361EE] text-sm font-mono">$1</code>');
+};
+
+function Paragraph({ text }) {
   return (
     <p
       className="text-white/75 text-base leading-relaxed"
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: parseMarkdown(text) }}
     />
   );
 }
@@ -134,7 +137,7 @@ function ListBlock({ items, ordered }) {
           {!ordered && (
             <span className="w-1.5 h-1.5 rounded-full bg-[#4361EE] mt-2 flex-shrink-0" />
           )}
-          <span>{item}</span>
+          <span dangerouslySetInnerHTML={{ __html: parseMarkdown(item) }} />
         </li>
       ))}
     </Tag>
@@ -164,7 +167,10 @@ function TipBlock({ text, variant = 'info' }) {
           {s.label}
         </div>
       </div>
-      <div className="text-white/80 text-sm leading-relaxed">{text}</div>
+      <div 
+        className="text-white/80 text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: parseMarkdown(text) }}
+      />
     </div>
   );
 }
@@ -173,7 +179,10 @@ function QuoteBlock({ text, author }) {
   return (
     <blockquote className="border-l-2 border-white/20 pl-4 py-2 my-2">
       <Quote size={14} className="text-white/30 mb-1" />
-      <p className="text-white/85 italic leading-relaxed">"{text}"</p>
+      <p 
+        className="text-white/85 italic leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: `"${parseMarkdown(text)}"` }}
+      />
       {author && (
         <cite className="text-white/40 text-xs mt-2 block not-italic">— {author}</cite>
       )}
