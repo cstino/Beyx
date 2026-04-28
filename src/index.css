@@ -90,3 +90,32 @@ input:-webkit-autofill:active  {
     -webkit-text-fill-color: white !important;
     transition: background-color 5000s ease-in-out 0s;
 }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(0); }
+  80% { transform: translateX(calc(-100% + 100px)); } /* Adjust based on container width if possible, or use a simpler scroll */
+  100% { transform: translateX(calc(-100% + 100px)); }
+}
+
+/* Version that works well for names: scrolls only if needed? Hard with pure CSS without knowing width. 
+   Simplest is a slow alternate scroll. */
+@keyframes marquee-simple {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(0); }
+  70% { transform: translateX(-50%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-simple 6s ease-in-out infinite alternate;
+}
+
+.marquee-container {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}

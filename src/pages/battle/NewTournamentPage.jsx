@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Avatar } from '../../components/Avatar';
+import { ConfirmModal } from '../../components/ConfirmModal';
 
 export default function NewTournamentPage() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function NewTournamentPage() {
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [loadingTournament, setLoadingTournament] = useState(true);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [blades, setBlades] = useState([]);
   const [ratchets, setRatchets] = useState([]);
   const [bits, setBits] = useState([]);
@@ -181,8 +183,11 @@ export default function NewTournamentPage() {
   }
 
   async function deleteTournament() {
-    if (!tournament || !window.confirm("Sei sicuro di voler eliminare definitivamente questo torneo?")) return;
-    
+    if (!tournament) return;
+    setShowConfirmDelete(true);
+  }
+
+  async function handleConfirmedDelete() {
     const { error } = await supabase
       .from('tournaments')
       .delete()
@@ -465,21 +470,23 @@ export default function NewTournamentPage() {
                            <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-2">Match Deck ({reg.deck_config?.beys?.length} Bey)</div>
                            <div className="flex gap-2">
                              {reg.deck_config?.beys?.map((b, bi) => (
-                                <div key={bi} className="flex-1 min-w-0 h-24 py-3 px-3 rounded-2xl bg-[#0A0A1A] border border-white/5 flex flex-col justify-between">
-                                   <div>
-                                      <div className="text-[7px] font-black text-primary uppercase mb-0.5">Bey {bi+1}</div>
-                                      <div className="text-[10px] font-black text-white uppercase italic truncate">
-                                        {b.blade_id ? getPartName('blade', b.blade_id) : "Vuoto"}
-                                      </div>
-                                   </div>
-                                   <div className="text-[8px] font-bold text-white/30 uppercase leading-tight line-clamp-2">
-                                     {b.blade_id ? (() => {
-                                       const blade = blades.find(p => p.id === b.blade_id);
-                                       if (b.is_stock) return `${blade?.stock_ratchet || ''} ${blade?.stock_bit || ''}`;
-                                       return `${getPartName('ratchet', b.ratchet_id)} ${getPartName('bit', b.bit_id)}`;
-                                     })() : '-'}
-                                   </div>
-                                </div>
+                                 <div key={bi} className="flex-1 min-w-0 h-[76px] py-2 px-3 rounded-2xl bg-[#0A0A1A] border border-white/5 flex flex-col justify-center">
+                                    <div className="mb-1">
+                                       <div className="text-[7px] font-black text-primary uppercase mb-0.5">Bey {bi+1}</div>
+                                       <div className="marquee-container">
+                                         <div className="text-[10px] font-black text-white uppercase italic animate-marquee">
+                                           {b.blade_id ? getPartName('blade', b.blade_id) : "Vuoto"}
+                                         </div>
+                                       </div>
+                                    </div>
+                                    <div className="text-[8px] font-bold text-white/30 uppercase leading-tight line-clamp-1">
+                                      {b.blade_id ? (() => {
+                                        const blade = blades.find(p => p.id === b.blade_id);
+                                        if (b.is_stock) return `${blade?.stock_ratchet || ''} ${blade?.stock_bit || ''}`;
+                                        return `${getPartName('ratchet', b.ratchet_id)} ${getPartName('bit', b.bit_id)}`;
+                                      })() : '-'}
+                                    </div>
+                                 </div>
                              ))}
                            </div>
                         </div>
@@ -632,6 +639,15 @@ export default function NewTournamentPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmModal 
+        isOpen={showConfirmDelete}
+        onClose={() => setShowConfirmDelete(false)}
+        onConfirm={handleConfirmedDelete}
+        title="Elimina Torneo"
+        message="Questa azione eliminerà definitivamente il torneo e tutte le relative iscrizioni. Sei sicuro?"
+        confirmLabel="Elimina"
+      />
     </div>
   );
 }

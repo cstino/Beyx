@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Avatar } from '../components/Avatar';
 import { PageContainer } from '../components/PageContainer';
+import { ConfirmModal } from '../components/ConfirmModal';
 import { useAuthStore } from '../store/useAuthStore';
 
 const FORMATS = [
@@ -42,6 +43,9 @@ export default function BattlePage() {
   const [openTournaments, setOpenTournaments] = useState([]);
   const [userRegistrations, setUserRegistrations] = useState([]);
   const [registrationsLoading, setRegistrationsLoading] = useState(true);
+  
+  // Confirm Modal state
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, tournamentId: null });
 
   useEffect(() => {
     fetchRecentBattles();
@@ -142,9 +146,7 @@ export default function BattlePage() {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (window.confirm("Vuoi eliminare definitivamente questo torneo?")) {
-                          supabase.from('tournaments').delete().eq('id', t.id).then(() => fetchOpenTournaments());
-                        }
+                        setConfirmModal({ isOpen: true, tournamentId: t.id });
                       }}
                       className="absolute top-5 right-5 z-20 w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 backdrop-blur-md"
                     >
@@ -328,6 +330,20 @@ export default function BattlePage() {
           ))
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, tournamentId: null })}
+        onConfirm={async () => {
+          if (confirmModal.tournamentId) {
+            await supabase.from('tournaments').delete().eq('id', confirmModal.tournamentId);
+            fetchOpenTournaments();
+          }
+        }}
+        title="Elimina Torneo"
+        message="Sei sicuro di voler eliminare definitivamente questo torneo? Tutti i dati e le iscrizioni andranno persi."
+        confirmLabel="Elimina"
+      />
     </PageContainer>
   );
 }
