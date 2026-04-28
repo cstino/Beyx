@@ -23,6 +23,8 @@ import { AcademyLevelPage } from './pages/AcademyLevelPage';
 import { AcademyLessonPage } from './pages/AcademyLessonPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import { SplashScreen } from './components/SplashScreen';
+import { NewMatchPage } from './pages/battle/NewMatchPage';
+import { LiveMatchPage } from './pages/battle/LiveMatchPage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
@@ -95,6 +97,8 @@ function App() {
                   <Route path="/battle/new/3v3" element={<New3v3Page />} />
                   <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
                   <Route path="/battle/tournament/:id/join" element={<TournamentJoinPage />} />
+                  <Route path="/battle/new" element={<NewMatchPage />} />
+                  <Route path="/battle/live/:battleId" element={<LiveMatchPage />} />
                   <Route path="/battle/history" element={<BattleHistoryPage />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/leaderboard" element={<LeaderboardPage />} />

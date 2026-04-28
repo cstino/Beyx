@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, LayoutGrid, X, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
@@ -12,6 +12,7 @@ import { Avatar } from '../../components/Avatar';
 
 export default function NewTournamentPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
@@ -22,6 +23,32 @@ export default function NewTournamentPage() {
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
   const [loadingTournament, setLoadingTournament] = useState(true);
+  const [blades, setBlades] = useState([]);
+  const [ratchets, setRatchets] = useState([]);
+  const [bits, setBits] = useState([]);
+
+  useEffect(() => {
+    fetchParts();
+  }, []);
+
+  async function fetchParts() {
+    const [b, r, t] = await Promise.all([
+      supabase.from('blades').select('*'),
+      supabase.from('ratchets').select('*'),
+      supabase.from('bits').select('*')
+    ]);
+    setBlades(b.data || []);
+    setRatchets(r.data || []);
+    setBits(t.data || []);
+  }
+
+  const getPartName = (type, id) => {
+    if (!id) return '';
+    if (type === 'blade') return blades.find(p => p.id === id)?.name || 'Unknown Blade';
+    if (type === 'ratchet') return ratchets.find(p => p.id === id)?.name || 'Unknown Ratchet';
+    if (type === 'bit') return bits.find(p => p.id === id)?.name || 'Unknown Bit';
+    return '';
+  };
 
   // Resume unfinished tournament if exists
   useEffect(() => {
@@ -31,14 +58,16 @@ export default function NewTournamentPage() {
         return;
       }
       
-      const { data, error } = await supabase
-        .from('tournaments')
-        .select('*')
-        .eq('created_by', user.id)
-        .neq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const targetId = location.state?.tournamentId;
+      let query = supabase.from('tournaments').select('*').eq('created_by', user.id);
+      
+      if (targetId) {
+        query = query.eq('id', targetId);
+      } else {
+        query = query.neq('status', 'completed').order('created_at', { ascending: false }).limit(1);
+      }
+      
+      const { data, error } = await query.maybeSingle();
 
       if (data) {
         const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
@@ -54,14 +83,22 @@ export default function NewTournamentPage() {
           updateTournamentDB(repaired);
         } else {
           setTournament({ ...data, structure });
-          // Iniziamo in setup ma sapendo che c'è un torneo attivo
-          setStage('setup'); 
+          // Se siamo venuti qui per gestire o se è un torneo in fase di iscrizione, andiamo direttamente alla gestione
+          if (targetId || (data.status === 'setup' && data.registration_open)) {
+            setStage('active');
+          } else {
+            setStage('setup'); 
+          }
         }
+      } else {
+        // Se non troviamo nulla e avevamo un targetId, resettiamo
+        setTournament(null);
+        setStage('setup');
       }
       setLoadingTournament(false);
     }
     checkActiveTournament();
-  }, [user]);
+  }, [user, location.state?.tournamentId]);
 
   // Manage Global Header
   useEffect(() => {
@@ -428,11 +465,21 @@ export default function NewTournamentPage() {
                            <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-2">Match Deck ({reg.deck_config?.beys?.length} Bey)</div>
                            <div className="flex gap-2">
                              {reg.deck_config?.beys?.map((b, bi) => (
-                               <div key={bi} className="flex-1 py-2 px-3 rounded-xl bg-[#0A0A1A] border border-white/5">
-                                  <div className="text-[7px] font-black text-primary uppercase">Bey {bi+1}</div>
-                                  <div className="text-[10px] font-black text-white uppercase truncate">{b.blade_id ? "Blade Selezionata" : "Empty"}</div>
-                                  <div className="text-[8px] font-bold text-white/20">{b.is_stock ? 'STOCK' : 'CUSTOM'}</div>
-                               </div>
+                                <div key={bi} className="flex-1 min-w-0 h-24 py-3 px-3 rounded-2xl bg-[#0A0A1A] border border-white/5 flex flex-col justify-between">
+                                   <div>
+                                      <div className="text-[7px] font-black text-primary uppercase mb-0.5">Bey {bi+1}</div>
+                                      <div className="text-[10px] font-black text-white uppercase italic truncate">
+                                        {b.blade_id ? getPartName('blade', b.blade_id) : "Vuoto"}
+                                      </div>
+                                   </div>
+                                   <div className="text-[8px] font-bold text-white/30 uppercase leading-tight line-clamp-2">
+                                     {b.blade_id ? (() => {
+                                       const blade = blades.find(p => p.id === b.blade_id);
+                                       if (b.is_stock) return `${blade?.stock_ratchet || ''} ${blade?.stock_bit || ''}`;
+                                       return `${getPartName('ratchet', b.ratchet_id)} ${getPartName('bit', b.bit_id)}`;
+                                     })() : '-'}
+                                   </div>
+                                </div>
                              ))}
                            </div>
                         </div>

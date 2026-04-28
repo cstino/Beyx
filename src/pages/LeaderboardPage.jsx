@@ -1,254 +1,237 @@
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Crown, Trophy, Users, Shield } from 'lucide-react';
+import { ChevronLeft, Trophy, Zap, Target, Flame, RotateCcw, Crown, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { useAuthStore } from '../store/useAuthStore';
-import { RankBadge, getRankFromElo, RANK_TIERS } from '../components/RankBadge';
+import { PageContainer } from '../components/PageContainer';
+import { Avatar } from '../components/Avatar';
+import { RankBadge, getRankFromElo } from '../components/RankBadge';
+
+const TABS = [
+  { id: 'elo',          label: 'ELO',            icon: Crown },
+  { id: 'wins',         label: 'VITTORIE',       icon: Trophy },
+  { id: 'top_combo',    label: 'TOP COMBO',      icon: TrendingUp },
+  { id: 'burst',        label: 'BURST',          icon: Zap },
+  { id: 'ko',           label: 'KO',             icon: Target },
+  { id: 'xtreme',       label: 'XTREME',         icon: Flame },
+  { id: 'spin_finish',  label: 'SPIN',           icon: RotateCcw },
+];
+
+const PERIODS = [
+  { id: 'week',  label: 'SETTIMANA', interval: '7 days' },
+  { id: 'month', label: 'MESE',      interval: '30 days' },
+  { id: 'all',   label: 'TOTALE',    interval: '100 years' },
+];
 
 export default function LeaderboardPage() {
   const navigate = useNavigate();
-  const user = useAuthStore(s => s.user);
-  const userId = user?.id;
-  const [filter, setFilter] = useState('all');
-  const [users, setUsers] = useState([]);
-  const [myPosition, setMyPosition] = useState(null);
+  const [activeTab, setActiveTab] = useState('elo');
+  const [activePeriod, setActivePeriod] = useState('week');
+  const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadLeaderboard();
-  }, [filter, userId]);
+    loadData();
+  }, [activeTab, activePeriod]);
 
-  async function loadLeaderboard() {
+  async function loadData() {
     setLoading(true);
-    let query = supabase
-      .from('profiles')
-      .select('id, username, avatar_id, title, elo, elo_peak, elo_matches, xp')
-      .gte('elo_matches', 5) // Solo chi ha completato il placement
-      .order('elo', { ascending: false })
-      .limit(100);
+    const period = PERIODS.find(p => p.id === activePeriod);
+    const since = new Date(Date.now() - parseDays(period.interval) * 86400000).toISOString();
 
-    if (filter !== 'all') {
-      const { RANK_RANGES } = await import('../components/RankBadge');
-      const range = RANK_RANGES.find(r => r.rank === filter);
-      if (range) {
-        query = query.gte('elo', range.minElo);
-        // Find next range for maxElo
-        const idx = RANK_RANGES.indexOf(range);
-        if (idx > 0) {
-          query = query.lt('elo', RANK_RANGES[idx - 1].minElo);
-        }
-      }
+    let result;
+
+    switch (activeTab) {
+      case 'elo':
+        result = await supabase.from('profiles')
+          .select('id, username, avatar_id, elo, elo_matches')
+          .gte('elo_matches', 5)
+          .order('elo', { ascending: false })
+          .limit(50);
+        setData((result.data ?? []).map(u => ({
+          label: u.username,
+          sublabel: `${u.elo} ELO`,
+          value: u.elo,
+          avatarId: u.avatar_id,
+          userId: u.id,
+          elo: u.elo,
+        })));
+        break;
+
+      case 'wins':
+        result = await supabase.rpc('leaderboard_top_players', { p_since: since });
+        setData((result.data ?? []).map(u => ({
+          label: u.username,
+          sublabel: `${u.wins}V / ${u.total_matches}M · ${u.win_rate}%`,
+          value: u.wins,
+          avatarId: u.avatar_id,
+          userId: u.user_id,
+          elo: u.elo,
+        })));
+        break;
+
+      case 'top_combo':
+        result = await supabase.rpc('leaderboard_top_combos', { p_since: since });
+        setData((result.data ?? []).map(c => ({
+          label: c.combo_name ?? 'Unknown',
+          sublabel: `${c.wins}V / ${c.total_rounds}R · ${c.win_rate}% win rate`,
+          value: c.wins,
+          isCombo: true,
+        })));
+        break;
+
+      case 'burst':
+      case 'ko':
+      case 'xtreme':
+      case 'spin_finish':
+        result = await supabase.rpc('leaderboard_top_finish_combos', {
+          p_finish_type: activeTab,
+          p_since: since,
+        });
+        setData((result.data ?? []).map(c => ({
+          label: c.combo_name ?? 'Unknown',
+          sublabel: `${c.finish_count} ${activeTab} finish`,
+          value: c.finish_count,
+          isCombo: true,
+        })));
+        break;
     }
 
-    const { data } = await query;
-    setUsers(data ?? []);
-
-    // Trova la posizione del current user
-    if (userId) {
-      const { count } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .gte('elo_matches', 5)
-        .gt('elo', (data ?? []).find(u => u.id === userId)?.elo ?? 0);
-      setMyPosition(count != null ? count + 1 : null);
-    }
     setLoading(false);
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header Area */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border-b border-white/5 pt-12 pb-6 px-4 mb-6 sticky top-0 z-30">
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(-1)}
-            className="p-3 rounded-2xl bg-white/5 text-white/70 hover:bg-white/10 transition-all border border-white/5">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="flex-1">
-            <div className="text-[10px] font-black tracking-[0.2em] text-primary uppercase mb-1">
-              Global Ranking
-            </div>
-            <h1 className="text-white text-3xl font-black uppercase tracking-tighter">
-              Leaderboard
-            </h1>
+    <PageContainer>
+      {/* Header */}
+      <div className="px-4 mb-4 pt-4 flex items-center gap-3">
+        <button onClick={() => navigate(-1)}
+          className="p-2 rounded-xl bg-white/5 text-white/70">
+          <ChevronLeft size={20} />
+        </button>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold tracking-[0.15em] text-[#F5A623]">
+            ▲ LEADERBOARD
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-            <Trophy size={24} />
-          </div>
-        </div>
-
-        {/* Filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-1">
-          <FilterChip
-            active={filter === 'all'}
-            onClick={() => setFilter('all')}
-            label="TUTTI"
-          />
-          {Object.entries(RANK_TIERS).filter(([id]) => id !== 'unranked').reverse().map(([id, tier]) => (
-            <FilterChip
-              key={id}
-              active={filter === id}
-              onClick={() => setFilter(id)}
-              label={tier.name.toUpperCase()}
-              color={tier.color}
-            />
-          ))}
+          <h1 className="text-white text-2xl font-black uppercase tracking-tight">
+            Classifiche
+          </h1>
         </div>
       </div>
 
-      {/* My position banner */}
-      {myPosition && filter === 'all' && (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="mx-4 mb-8 p-4 rounded-[2rem] bg-primary/10 border border-primary/30 flex items-center gap-4 shadow-glow-primary/5"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center font-black text-xl shadow-glow-primary">
-            #{myPosition}
-          </div>
-          <div>
-            <div className="text-xs font-black text-white uppercase tracking-wider">La tua Posizione</div>
-            <div className="text-[10px] text-primary font-bold uppercase mt-0.5">Stai scalando la vetta!</div>
-          </div>
-        </motion.div>
-      )}
+      {/* Tab selector (horizontal scroll) */}
+      <div className="px-4 mb-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1.5 pb-2">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px]
+                  font-extrabold tracking-wider whitespace-nowrap border transition-colors
+                  ${active
+                    ? 'bg-[#F5A623]/15 border-[#F5A623]/50 text-[#F5A623]'
+                    : 'bg-white/5 border-white/10 text-white/50'}`}
+              >
+                <Icon size={12} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* Podium Section */}
-      {filter === 'all' && users.length >= 3 && !loading && (
-        <div className="grid grid-cols-3 gap-3 mx-4 mb-8 items-end px-2">
-          <PodiumCard user={users[1]} position={2} accentColor="#94A3B8" />
-          <PodiumCard user={users[0]} position={1} accentColor="#F5A623" featured />
-          <PodiumCard user={users[2]} position={3} accentColor="#A16207" />
+      {/* Period filter (not shown for ELO which is all-time) */}
+      {activeTab !== 'elo' && (
+        <div className="px-4 mb-4 flex gap-2">
+          {PERIODS.map(p => (
+            <button
+              key={p.id}
+              onClick={() => setActivePeriod(p.id)}
+              className={`flex-1 py-2 rounded-lg text-[10px] font-bold tracking-wider
+                border transition-colors
+                ${activePeriod === p.id
+                  ? 'bg-white/10 border-white/20 text-white'
+                  : 'bg-white/5 border-white/5 text-white/40'}`}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Main List */}
-      <div className="px-4 space-y-3">
+      {/* Results list */}
+      <div className="px-4 pb-24 space-y-2">
         {loading ? (
           <div className="flex justify-center p-20">
-             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : users.length > 0 ? (
-          users.map((user, i) => {
-            const isMe = user.id === userId;
-            const { display, tier } = getRankFromElo(user.elo);
+        ) : data.map((item, i) => {
+          const rank = item.elo ? getRankFromElo(item.elo) : null;
 
-            return (
-              <motion.div
-                key={user.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.03 }}
-                className={`p-4 rounded-[1.5rem] flex items-center gap-4 border transition-all
-                  ${isMe
-                    ? 'bg-primary/10 border-primary/40 ring-1 ring-primary/20'
-                    : 'bg-slate-900/40 border-white/5 hover:border-white/10'}`}
-              >
-                {/* Position number */}
-                <div className="w-8 text-center flex-shrink-0">
-                  <div className={`font-black tabular-nums ${
-                    i === 0 ? 'text-[#F5A623] text-xl drop-shadow-[0_0_8px_rgba(245,166,35,0.4)]' :
-                    i === 1 ? 'text-[#94A3B8] text-lg' :
-                    i === 2 ? 'text-[#A16207] text-lg' :
-                    'text-slate-500 text-sm'
-                  }`}>
-                    {i + 1}
-                  </div>
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.03 }}
+              className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5"
+            >
+              {/* Position */}
+              <div className={`w-7 text-center font-black tabular-nums ${
+                i === 0 ? 'text-[#F5A623] text-lg' :
+                i === 1 ? 'text-[#94A3B8] text-base' :
+                i === 2 ? 'text-[#A16207] text-base' :
+                'text-white/30 text-sm'
+              }`}>
+                {i + 1}
+              </div>
+
+              {/* Avatar (for users) or combo icon */}
+              {item.avatarId ? (
+                <Avatar avatarId={item.avatarId} size={40} />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
+                  <TrendingUp size={16} className="text-white/40" />
                 </div>
+              )}
 
-                {/* Avatar */}
-                <Avatar
-                  avatarId={user.avatar_id}
-                  size={44}
-                />
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="text-white font-bold text-sm truncate">{item.label}</div>
+                <div className="text-white/40 text-[10px] truncate">{item.sublabel}</div>
+              </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-white font-black uppercase text-sm truncate tracking-tight">{user.username}</span>
-                    <span className="bg-primary/20 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-[4px] border border-primary/20">
-                      LV.{Math.max(1, Math.floor(Math.sqrt((user.xp || 0) / 50)) + 1)}
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 font-bold uppercase truncate tracking-widest">{user.title || 'Novizio'}</div>
+              {/* Value + rank badge */}
+              <div className="text-right">
+                <div className="text-white font-black tabular-nums">
+                  {item.value}
                 </div>
+                {rank && (
+                  <div className="text-[9px] font-extrabold tracking-wider"
+                    style={{ color: rank.tier.color }}>
+                    {rank.display}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
 
-                {/* Rank + ELO */}
-                <div className="text-right flex-shrink-0">
-                  <div className="text-white font-black tabular-nums leading-none text-base mb-1">
-                    {user.elo}
-                  </div>
-                  <div className={`text-[9px] font-extrabold tracking-wider uppercase`}
-                    style={{ color: tier.color }}>
-                    {display}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })
-        ) : (
-          <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/5">
-             <Shield size={32} className="mx-auto text-slate-600 mb-3 opacity-20" />
-             <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Nessun Blader trovato</p>
+        {data.length === 0 && !loading && (
+          <div className="text-center py-8 text-white/30 text-sm">
+            Nessun dato per questo periodo
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
-function FilterChip({ active, onClick, label, color = '#4361EE' }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 rounded-xl text-[9px] font-black tracking-[0.15em] whitespace-nowrap border transition-all
-        ${active ? '' : 'bg-white/5 border-white/10 text-slate-500 hover:border-white/20'}`}
-      style={active ? {
-        background: `${color}20`,
-        borderColor: `${color}60`,
-        color: color,
-        boxShadow: `0 0 15px -5px ${color}`,
-      } : undefined}
-    >
-      {label}
-    </button>
-  );
-}
-
-function PodiumCard({ user, position, accentColor, featured = false }) {
-  if (!user) return null;
-  const { display, tier } = getRankFromElo(user.elo, true);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-[2rem] p-4 text-center border relative transition-all ${featured ? 'pt-8 pb-6 scale-110 z-10' : 'pt-4 pb-4'}`}
-      style={{
-        background: `${accentColor}10`,
-        borderColor: `${accentColor}40`,
-        boxShadow: featured ? `0 0 30px -5px ${accentColor}40` : 'none',
-      }}
-    >
-      <div className={`font-black tabular-nums mb-3 flex flex-col items-center gap-1 ${
-        featured ? 'text-4xl' : 'text-2xl'
-      }`} style={{ color: accentColor }}>
-        {position === 1 && <Crown size={featured ? 28 : 20} className="mb-1 drop-shadow-glow" />}
-        <span className="leading-none">#{position}</span>
-      </div>
-
-      <div className="flex justify-center mb-3">
-         <div className={`rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-500 overflow-hidden ${featured ? 'w-16 h-16' : 'w-12 h-12'}`}>
-            <Users size={featured ? 28 : 20} />
-         </div>
-      </div>
-
-      <div className="text-white font-black uppercase text-[10px] truncate mb-1 tracking-tighter">{user.username}</div>
-      <div className={`text-[9px] font-black tracking-widest uppercase`}
-        style={{ color: tier.color }}>
-        {display} ({user.elo})
-      </div>
-    </motion.div>
-  );
+function parseDays(interval) {
+  const match = interval.match(/(\d+)\s*(days?|years?)/);
+  if (!match) return 7;
+  const [, num, unit] = match;
+  return unit.startsWith('year') ? parseInt(num) * 365 : parseInt(num);
 }

@@ -14,7 +14,7 @@ const FORMATS = [
     title: '1v1',
     subtitle: 'Battaglia singola',
     color: '#E94560',
-    path: '/battle/new/1v1',
+    path: '/battle/new',
   },
   {
     key: '3v3',
@@ -22,7 +22,7 @@ const FORMATS = [
     title: '3v3',
     subtitle: 'Deck format',
     color: '#4361EE',
-    path: '/battle/new/3v3',
+    path: '/battle/new',
   },
   {
     key: 'tournament',
@@ -40,11 +40,28 @@ export default function BattlePage() {
   const [recentBattles, setRecentBattles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openTournaments, setOpenTournaments] = useState([]);
+  const [userRegistrations, setUserRegistrations] = useState([]);
+  const [registrationsLoading, setRegistrationsLoading] = useState(true);
 
   useEffect(() => {
     fetchRecentBattles();
     fetchOpenTournaments();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserRegistrations();
+    }
+  }, [user]);
+
+  async function fetchUserRegistrations() {
+    const { data } = await supabase
+      .from('tournament_registrations')
+      .select('tournament_id, status')
+      .eq('user_id', user.id);
+    setUserRegistrations(data || []);
+    setRegistrationsLoading(false);
+  }
 
   async function fetchRecentBattles() {
     const { data } = await supabase
@@ -93,43 +110,74 @@ export default function BattlePage() {
             <div className="px-2 py-1 bg-primary/10 rounded text-[8px] font-black text-primary animate-pulse uppercase">Live</div>
           </div>
           <div className="space-y-4">
-            {openTournaments.map(t => (
-              <motion.div 
-                key={t.id} whileTap={{ scale: 0.98 }}
-                onClick={() => navigate(`/battle/tournament/${t.id}/join`)}
-                className="w-full p-6 rounded-[32px] bg-gradient-to-br from-[#12122A] to-[#0A0A1A] border border-white/5 relative overflow-hidden shadow-xl"
-              >
-                {t.created_by === user?.id && (
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (window.confirm("Vuoi eliminare definitivamente questo torneo?")) {
-                        supabase.from('tournaments').delete().eq('id', t.id).then(() => fetchOpenTournaments());
-                      }
-                    }}
-                    className="absolute top-5 right-5 z-20 w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 backdrop-blur-md"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-                <div className="relative z-10">
-                  <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">{t.battle_type} · {t.format}</div>
-                  <div className="text-2xl font-black text-white uppercase italic tracking-tighter truncate pr-12">{t.name}</div>
-                  <div className="mt-6 flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center">
-                           <Trophy size={20} className="text-primary" />
-                        </div>
-                        <div className="flex -space-x-2 ml-1">
-                          {[1,2,3].map(i => <div key={i} className="w-6 h-6 rounded-full bg-white/5 border border-[#0A0A1A]" />)}
-                        </div>
-                     </div>
-                     <button className="px-6 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary">Unisciti</button>
+            {openTournaments.map(t => {
+              const isCreator = t.created_by === user?.id;
+              const registration = userRegistrations.find(r => r.tournament_id === t.id);
+              const isRegistered = !!registration;
+
+              let btnLabel = "Unisciti";
+              let btnAction = () => navigate(`/battle/tournament/${t.id}/join`);
+              let btnClass = "bg-primary text-white shadow-glow-primary";
+
+              if (isCreator) {
+                btnLabel = "Gestisci";
+                btnAction = () => navigate(`/battle/new/tournament`, { state: { tournamentId: t.id } });
+                btnClass = "bg-[#4361EE] text-white shadow-glow-blue";
+              } else if (isRegistered) {
+                btnLabel = registration.status === 'pending' ? "In Attesa" : registration.status.toUpperCase();
+                btnAction = () => navigate(`/battle/tournament/${t.id}/join`);
+                btnClass = "bg-white/10 text-white/40";
+              }
+
+              return (
+                <motion.div 
+                  key={t.id} whileTap={{ scale: 0.98 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    btnAction();
+                  }}
+                  className="w-full p-6 rounded-[32px] bg-gradient-to-br from-[#12122A] to-[#0A0A1A] border border-white/5 relative overflow-hidden shadow-xl"
+                >
+                  {isCreator && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm("Vuoi eliminare definitivamente questo torneo?")) {
+                          supabase.from('tournaments').delete().eq('id', t.id).then(() => fetchOpenTournaments());
+                        }
+                      }}
+                      className="absolute top-5 right-5 z-20 w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 backdrop-blur-md"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  <div className="relative z-10">
+                    <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-1 italic">{t.battle_type} · {t.format}</div>
+                    <div className="text-2xl font-black text-white uppercase italic tracking-tighter truncate pr-12">{t.name}</div>
+                    <div className="mt-6 flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center">
+                             <Trophy size={20} className="text-primary" />
+                          </div>
+                          <div className="flex -space-x-2 ml-1">
+                            {[1,2,3].map(i => <div key={i} className="w-6 h-6 rounded-full bg-white/5 border border-[#0A0A1A]" />)}
+                          </div>
+                       </div>
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           btnAction();
+                         }}
+                         className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${btnClass}`}
+                       >
+                         {btnLabel}
+                       </button>
+                    </div>
                   </div>
-                </div>
-                <Trophy className="absolute top-1/2 right-[-20px] -translate-y-1/2 opacity-[0.03] rotate-12" size={160} />
-              </motion.div>
-            ))}
+                  <Trophy className="absolute top-1/2 right-[-20px] -translate-y-1/2 opacity-[0.03] rotate-12" size={160} />
+                </motion.div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -141,7 +189,7 @@ export default function BattlePage() {
           return (
             <motion.button
               key={fmt.key}
-              onClick={() => navigate(fmt.path)}
+              onClick={() => navigate(fmt.path, { state: { format: fmt.key } })}
               whileTap={{ scale: 0.98 }}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
