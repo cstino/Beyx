@@ -10,20 +10,49 @@ import { StatCard } from '../components/StatCard';
 import { AcademyBanner } from '../components/AcademyBanner';
 import { SectionHeader } from '../components/SectionHeader';
 import { LeaderboardRow } from '../components/LeaderboardRow';
-import { Trophy, ChevronRight, CheckCircle2, Trash2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Trophy, ChevronRight, CheckCircle2, Trash2, Check, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Avatar } from '../components/Avatar';
 
 export default function Dashboard() {
   const [userId, setUserId] = useState(null);
   const [openTournaments, setOpenTournaments] = useState([]);
   const navigate = useNavigate();
 
+  const [pendingInvitations, setPendingInvitations] = useState([]);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+      if (user) {
+        setUserId(user.id);
+        fetchPendingInvitations(user.id);
+      }
     });
     fetchOpenTournaments();
   }, []);
+
+  async function fetchPendingInvitations(uid) {
+    const { data } = await supabase
+      .from('battles')
+      .select(`
+        *,
+        p1:player1_user_id(username, avatar_id, avatar_color)
+      `)
+      .eq('player2_user_id', uid)
+      .eq('status', 'pending');
+    setPendingInvitations(data || []);
+  }
+
+  async function handleInvitation(battleId, accept) {
+    if (accept) {
+      navigate(`/battle/accept/${battleId}`);
+    } else {
+      await supabase.from('battles')
+        .update({ status: 'cancelled' })
+        .eq('id', battleId);
+      fetchPendingInvitations(userId);
+    }
+  }
 
   async function fetchOpenTournaments() {
     const { data } = await supabase
@@ -60,6 +89,49 @@ export default function Dashboard() {
           <BladerHeroCard blader={blader} />
         </div>
       </div>
+
+      {/* NEW: Pending Invitations Section */}
+      <AnimatePresence>
+        {pendingInvitations.length > 0 && (
+          <div className="mx-4 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-[3px] h-3.5 bg-primary" />
+              <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase">Sfide in arrivo</h2>
+            </div>
+            <div className="space-y-3">
+              {pendingInvitations.map(inv => (
+                <motion.div 
+                  key={inv.id}
+                  initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                  className="p-5 rounded-3xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 flex items-center justify-between shadow-xl"
+                >
+                  <div className="flex items-center gap-4">
+                    <Avatar avatarId={inv.p1?.avatar_id} size={40} />
+                    <div>
+                      <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Ti ha sfidato</div>
+                      <div className="text-sm font-black text-white uppercase italic">{inv.p1?.username}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => handleInvitation(inv.id, false)}
+                      className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5"
+                    >
+                      <X size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleInvitation(inv.id, true)}
+                      className="px-6 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary"
+                    >
+                      Accetta
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 2. Stats Row */}
       <div className="grid grid-cols-2 gap-3 mx-4 mt-5 mb-5">

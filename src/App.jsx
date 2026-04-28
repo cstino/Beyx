@@ -25,6 +25,7 @@ import LeaderboardPage from './pages/LeaderboardPage';
 import { SplashScreen } from './components/SplashScreen';
 import { NewMatchPage } from './pages/battle/NewMatchPage';
 import { LiveMatchPage } from './pages/battle/LiveMatchPage';
+import { AcceptChallengePage } from './pages/battle/AcceptChallengePage';
 import { useAuthStore } from './store/useAuthStore';
 
 function App() {
@@ -36,13 +37,13 @@ function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) fetchProfile(session.user);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      if (session?.user) fetchProfile(session.user);
     });
 
     return () => subscription.unsubscribe();
@@ -98,6 +99,7 @@ function App() {
                   <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
                   <Route path="/battle/tournament/:id/join" element={<TournamentJoinPage />} />
                   <Route path="/battle/new" element={<NewMatchPage />} />
+                  <Route path="/battle/accept/:battleId" element={<AcceptChallengePage />} />
                   <Route path="/battle/live/:battleId" element={<LiveMatchPage />} />
                   <Route path="/battle/history" element={<BattleHistoryPage />} />
                   <Route path="/account" element={<Account />} />

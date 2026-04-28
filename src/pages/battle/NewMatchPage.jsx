@@ -27,6 +27,8 @@ export function NewMatchPage() {
   });
 
   async function handleCreate() {
+    const isInvitation = !!match.player2.user_id;
+
     const { data, error } = await supabase.from('battles').insert({
       format:             match.format,
       player1_user_id:    match.player1.user_id,
@@ -37,12 +39,20 @@ export function NewMatchPage() {
       is_official:        match.is_official,
       p1_deck_id:         match.p1_deck_id,
       p2_deck_id:         match.p2_deck_id,
-      status:             'active',
+      p1_deck_config:     match.p1_deck_config,
+      status:             isInvitation ? 'pending' : 'active',
       created_by:         userId,
       admin_user_id:      userId,
     }).select().single();
 
-    if (!error) navigate(`/battle/live/${data.id}`);
+    if (!error) {
+      if (isInvitation) {
+        // Se è un invito, torniamo alla pagina Battle mostrando un feedback
+        navigate('/battle', { state: { invitationSent: true } });
+      } else {
+        navigate(`/battle/live/${data.id}`);
+      }
+    }
   }
 
   return (

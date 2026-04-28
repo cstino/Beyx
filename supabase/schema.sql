@@ -78,7 +78,7 @@ create policy "Allow public read on ratchets" on public.ratchets for select usin
 create policy "Allow public read on bits" on public.bits for select using (true);
 
 -- User specific tables
-create policy "Users can view their own profile" on public.profiles for select using (auth.uid() = id);
+create policy "Profiles are viewable by everyone" on public.profiles for select using (true);
 create policy "Users can update their own profile" on public.profiles for update using (auth.uid() = id);
 
 create policy "Users can view their own collection" on public.user_collections for select using (auth.uid() = user_id);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Zap, Target, Flame, RotateCcw, Minus, Trophy, ChevronLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -23,6 +23,7 @@ export function LiveMatchPage() {
   const [rounds, setRounds] = useState([]);
   const [p1Combos, setP1Combos] = useState([]);
   const [p2Combos, setP2Combos] = useState([]);
+  const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
 
   // Current round state
   const [selectedP1Combo, setSelectedP1Combo] = useState(null);
@@ -55,24 +56,32 @@ export function LiveMatchPage() {
   async function loadBattle() {
     const { data } = await supabase.from('battles')
       .select(`*,
-        p1_deck:p1_deck_id(*, combo1:combo1_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name)),
-                               combo2:combo2_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name)),
-                               combo3:combo3_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name))),
-        p2_deck:p2_deck_id(*, combo1:combo1_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name)),
-                               combo2:combo2_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name)),
-                               combo3:combo3_id(*, blade:blade_id(name), ratchet:ratchet_id(name), bit:bit_id(name)))
+        p1:player1_user_id(username, avatar_id),
+        p2:player2_user_id(username, avatar_id)
       `)
       .eq('id', battleId)
       .single();
 
     if (data) {
       setBattle(data);
-      if (data.p1_deck) {
-        setP1Combos([data.p1_deck.combo1, data.p1_deck.combo2, data.p1_deck.combo3].filter(Boolean));
+      
+      // Fetch parts to resolve names from configs
+      const [b, r, t] = await Promise.all([
+        supabase.from('blades').select('*'),
+        supabase.from('ratchets').select('*'),
+        supabase.from('bits').select('*')
+      ]);
+      const partsData = { blades: b.data || [], ratchets: r.data || [], bits: t.data || [] };
+      setParts(partsData);
+
+      // Load combos from config
+      if (data.p1_deck_config?.beys) {
+        setP1Combos(data.p1_deck_config.beys.map((b, i) => ({ id: `p1-${i}`, ...b })));
       }
-      if (data.p2_deck) {
-        setP2Combos([data.p2_deck.combo1, data.p2_deck.combo2, data.p2_deck.combo3].filter(Boolean));
+      if (data.p2_deck_config?.beys) {
+        setP2Combos(data.p2_deck_config.beys.map((b, i) => ({ id: `p2-${i}`, ...b })));
       }
+      
       loadRounds();
     }
   }
@@ -85,16 +94,27 @@ export function LiveMatchPage() {
     setRounds(data ?? []);
   }
 
+  const getBeyName = (config) => {
+    if (!config) return '—';
+    const blade = parts.blades.find(b => b.id === config.blade_id);
+    if (!blade) return 'Bey...';
+    if (config.is_stock) return blade.name;
+    const ratchet = parts.ratchets.find(r => r.id === config.ratchet_id);
+    const bit = parts.bits.find(b => b.id === config.bit_id);
+    return `${blade.name} ${ratchet?.name || ''} ${bit?.name || ''}`.trim();
+  };
+
   if (!battle) return null;
 
-  const p1Score = rounds.reduce((s, r) => s + (r.winner_side === 'p1' ? r.points_awarded : 0), 0);
-  const p2Score = rounds.reduce((s, r) => s + (r.winner_side === 'p2' ? r.points_awarded : 0), 0);
+  const confirmedRounds = rounds.filter(r => r.confirmed_by_p1 && r.confirmed_by_p2);
+  const p1Score = confirmedRounds.reduce((s, r) => s + (r.winner_side === 'p1' ? r.points_awarded : 0), 0);
+  const p2Score = confirmedRounds.reduce((s, r) => s + (r.winner_side === 'p2' ? r.points_awarded : 0), 0);
   const currentRound = rounds.length + 1;
   const isComplete = battle.status === 'completed';
   const mySide = userId === battle.player1_user_id ? 'p1' : 'p2';
 
-  const p1Name = battle.player1_guest_name ?? 'P1';
-  const p2Name = battle.player2_guest_name ?? 'P2';
+  const p1Name = battle.player1_guest_name ?? battle.p1?.username ?? 'P1';
+  const p2Name = battle.player2_guest_name ?? battle.p2?.username ?? 'P2';
 
   async function submitRound() {
     if (!selectedWinner || !selectedFinish) return;
@@ -103,14 +123,8 @@ export function LiveMatchPage() {
     await supabase.from('rounds').insert({
       battle_id:      battleId,
       round_number:   currentRound,
-      p1_combo_id:    selectedP1Combo?.id ?? null,
-      p2_combo_id:    selectedP2Combo?.id ?? null,
-      p1_combo_label: selectedP1Combo
-        ? [selectedP1Combo.blade?.name, selectedP1Combo.ratchet?.name, selectedP1Combo.bit?.name].filter(Boolean).join(' ')
-        : null,
-      p2_combo_label: selectedP2Combo
-        ? [selectedP2Combo.blade?.name, selectedP2Combo.ratchet?.name, selectedP2Combo.bit?.name].filter(Boolean).join(' ')
-        : null,
+      p1_combo_label: getBeyName(selectedP1Combo),
+      p2_combo_label: getBeyName(selectedP2Combo),
       winner_side:    selectedWinner,
       finish_type:    selectedFinish,
       points_awarded: finishData?.points ?? 0,
@@ -175,28 +189,48 @@ export function LiveMatchPage() {
       </div>
 
       {isComplete && (
-        <motion.div className="mx-4 mb-6 p-6 rounded-2xl text-center border"
+        <motion.div className="mx-4 mb-6 p-6 rounded-[32px] text-center border-2"
           style={{ background: 'linear-gradient(135deg, rgba(245,166,35,0.1), rgba(233,69,96,0.1))', borderColor: '#F5A623' }}
           initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <Trophy size={40} className="text-[#F5A623] mx-auto mb-3" />
-          <div className="text-white text-2xl font-black uppercase mb-1">{battle.winner_side === 'p1' ? p1Name : p2Name} VINCE!</div>
-          <div className="text-white/50 text-sm">{p1Score} - {p2Score} · {rounds.length} round</div>
+          <Trophy size={40} className="text-[#F5A623] mx-auto mb-3 drop-shadow-glow" />
+          <div className="text-white text-2xl font-black uppercase italic tracking-tighter mb-1">
+            {battle.winner_side === 'p1' ? p1Name : p2Name} VINCE!
+          </div>
+          <div className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+            RISULTATO FINALE: {p1Score} - {p2Score}
+          </div>
         </motion.div>
+      )}
+
+      {/* Finishing Button */}
+      {!isComplete && (p1Score >= battle.point_target || p2Score >= battle.point_target) && (
+        <div className="mx-4 mb-6">
+           <button 
+             onClick={async () => {
+                const winner = p1Score >= battle.point_target ? 'p1' : 'p2';
+                await supabase.from('battles').update({ 
+                  status: 'completed', 
+                  winner_side: winner,
+                  points_p1: p1Score,
+                  points_p2: p2Score 
+                }).eq('id', battleId);
+             }}
+             className="w-full py-4 rounded-2xl bg-[#F5A623] text-white font-black uppercase tracking-widest shadow-glow-accent"
+           >
+             CONCLUDI MATCH
+           </button>
+        </div>
       )}
 
       {!isComplete && (
         <div className="mx-4 mb-6">
-          {battle.format === '3v3' && (
-            <>
-              <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">COMBO PER QUESTO ROUND</div>
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <ComboSelector label={p1Name} combos={p1Combos} selected={selectedP1Combo} onSelect={setSelectedP1Combo} accentColor="#E94560" />
-                <ComboSelector label={p2Name} combos={p2Combos} selected={selectedP2Combo} onSelect={setSelectedP2Combo} accentColor="#4361EE" />
-              </div>
-            </>
-          )}
+          <div className="text-[10px] font-black text-white/50 tracking-[0.2em] mb-3 text-center uppercase">Bey per questo round</div>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <ComboSelector label={p1Name} combos={p1Combos} selected={selectedP1Combo} onSelect={setSelectedP1Combo} accentColor="#E94560" getBeyName={getBeyName} />
+            <ComboSelector label={p2Name} combos={p2Combos} selected={selectedP2Combo} onSelect={setSelectedP2Combo} accentColor="#4361EE" getBeyName={getBeyName} />
+          </div>
 
-          <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">CHI HA VINTO QUESTO ROUND?</div>
+          <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 uppercase text-center">Chi ha vinto questo round?</div>
           <div className="grid grid-cols-3 gap-2 mb-4">
             <button onClick={() => setSelectedWinner('p1')} className={`py-4 rounded-xl border-2 font-bold text-sm transition-all ${selectedWinner === 'p1' ? 'bg-[#E94560] border-[#E94560] text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>{p1Name}</button>
             <button onClick={() => { setSelectedWinner('draw'); setSelectedFinish('draw'); }} className={`py-4 rounded-xl border-2 font-bold text-xs transition-all ${selectedWinner === 'draw' ? 'bg-white/20 border-white/40 text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>DRAW</button>
@@ -205,7 +239,7 @@ export function LiveMatchPage() {
 
           {selectedWinner && selectedWinner !== 'draw' && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">TIPO DI FINISH</div>
+              <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 uppercase text-center">Tipo di Finish</div>
               <div className="grid grid-cols-2 gap-2 mb-6">
                 {FINISH_TYPES.filter(f => f.id !== 'draw').map(ft => {
                   const Icon = ft.icon;
@@ -224,33 +258,41 @@ export function LiveMatchPage() {
             </motion.div>
           )}
 
-          <motion.button onClick={submitRound} disabled={!selectedWinner || (!selectedFinish && selectedWinner !== 'draw')} whileTap={{ scale: 0.97 }} className="w-full py-4 rounded-xl font-bold tracking-wider text-white disabled:opacity-30" style={{ background: 'linear-gradient(135deg, #E94560, #C9304A)', boxShadow: '0 4px 20px -4px rgba(233,69,96,0.5)' }}>
-            CONFERMA ROUND {currentRound}
+          <motion.button onClick={submitRound} disabled={!selectedWinner || (!selectedFinish && selectedWinner !== 'draw')} whileTap={{ scale: 0.97 }} className="w-full py-4 rounded-xl font-bold tracking-wider text-white disabled:opacity-30 uppercase" style={{ background: 'linear-gradient(135deg, #E94560, #C9304A)', boxShadow: '0 4px 20px -4px rgba(233,69,96,0.5)' }}>
+            Conferma Round {currentRound}
           </motion.button>
         </div>
       )}
 
       {rounds.length > 0 && (
         <div className="mx-4 mb-6">
-          <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">STORICO ROUND</div>
+          <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 uppercase">Storico Round</div>
           <div className="space-y-1.5">
             {rounds.map(r => {
               const ft = FINISH_TYPES.find(f => f.id === r.finish_type);
-              const needsConfirm = (mySide === 'p1' && !r.confirmed_by_p1) || (mySide === 'p2' && !r.confirmed_by_p2);
+              const isConfirmed = r.confirmed_by_p1 && r.confirmed_by_p2;
+              const needsMyConfirm = (mySide === 'p1' && !r.confirmed_by_p1) || (mySide === 'p2' && !r.confirmed_by_p2);
+              
               return (
-                <div key={r.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#12122A] border border-white/5">
-                  <div className="text-white/30 font-bold text-xs w-6 text-center">R{r.round_number}</div>
+                <div key={r.id} className={`flex items-center gap-3 p-4 rounded-[24px] bg-[#12122A] border transition-all ${isConfirmed ? 'border-white/5' : 'border-yellow-500/30 bg-yellow-500/5'}`}>
+                  <div className="text-white/30 font-black text-[10px] w-6 text-center">R{r.round_number}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-white/60 truncate">{r.p1_combo_label ?? '—'} vs {r.p2_combo_label ?? '—'}</div>
+                    <div className="text-[10px] text-white font-black uppercase italic truncate mb-0.5">{r.p1_combo_label ?? '—'} vs {r.p2_combo_label ?? '—'}</div>
+                    <div className="flex items-center gap-2">
+                       {ft && <div className="text-[8px] font-black uppercase px-2 py-0.5 rounded" style={{ color: ft.color, background: `${ft.color}15` }}>{ft.name}</div>}
+                       {!isConfirmed && <div className="text-[8px] font-black text-yellow-500 uppercase tracking-widest animate-pulse">In attesa...</div>}
+                    </div>
                   </div>
-                  {ft && (
-                    <div className="text-[9px] font-extrabold px-2 py-1 rounded" style={{ color: ft.color, background: `${ft.color}15` }}>{ft.name.toUpperCase()} +{ft.points}</div>
-                  )}
-                  <div className={`text-xs font-black ${r.winner_side === 'p1' ? 'text-[#E94560]' : r.winner_side === 'p2' ? 'text-[#4361EE]' : 'text-white/30'}`}>
+                  <div className={`text-xl font-black italic ${r.winner_side === 'p1' ? 'text-[#E94560]' : r.winner_side === 'p2' ? 'text-[#4361EE]' : 'text-white/30'}`}>
                     {r.winner_side === 'p1' ? 'P1' : r.winner_side === 'p2' ? 'P2' : '—'}
                   </div>
-                  {needsConfirm && (
-                    <button onClick={() => confirmRound(r.id)} className="text-[9px] font-bold px-2 py-1 rounded bg-[#F5A623]/15 text-[#F5A623] border border-[#F5A623]/30">CONFERMA</button>
+                  {needsMyConfirm && (
+                    <button 
+                      onClick={() => confirmRound(r.id)} 
+                      className="ml-2 px-4 py-2 rounded-xl bg-yellow-500 text-black text-[10px] font-black uppercase tracking-wider shadow-lg"
+                    >
+                      CONFERMA
+                    </button>
                   )}
                 </div>
               );
@@ -262,23 +304,27 @@ export function LiveMatchPage() {
   );
 }
 
-function ComboSelector({ label, combos, selected, onSelect, accentColor }) {
+function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyName }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <div className="text-[9px] font-bold tracking-wider mb-1.5" style={{ color: accentColor }}>{label.toUpperCase()}</div>
-      <button onClick={() => setOpen(!open)} className="w-full p-2.5 rounded-lg bg-[#12122A] border border-white/10 text-left">
-        <div className="text-white text-xs font-bold truncate">{selected ? [selected.blade?.name, selected.ratchet?.name, selected.bit?.name].filter(Boolean).join(' ') : 'Seleziona combo'}</div>
+      <div className="text-[9px] font-black tracking-[0.2em] mb-1.5 uppercase opacity-40 text-center" style={{ color: accentColor }}>{label}</div>
+      <button onClick={() => setOpen(!open)} className="w-full p-4 rounded-2xl bg-[#12122A] border border-white/10 text-left min-h-[60px] flex items-center justify-center">
+        <div className="text-white text-[10px] font-black uppercase italic tracking-tighter text-center">
+          {selected ? getBeyName(selected) : 'Scegli Bey'}
+        </div>
       </button>
-      {open && (
-        <motion.div className="absolute top-full left-0 right-0 z-50 mt-1 p-1 bg-[#1A1A3A] border border-white/10 rounded-lg shadow-2xl max-h-48 overflow-y-auto" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
-          {combos.map(c => (
-            <button key={c.id} onClick={() => { onSelect(c); setOpen(false); }} className={`w-full p-2 rounded-lg text-left text-[10px] font-bold transition-colors ${selected?.id === c.id ? `bg-opacity-10 border` : 'bg-white/5 hover:bg-white/10'}`} style={selected?.id === c.id ? { background: `${accentColor}10`, borderColor: `${accentColor}40`, color: 'white' } : { color: 'rgba(255,255,255,0.7)' }}>
-              {[c.blade?.name, c.ratchet?.name, c.bit?.name].filter(Boolean).join(' ')}
-            </button>
-          ))}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div className="absolute top-full left-0 right-0 z-50 mt-2 p-2 bg-[#1A1A3A] border border-white/10 rounded-2xl shadow-2xl max-h-48 overflow-y-auto" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}>
+            {combos.map(c => (
+              <button key={c.id} onClick={() => { onSelect(c); setOpen(false); }} className={`w-full p-3 rounded-xl text-left text-[10px] font-black uppercase italic transition-colors mb-1 last:mb-0 ${selected?.id === c.id ? `bg-opacity-10 border` : 'bg-white/5 hover:bg-white/10'}`} style={selected?.id === c.id ? { background: `${accentColor}10`, borderColor: `${accentColor}40`, color: 'white' } : { color: 'rgba(255,255,255,0.7)' }}>
+                {getBeyName(c)}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

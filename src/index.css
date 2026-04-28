@@ -119,3 +119,28 @@ input:-webkit-autofill:active  {
   mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
   -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
 }
+/* Consistent Glow effects */
+.shadow-glow-primary {
+  box-shadow: 0 0 12px rgba(67, 97, 238, 0.3), 0 0 4px rgba(67, 97, 238, 0.15);
+}
+
+.shadow-glow-primary-sm {
+  box-shadow: 0 0 6px rgba(67, 97, 238, 0.25);
+}
+
+.shadow-glow-accent {
+  box-shadow: 0 0 12px rgba(233, 69, 96, 0.3), 0 0 4px rgba(233, 69, 96, 0.15);
+}
+
+.shadow-glow-accent-sm {
+  box-shadow: 0 0 6px rgba(233, 69, 96, 0.25);
+}
+
+/* Legacy support/Specific colors */
+.shadow-glow-blue {
+  box-shadow: 0 0 12px rgba(67, 97, 238, 0.3), 0 0 4px rgba(67, 97, 238, 0.15);
+}
+
+.shadow-glow-blue-sm {
+  box-shadow: 0 0 6px rgba(67, 97, 238, 0.25);
+}

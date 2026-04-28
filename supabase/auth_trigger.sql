@@ -4,13 +4,15 @@
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, avatar_url, xp, level)
+  INSERT INTO public.profiles (id, username, avatar_id, xp, level, title, onboarding_done)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1)),
-    'https://api.dicebear.com/7.x/bottts-neutral/svg?seed=' || NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'avatar_id', 'avatar-1'),
     0,
-    1
+    1,
+    'Blader Novizio',
+    false
   );
   RETURN NEW;
 END;

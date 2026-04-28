@@ -34,33 +34,35 @@ export function OnboardingPage() {
     setError(null);
 
     try {
-      // 1. Registra l'utente su Supabase Auth
+      // 0. Verifica disponibilità username (opzionale ma consigliato)
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', formData.bladerName.trim())
+        .maybeSingle();
+      
+      if (existing) {
+        throw new Error('Questo nome Blader è già impegnato in battaglia. Scegline un altro!');
+      }
+
+      // 1. Registra l'utente su Supabase Auth passando i metadati
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            username: formData.bladerName.trim(),
+            avatar_id: formData.avatarId,
+          }
+        }
       });
 
       if (authError) throw authError;
 
-      // 2. Crea/aggiorna il profilo con i dati del blader
-      const userId = authData.user?.id;
-      if (userId) {
-        const { error: profileError } = await supabase.from('profiles').upsert({
-          id: userId,
-          username: formData.bladerName.trim(),
-          avatar_id: formData.avatarId,
-          title: "Blader d'Elite",
-          elo: 1000,
-          elo_peak: 1000,
-          xp: 0,
-          onboarding_done: false,  // Welcome tour non ancora visto
-        }, { onConflict: 'id' });
+      // 2. Il profilo viene ora creato automaticamente dal trigger handle_new_user()
+      // con i metadati corretti. Non serve più l'upsert manuale che causava errori RLS.
 
-        if (profileError) throw profileError;
-      }
-
-      // 3. Navigation is handled by auth state change elsewhere, 
-      // but we force a welcome redirect for the first time
+      // 3. Reindirizza alla pagina di conferma/benvenuto
       navigate('/welcome');
     } catch (err) {
       setError(err.message);

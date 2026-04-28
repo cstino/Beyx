@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, LayoutGrid, X, Trash2 } from 'lucide-react';
+import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
@@ -23,6 +23,13 @@ export default function NewTournamentPage() {
   const [activeMatch, setActiveMatch] = useState(null); // { rIndex, mIndex }
   const [p1Score, setP1Score] = useState(0);
   const [p2Score, setP2Score] = useState(0);
+  const [matchRounds, setMatchRounds] = useState([]);
+  const [currentRoundEntry, setCurrentRoundEntry] = useState({
+    p1_bey: null,
+    p2_bey: null,
+    winner: null,
+    finish: null
+  });
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [blades, setBlades] = useState([]);
@@ -268,8 +275,22 @@ export default function NewTournamentPage() {
        created_by: user.id
     };
 
-    const { error: battleError } = await supabase.from('battles').insert(battleRecord);
+    const { data: battleData, error: battleError } = await supabase.from('battles').insert(battleRecord).select().single();
     if (battleError) console.error('Battle insert error:', battleError);
+
+    // Save individual rounds to the database for history tracking
+    if (battleData && matchRounds.length > 0) {
+      const roundsToInsert = matchRounds.map((r, i) => ({
+        battle_id: battleData.id,
+        round_number: i + 1,
+        p1_combo_label: getPartName('blade', r.p1_bey),
+        p2_combo_label: getPartName('blade', r.p2_bey),
+        winner_side: r.winner,
+        finish_type: r.finish,
+        points_awarded: r.points
+      }));
+      await supabase.from('rounds').insert(roundsToInsert);
+    }
 
     let updatedStatus = tournament.status;
     let winnerUserId = null;
@@ -318,6 +339,51 @@ export default function NewTournamentPage() {
     updateTournamentDB(updatedTournament);
   }
 
+  const FINISH_TYPES = [
+    { id: 'burst',       name: 'Burst',   points: 2, icon: Zap,       color: '#E94560' },
+    { id: 'ko',          name: 'KO',      points: 2, icon: Target,    color: '#4361EE' },
+    { id: 'xtreme',      name: 'Xtreme',  points: 3, icon: Flame,     color: '#F5A623' },
+    { id: 'spin_finish', name: 'Spin',    points: 1, icon: RotateCcw, color: '#00D68F' },
+    { id: 'draw',        name: 'Draw',    points: 0, icon: Minus,     color: '#6B7280' },
+  ];
+
+  function handleSelectMatch(rIndex, mIndex) {
+    // Reset match states
+    setMatchRounds([]);
+    setP1Score(0);
+    setP2Score(0);
+    setCurrentRoundEntry({ p1_bey: null, p2_bey: null, winner: null, finish: null });
+    setActiveMatch({ rIndex, mIndex });
+  }
+
+  function addRound() {
+    if (!currentRoundEntry.winner || !currentRoundEntry.finish) return;
+    
+    const ft = FINISH_TYPES.find(f => f.id === currentRoundEntry.finish);
+    const newRound = { ...currentRoundEntry, points: ft.points };
+    const newRounds = [...matchRounds, newRound];
+    
+    setMatchRounds(newRounds);
+    
+    // Update scores
+    const s1 = newRounds.reduce((acc, r) => acc + (r.winner === 'p1' ? r.points : 0), 0);
+    const s2 = newRounds.reduce((acc, r) => acc + (r.winner === 'p2' ? r.points : 0), 0);
+    setP1Score(s1);
+    setP2Score(s2);
+    
+    // Reset round entry (keep Beys for faster entry if they repeat)
+    setCurrentRoundEntry(prev => ({ ...prev, winner: null, finish: null }));
+  }
+
+  function removeRound(idx) {
+    const newRounds = matchRounds.filter((_, i) => i !== idx);
+    setMatchRounds(newRounds);
+    const s1 = newRounds.reduce((acc, r) => acc + (r.winner === 'p1' ? r.points : 0), 0);
+    const s2 = newRounds.reduce((acc, r) => acc + (r.winner === 'p2' ? r.points : 0), 0);
+    setP1Score(s1);
+    setP2Score(s2);
+  }
+
   async function updateTournamentDB(t) {
     await supabase.from('tournaments')
       .update({ 
@@ -345,10 +411,58 @@ export default function NewTournamentPage() {
   async function fetchRegistrations() {
     const { data } = await supabase
       .from('tournament_registrations')
-      .select('*, profiles(username, avatar_id, avatar_color)')
+      .select('*, profiles(id, username, avatar_id, avatar_color)')
       .eq('tournament_id', tournament.id);
-    setRegistrations(data || []);
+    
+    if (data) {
+      setRegistrations(data);
+      // Se il torneo è attivo, proviamo a riparare i nomi "Sconosciuto" nella struttura
+      if (tournament.status === 'active') {
+        const profileMap = {};
+        data.forEach(r => {
+          if (r.profiles) profileMap[r.user_id] = r.profiles.username;
+        });
+        cleanTournamentStructure(profileMap);
+      }
+    }
   }
+
+  function cleanTournamentStructure(profileMap) {
+    let changed = false;
+    const newStructure = JSON.parse(JSON.stringify(tournament.structure));
+    
+    newStructure.rounds.forEach(r => {
+      r.matches.forEach(m => {
+        if (m.p1?.user_id && (m.p1.username === 'Sconosciuto' || !m.p1.username)) {
+          const realName = profileMap[m.p1.user_id];
+          if (realName && realName !== 'Sconosciuto') {
+            m.p1.username = realName;
+            changed = true;
+          }
+        }
+        if (m.p2?.user_id && (m.p2.username === 'Sconosciuto' || !m.p2.username)) {
+          const realName = profileMap[m.p2.user_id];
+          if (realName && realName !== 'Sconosciuto') {
+            m.p2.username = realName;
+            changed = true;
+          }
+        }
+      });
+    });
+
+    if (changed) {
+      const updated = { ...tournament, structure: newStructure };
+      setTournament(updated);
+      updateTournamentDB(updated);
+    }
+  }
+
+  useEffect(() => {
+    if (tournament && tournament.status === 'active') {
+      // Fetch registrations even if active to sync names
+      fetchRegistrations();
+    }
+  }, [tournament?.id, tournament?.status]);
 
   async function handleRegistrationStatus(regId, newStatus) {
     await supabase.from('tournament_registrations').update({ status: newStatus }).eq('id', regId);
@@ -358,7 +472,7 @@ export default function NewTournamentPage() {
   async function startFromRegistrations() {
     const approved = registrations.filter(r => r.status === 'approved').map(r => ({
       user_id: r.user_id,
-      username: r.profiles.username,
+      username: r.profiles?.username || 'Sconosciuto',
       seed: 0,
       deck: r.deck_config
     }));
@@ -457,8 +571,14 @@ export default function NewTournamentPage() {
                       <div key={reg.id} className="p-5 bg-[#12122A] rounded-3xl border border-white/5 space-y-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                             <Avatar avatarId={reg.profiles.avatar_id} size={36} />
-                             <div className="text-sm font-black text-white uppercase italic">{reg.profiles.username}</div>
+                             <Avatar 
+                               avatarId={reg.profiles?.avatar_id || 'avatar-1'} 
+                               avatarColor={reg.profiles?.avatar_color}
+                               size={36} 
+                             />
+                             <div className="text-sm font-black text-white uppercase italic">
+                               {reg.profiles?.username || (reg.user_id ? 'Caricamento...' : 'Sconosciuto')}
+                             </div>
                           </div>
                           <div className={`px-2 py-1 rounded text-[8px] font-black uppercase ${reg.status === 'approved' ? 'bg-green-500/10 text-green-500' : reg.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-white/10 text-white/40'}`}>
                             {reg.status}
@@ -555,7 +675,7 @@ export default function NewTournamentPage() {
            <>
              <BracketView 
                tournament={tournament} 
-               onSelectMatch={(rIndex, mIndex) => setActiveMatch({ rIndex, mIndex })}
+               onSelectMatch={handleSelectMatch}
              />
              {/* Bottone di emergenza se la riparazione automatica fallisce */}
              {tournament.structure?.rounds?.[tournament.structure.rounds.length - 1]?.matches[0]?.winner && (
@@ -595,42 +715,159 @@ export default function NewTournamentPage() {
                <button onClick={() => setActiveMatch(null)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/20"><X size={20} /></button>
             </div>
             
-            <div className="flex-1 px-6">
-               <div className="bg-[#12122A] rounded-3xl p-8 border border-white/5 flex flex-col items-center">
-                  <div className="flex items-center justify-around w-full mb-12">
-                     <div className="text-center">
-                        <div className="text-[10px] font-black text-primary tracking-widest uppercase mb-4 opacity-50">Score P1</div>
-                        <input 
-                          type="number" 
-                          value={p1Score} 
-                          onChange={(e) => setP1Score(parseInt(e.target.value) || 0)}
-                          className="w-20 bg-white/5 border-2 border-white/10 rounded-2xl h-20 text-center text-3xl font-black text-white focus:border-primary outline-none"
-                        />
-                        <div className="mt-4 text-[11px] font-black text-white/60 uppercase truncate w-24">
-                          {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.username}
-                        </div>
-                     </div>
-
-                     <div className="text-white/10 font-black text-2xl italic mt-10">VS</div>
-
-                     <div className="text-center">
-                        <div className="text-[10px] font-black text-[#4361EE] tracking-widest uppercase mb-4 opacity-50">Score P2</div>
-                        <input 
-                          type="number" 
-                          value={p2Score} 
-                          onChange={(e) => setP2Score(parseInt(e.target.value) || 0)}
-                          className="w-20 bg-white/5 border-2 border-white/10 rounded-2xl h-20 text-center text-3xl font-black text-white focus:border-[#4361EE] outline-none"
-                        />
-                        <div className="mt-4 text-[11px] font-black text-white/60 uppercase truncate w-24">
-                          {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.username}
-                        </div>
-                     </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-20">
+               <div className="bg-[#12122A] rounded-3xl p-6 border border-white/5 space-y-8">
+                  {/* Scoreboard Display */}
+                  <div className="flex items-center justify-around py-4 bg-white/5 rounded-2xl border border-white/5">
+                      <div className="text-center">
+                         <div className="text-[40px] font-black text-white italic leading-none">{p1Score}</div>
+                         <div className="mt-2 text-[10px] font-bold text-white/40 uppercase tracking-widest truncate w-24">
+                           {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.username}
+                         </div>
+                      </div>
+                      <div className="text-white/10 font-black text-xl italic mt-4">VS</div>
+                      <div className="text-center">
+                         <div className="text-[40px] font-black text-white italic leading-none">{p2Score}</div>
+                         <div className="mt-2 text-[10px] font-bold text-white/40 uppercase tracking-widest truncate w-24">
+                           {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.username}
+                         </div>
+                      </div>
                   </div>
+
+                  {/* Round Entry Form */}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* P1 Bey Selector */}
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black text-primary uppercase tracking-widest block text-center">Bey P1</label>
+                        <div className="flex justify-center gap-2">
+                          {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.user_id)?.deck_config?.beys?.map((b, i) => {
+                             const isSelected = currentRoundEntry.p1_bey === b.blade_id;
+                             const blade = blades.find(p => p.id === b.blade_id);
+                             return (
+                               <button 
+                                 key={i}
+                                 onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p1_bey: b.blade_id }))}
+                                 className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-primary/20 border-primary shadow-glow-primary scale-110' : 'bg-white/5 border-white/10 opacity-40 hover:opacity-100'}`}
+                               >
+                                 <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-lg" alt="" />
+                                 {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
+                               </button>
+                             );
+                          })}
+                        </div>
+                        <div className="text-[9px] font-bold text-white/30 text-center truncate">
+                          {currentRoundEntry.p1_bey ? getPartName('blade', currentRoundEntry.p1_bey) : 'Seleziona...'}
+                        </div>
+                      </div>
+
+                      {/* P2 Bey Selector */}
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black text-[#4361EE] uppercase tracking-widest block text-center">Bey P2</label>
+                        <div className="flex justify-center gap-2">
+                          {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.user_id)?.deck_config?.beys?.map((b, i) => {
+                             const isSelected = currentRoundEntry.p2_bey === b.blade_id;
+                             const blade = blades.find(p => p.id === b.blade_id);
+                             return (
+                               <button 
+                                 key={i}
+                                 onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p2_bey: b.blade_id }))}
+                                 className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#4361EE]/20 border-[#4361EE] shadow-glow-blue scale-110' : 'bg-white/5 border-white/10 opacity-40 hover:opacity-100'}`}
+                               >
+                                 <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-lg" alt="" />
+                                 {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#4361EE] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
+                               </button>
+                             );
+                          })}
+                        </div>
+                        <div className="text-[9px] font-bold text-white/30 text-center truncate">
+                          {currentRoundEntry.p2_bey ? getPartName('blade', currentRoundEntry.p2_bey) : 'Seleziona...'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Vincitore Round</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button 
+                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p1' }))}
+                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'p1' ? 'bg-primary border-primary text-white shadow-glow-primary' : 'bg-white/5 border-white/5 text-white/30'}`}
+                        >P1</button>
+                        <button 
+                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'draw', finish: 'draw' }))}
+                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'draw' ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/5 text-white/30'}`}
+                        >Draw</button>
+                        <button 
+                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p2' }))}
+                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white shadow-glow-blue' : 'bg-white/5 border-white/5 text-white/30'}`}
+                        >P2</button>
+                      </div>
+                    </div>
+
+                    {currentRoundEntry.winner && currentRoundEntry.winner !== 'draw' && (
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Tipo Finish</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {FINISH_TYPES.filter(f => f.id !== 'draw').map(ft => (
+                            <button 
+                              key={ft.id}
+                              onClick={() => setCurrentRoundEntry(prev => ({ ...prev, finish: ft.id }))}
+                              className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${currentRoundEntry.finish === ft.id ? '' : 'bg-[#0A0A1A] border-white/5 opacity-40'}`}
+                              style={currentRoundEntry.finish === ft.id ? { background: `${ft.color}15`, borderColor: ft.color } : {}}
+                            >
+                              <ft.icon size={16} style={{ color: ft.color }} />
+                              <div className="text-left">
+                                <div className="text-[10px] font-black text-white uppercase">{ft.name}</div>
+                                <div className="text-[9px] font-bold" style={{ color: ft.color }}>+{ft.points} PT</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button 
+                      onClick={addRound}
+                      disabled={!currentRoundEntry.winner || (!currentRoundEntry.finish && currentRoundEntry.winner !== 'draw')}
+                      className="w-full py-4 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-20"
+                    >
+                      <Plus size={16} /> Aggiungi Round
+                    </button>
+                  </div>
+
+                  {/* History of Rounds */}
+                  {matchRounds.length > 0 && (
+                    <div className="space-y-3 pt-6 border-t border-white/5">
+                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Cronologia Round ({matchRounds.length})</label>
+                      <div className="space-y-2">
+                        {matchRounds.map((r, i) => {
+                          const ft = FINISH_TYPES.find(f => f.id === r.finish);
+                          return (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                              <div className="text-[10px] font-black text-white/20">R{i+1}</div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[10px] font-bold text-white/60 truncate">
+                                  {r.p1_bey ? getPartName('blade', r.p1_bey) : '—'} vs {r.p2_bey ? getPartName('blade', r.p2_bey) : '—'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-[8px] font-black px-2 py-0.5 rounded uppercase" style={{ color: ft.color, background: `${ft.color}15` }}>{ft.name}</div>
+                                <div className={`text-xs font-black ${r.winner === 'p1' ? 'text-primary' : r.winner === 'p2' ? 'text-[#4361EE]' : 'text-white/20'}`}>
+                                  {r.winner === 'p1' ? 'P1' : r.winner === 'p2' ? 'P2' : 'D'}
+                                </div>
+                                <button onClick={() => removeRound(i)} className="text-white/20 hover:text-red-500"><X size={14} /></button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   <button 
                     onClick={handleMatchWin}
-                    disabled={p1Score === p2Score}
-                    className="w-full py-5 rounded-2xl bg-primary text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-30"
+                    disabled={p1Score === p2Score && matchRounds.length === 0}
+                    className="w-full py-5 rounded-2xl bg-primary text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-30 mt-8"
                   >
                     Salva Risultato Torneo
                   </button>
