@@ -52,6 +52,7 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
   const applySavedCombo = (index, combo) => {
     const newDeck = [...deck];
     newDeck[index] = {
+      id: combo.id,
       blade_id: combo.blade_id,
       is_stock: combo.is_stock ?? false,
       ratchet_id: combo.ratchet_id || '',

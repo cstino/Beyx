@@ -80,15 +80,15 @@ export function AcceptChallengePage() {
     <div className="min-h-screen bg-[#0A0A1A] pb-24 px-4 pt-4">
       {/* Informazioni Match */}
       <div className="mb-8 px-2">
-        <div className="text-[10px] font-bold tracking-[0.15em] text-primary uppercase mb-1">Configura</div>
-        <div className="text-white font-black text-lg uppercase italic">Scegli il tuo Deck</div>
+        <div className="text-[10px] font-bold tracking-[0.15em] text-primary uppercase mb-1 font-createfuture">Configura</div>
+        <div className="text-white font-black text-lg uppercase italic font-createfuture">Scegli il tuo Deck</div>
       </div>
 
       <div className="mb-6 p-5 rounded-[32px] bg-primary/5 border border-primary/20 flex items-center gap-4">
         <div className="w-10 h-10 rounded-2xl bg-primary/20 flex items-center justify-center text-primary font-black italic text-xl">VS</div>
         <div>
-          <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Sfidante</div>
-          <div className="text-sm font-black text-white uppercase italic">{battle.p1?.username}</div>
+          <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5 font-createfuture">Sfidante</div>
+          <div className="text-sm font-black text-white uppercase italic font-createfuture">{battle.p1?.username}</div>
         </div>
       </div>
 

@@ -50,18 +50,18 @@ export default function LeaderboardPage() {
 
     switch (activeTab) {
       case 'elo':
-        result = await supabase.from('profiles')
-          .select('id, username, avatar_id, elo, elo_matches')
-          .gte('elo_matches', 5)
-          .order('elo', { ascending: false })
-          .limit(50);
+        result = await supabase.rpc('leaderboard_top_players', { 
+          p_since: since, 
+          p_sort_by: 'elo' 
+        });
         setData((result.data ?? []).map(u => ({
           label: u.username,
-          sublabel: `${u.elo} ELO`,
+          sublabel: `${u.wins}W / ${u.total_matches - u.wins}L`,
           value: u.elo,
           avatarId: u.avatar_id,
-          userId: u.id,
+          userId: u.user_id,
           elo: u.elo,
+          placementDone: u.placement_done,
         })));
         break;
 
@@ -74,6 +74,7 @@ export default function LeaderboardPage() {
           avatarId: u.avatar_id,
           userId: u.user_id,
           elo: u.elo,
+          placementDone: u.placement_done,
         })));
         break;
 
@@ -84,6 +85,7 @@ export default function LeaderboardPage() {
           sublabel: `${c.wins}V / ${c.total_rounds}R · ${c.win_rate}% win rate`,
           value: c.wins,
           isCombo: true,
+          bladeImageUrl: c.blade_image_url,
         })));
         break;
 
@@ -100,6 +102,7 @@ export default function LeaderboardPage() {
           sublabel: `${c.finish_count} ${activeTab} finish`,
           value: c.finish_count,
           isCombo: true,
+          bladeImageUrl: c.blade_image_url,
         })));
         break;
     }
@@ -111,10 +114,10 @@ export default function LeaderboardPage() {
     <PageContainer>
       {/* Tab Context Info */}
       <div className="px-4 mb-4 pt-4">
-          <div className="text-[10px] font-bold tracking-[0.15em] text-[#F5A623] mb-1">
+          <div className="text-[10px] font-bold tracking-[0.15em] text-[#F5A623] mb-1 font-createfuture">
             ▲ LEADERBOARD
           </div>
-          <h1 className="text-white text-lg font-black uppercase italic tracking-tight">
+          <h1 className="text-white text-lg font-black uppercase italic tracking-tight font-createfuture">
             Top Players & Combo
           </h1>
       </div>
@@ -130,7 +133,7 @@ export default function LeaderboardPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px]
-                  font-extrabold tracking-wider whitespace-nowrap border transition-colors
+                  font-extrabold tracking-wider whitespace-nowrap border transition-colors font-createfuture
                   ${active
                     ? 'bg-[#F5A623]/15 border-[#F5A623]/50 text-[#F5A623]'
                     : 'bg-white/5 border-white/10 text-white/50'}`}
@@ -151,7 +154,7 @@ export default function LeaderboardPage() {
               key={p.id}
               onClick={() => setActivePeriod(p.id)}
               className={`flex-1 py-2 rounded-lg text-[10px] font-bold tracking-wider
-                border transition-colors
+                border transition-colors font-createfuture
                 ${activePeriod === p.id
                   ? 'bg-white/10 border-white/20 text-white'
                   : 'bg-white/5 border-white/5 text-white/40'}`}
@@ -169,7 +172,7 @@ export default function LeaderboardPage() {
             <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : data.map((item, i) => {
-          const rank = item.elo ? getRankFromElo(item.elo) : null;
+          const rank = item.elo ? getRankFromElo(item.elo, item.placementDone) : null;
 
           return (
             <motion.div
@@ -180,7 +183,7 @@ export default function LeaderboardPage() {
               className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5"
             >
               {/* Position */}
-              <div className={`w-7 text-center font-black tabular-nums ${
+              <div className={`w-7 text-center font-black tabular-nums font-createfuture ${
                 i === 0 ? 'text-[#F5A623] text-lg' :
                 i === 1 ? 'text-[#94A3B8] text-base' :
                 i === 2 ? 'text-[#A16207] text-base' :
@@ -192,6 +195,10 @@ export default function LeaderboardPage() {
               {/* Avatar (for users) or combo icon */}
               {item.avatarId ? (
                 <Avatar avatarId={item.avatarId} size={40} />
+              ) : item.bladeImageUrl ? (
+                <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center p-1.5">
+                  <img src={item.bladeImageUrl} alt="" className="w-full h-full object-contain drop-shadow-md" />
+                </div>
               ) : (
                 <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center">
                   <TrendingUp size={16} className="text-white/40" />
@@ -200,17 +207,17 @@ export default function LeaderboardPage() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="text-white font-bold text-sm truncate">{item.label}</div>
+                <div className="text-white font-bold text-sm truncate font-createfuture uppercase italic">{item.label}</div>
                 <div className="text-white/40 text-[10px] truncate">{item.sublabel}</div>
               </div>
 
               {/* Value + rank badge */}
               <div className="text-right">
-                <div className="text-white font-black tabular-nums">
+                <div className="text-white font-black tabular-nums font-createfuture">
                   {item.value}
                 </div>
                 {rank && (
-                  <div className="text-[9px] font-extrabold tracking-wider"
+                  <div className="text-[9px] font-extrabold tracking-wider font-createfuture"
                     style={{ color: rank.tier.color }}>
                     {rank.display}
                   </div>

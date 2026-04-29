@@ -26,8 +26,11 @@ export default function Builder() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
+  const [isBuilding, setIsBuilding] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   // View state: 'build' or 'saved'
-  const initialView = searchParams.get('view') === 'saved' ? 'saved' : 'build';
+  const initialView = searchParams.get('view') === 'build' ? 'build' : 'saved';
   const [view, setView] = useState(initialView);
   const [savedCombos, setSavedCombos] = useState([]);
   
@@ -41,7 +44,7 @@ export default function Builder() {
   const { setHeader, clearHeader } = useUIStore();
 
   useEffect(() => {
-    setHeader('BUILDER', '');
+    setHeader('DECK', '');
     
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -166,6 +169,14 @@ export default function Builder() {
         <div className="px-4">
           <div className="flex gap-2 p-1 bg-[#12122A] rounded-xl border border-white/5">
             <button
+              onClick={() => setView('saved')}
+              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
+                view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
+              }`}
+            >
+              IL MIO DECK
+            </button>
+            <button
               onClick={() => setView('build')}
               className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
                 view === 'build' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
@@ -173,89 +184,144 @@ export default function Builder() {
             >
               BUILDER
             </button>
-            <button
-              onClick={() => setView('saved')}
-              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
-                view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
-              }`}
-            >
-              SAVED
-            </button>
           </div>
         </div>
       </header>
 
       {view === 'build' ? (
         <>
-          {/* BUILDER VIEW CONTENT... */}
-          <div className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5 shadow-lg">
-            <div className="flex items-center gap-4 mb-5">
-              <div className="flex-1">
-                <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic">Crea Combo</h1>
-                <p className="text-[10px] font-bold text-[#4361EE] uppercase tracking-[0.2em] mt-2">
-                  {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Finita'}
-                </p>
-              </div>
-              <button onClick={reset} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-95">
-                <RotateCcw size={20} className="text-slate-400" />
+          {!isBuilding && !blade ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 mt-20">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-24 h-24 bg-[#E94560]/10 rounded-full flex items-center justify-center mb-6 border border-[#E94560]/20"
+              >
+                <div className="w-16 h-16 bg-[#E94560] rounded-full flex items-center justify-center shadow-glow-primary">
+                  <RotateCcw size={32} className="text-white" />
+                </div>
+              </motion.div>
+              <h2 className="text-xl font-black text-white uppercase italic tracking-tighter mb-2 text-center font-createfuture">Nuova Combinazione</h2>
+              <p className="text-slate-400 text-xs text-center mb-8 max-w-[200px]">Inizia a costruire il tuo bey partendo dalla Blade.</p>
+              <button 
+                onClick={() => {
+                  setIsBuilding(true);
+                  setActiveTab('blades');
+                }}
+                className="px-10 py-5 bg-[#E94560] text-white font-black uppercase tracking-[0.15em] rounded-2xl shadow-glow-primary active:scale-95 transition-all font-createfuture text-lg"
+              >
+                CREA COMBO
               </button>
             </div>
+          ) : (
+            <>
+              {/* Customizer Header */}
+              <div className="sticky top-[73px] z-20 bg-[#0A0A1A] px-4 pt-4 pb-6 border-b border-white/5 shadow-lg">
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="flex-1">
+                    <h1 className="text-2xl font-black uppercase tracking-tighter leading-none text-white italic font-createfuture">Customizing</h1>
+                    <p className="text-[10px] font-bold text-[#4361EE] uppercase tracking-[0.2em] mt-2">
+                      {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Finita'}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      reset();
+                      setIsBuilding(false);
+                      setDrawerOpen(false);
+                    }} 
+                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-95"
+                  >
+                    <RotateCcw size={20} className="text-slate-400" />
+                  </button>
+                </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { part: blade, label: 'Blade', type: 'blades' },
-                { part: ratchet, label: 'Ratchet', type: 'ratchets' },
-                { part: bit, label: 'Bit', type: 'bits' }
-              ].map((item, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => setActiveTab(item.type)}
-                  className={`p-2.5 rounded-xl border text-left transition-all ${
-                    activeTab === item.type 
-                      ? 'bg-[#4361EE]/10 border-[#4361EE]/50 ring-1 ring-[#4361EE]/20' 
-                      : 'bg-white/5 border-white/5 opacity-60'
-                  }`}
-                >
-                  <span className="text-[8px] uppercase font-black text-slate-500 block leading-none mb-1.5">{item.label}</span>
-                  <span className="text-[11px] font-black truncate block text-white uppercase italic">
-                    {item.part ? item.part.name : '---'}
-                  </span>
-                </button>
-              ))}
-            </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { part: blade, label: 'Blade', type: 'blades' },
+                    { part: ratchet, label: 'Ratchet', type: 'ratchets' },
+                    { part: bit, label: 'Bit', type: 'bits' }
+                  ].map((item, idx) => (
+                    <button 
+                      key={idx}
+                      onClick={() => setActiveTab(item.type)}
+                      className={`p-2.5 rounded-xl border text-left transition-all ${
+                        activeTab === item.type 
+                          ? 'bg-[#4361EE]/10 border-[#4361EE]/50 ring-1 ring-[#4361EE]/20' 
+                          : 'bg-white/5 border-white/5 opacity-60'
+                      }`}
+                    >
+                      <span className="text-[8px] uppercase font-black text-slate-500 block leading-none mb-1.5">{item.label}</span>
+                      <span className="text-[11px] font-black truncate block text-white uppercase italic">
+                        {item.part ? item.part.name : '---'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
 
-            <div className="flex gap-1 mt-6 p-1 bg-[#12122A] rounded-xl border border-white/5">
-              {['blades', 'ratchets', 'bits'].map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setActiveTab(type)}
-                  className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                    activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
-                  }`}
-                >
-                  {type.slice(0, -1)}
-                </button>
-              ))}
-            </div>
-          </div>
+                <div className="flex gap-1 mt-6 p-1 bg-[#12122A] rounded-xl border border-white/5">
+                  {['blades', 'ratchets', 'bits'].map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setActiveTab(type)}
+                      className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                        activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
+                      }`}
+                    >
+                      {type.slice(0, -1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="px-4 py-3">
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              {parts[activeTab].map((p) => (
-                <PartCard 
-                  key={p.id} 
-                  part={p} 
-                  owned={ownedIds.has(p.id)}
-                  wishlisted={wishlistIds.has(p.id)}
-                  onClick={() => select(activeTab.slice(0, -1), p)}
-                  className={`
-                    ${((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
-                    ${wishlistIds.has(p.id) && !ownedIds.has(p.id) ? 'border-[#4361EE]/40' : ''}
-                  `}
-                />
-              ))}
-            </div>
-          </div>
+              {/* List Section */}
+              <div className="px-4 py-3">
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {parts[activeTab].map((p) => (
+                    <PartCard 
+                      key={p.id} 
+                      part={p} 
+                      owned={ownedIds.has(p.id)}
+                      wishlisted={wishlistIds.has(p.id)}
+                      onClick={() => {
+                        if (activeTab === 'blades') {
+                          const stockRatchet = parts.ratchets.find(r => r.name === p.stock_ratchet);
+                          const stockBit = parts.bits.find(b => b.name === p.stock_bit);
+                          select('blade', p);
+                          if (stockRatchet) select('ratchet', stockRatchet);
+                          if (stockBit) select('bit', stockBit);
+                          setActiveTab('ratchets');
+                          // Don't auto-open drawer, let them see stock parts
+                        } else {
+                          select(activeTab.slice(0, -1), p);
+                          // If it was the last piece manually, maybe open? 
+                          // Let's keep it manual for consistency
+                        }
+                      }}
+                      className={`
+                        ${((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
+                        ${wishlistIds.has(p.id) && !ownedIds.has(p.id) ? 'border-[#4361EE]/40' : ''}
+                      `}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Button for Completed Combo */}
+              {blade && ratchet && bit && !drawerOpen && (
+                <div className="fixed bottom-24 left-0 right-0 z-20 px-6">
+                  <motion.button
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    onClick={() => setDrawerOpen(true)}
+                    className="w-full py-4 bg-primary text-white font-black uppercase tracking-widest rounded-2xl shadow-glow-primary font-createfuture"
+                  >
+                    Vedi Risultato
+                  </motion.button>
+                </div>
+              )}
+            </>
+          )}
         </>
       ) : (
         <div className="px-4 mt-6">
@@ -312,9 +378,10 @@ export default function Builder() {
       )}
 
       <ComboResultDrawer 
+        isOpen={drawerOpen}
         combo={{ blade, ratchet, bit }}
         score={score}
-        onClose={() => select('bit', null)}
+        onClose={() => setDrawerOpen(false)}
         onSave={handleSave}
         saving={saving}
       />

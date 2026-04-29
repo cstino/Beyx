@@ -42,8 +42,8 @@ export default function BattleHistoryPage() {
     <div className="min-h-screen bg-[#0A0A1A] pb-32 pt-4">
       {/* Header Info */}
       <div className="px-6 mb-6">
-          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1">Archive</div>
-          <h1 className="text-white font-black text-lg uppercase italic">Cronologia Battaglie</h1>
+          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1 font-createfuture">Archive</div>
+          <h1 className="text-white font-black text-lg uppercase italic font-createfuture">Cronologia Battaglie</h1>
       </div>
 
       <div className="px-6 space-y-4">
@@ -85,13 +85,13 @@ export default function BattleHistoryPage() {
                     {/* Player 1 */}
                     <div className="flex items-center gap-3 flex-1">
                       <Avatar avatarId={battle.p1?.avatar_id} size={28} showFallback={!battle.p1} username={battle.player1_guest_name} />
-                      <div className={`text-xs font-black uppercase tracking-tight truncate ${battle.winner_side === 'p1' ? 'text-white' : 'text-white/30'}`}>
+                      <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p1' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p1?.username || battle.player1_guest_name}
                       </div>
                     </div>
 
                     {/* Scores */}
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[80px] justify-center">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[80px] justify-center font-createfuture">
                       <span className={`text-lg font-black italic ${battle.winner_side === 'p1' ? 'text-[#E94560]' : 'text-white/40'}`}>
                         {battle.points_p1}
                       </span>
@@ -104,7 +104,7 @@ export default function BattleHistoryPage() {
                     {/* Player 2 */}
                     <div className="flex items-center gap-3 flex-1 flex-row-reverse text-right">
                       <Avatar avatarId={battle.p2?.avatar_id} size={28} showFallback={!battle.p2} username={battle.player2_guest_name} />
-                      <div className={`text-xs font-black uppercase tracking-tight truncate ${battle.winner_side === 'p2' ? 'text-white' : 'text-white/30'}`}>
+                      <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p2' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p2?.username || battle.player2_guest_name}
                       </div>
                     </div>

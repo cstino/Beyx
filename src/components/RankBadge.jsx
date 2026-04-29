@@ -102,6 +102,7 @@ export function RankBadge({
   const isUnranked = rank === 'unranked';
 
   const sizes = {
+    xs: { iconBox: 20, icon: 10, text: 'text-[8px]',  elo: 'text-[7px]' },
     sm: { iconBox: 28, icon: 14, text: 'text-[10px]', elo: 'text-[9px]' },
     md: { iconBox: 40, icon: 20, text: 'text-xs',     elo: 'text-[10px]' },
     lg: { iconBox: 56, icon: 28, text: 'text-sm',     elo: 'text-xs' },

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Avatar } from '../components/Avatar';
+import { LeaderboardCarousel } from '../components/LeaderboardCarousel';
 import { PageContainer } from '../components/PageContainer';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { useAuthStore } from '../store/useAuthStore';
@@ -45,6 +46,7 @@ export default function BattlePage() {
   const [userRegistrations, setUserRegistrations] = useState([]);
   const [registrationsLoading, setRegistrationsLoading] = useState(true);
   const [pendingInvitations, setPendingInvitations] = useState([]);
+  const [topBladers, setTopBladers] = useState([]);
   const [invitationFeedback, setInvitationFeedback] = useState(location.state?.invitationSent || false);
   
   // Match Detail state
@@ -59,10 +61,20 @@ export default function BattlePage() {
     fetchRecentBattles();
     fetchLiveMatches();
     fetchOpenTournaments();
+    fetchLeaderboard();
     if (user) {
       fetchPendingInvitations();
     }
   }, [user]);
+
+  async function fetchLeaderboard() {
+    const { data } = await supabase.from('profiles')
+      .select('id, username, avatar_id, title, elo, elo_matches')
+      .gte('elo_matches', 0)
+      .order('elo', { ascending: false })
+      .limit(5);
+    setTopBladers(data || []);
+  }
 
   useEffect(() => {
     if (user) {
@@ -170,7 +182,7 @@ export default function BattlePage() {
         <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-[3px] h-3.5 bg-red-500" />
-            <h2 className="text-[11px] font-extrabold text-white tracking-[0.2em] uppercase flex items-center gap-2">
+            <h2 className="text-[11px] font-extrabold text-white tracking-[0.2em] uppercase flex items-center gap-2 font-createfuture">
               Match in corso <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             </h2>
           </div>
@@ -190,7 +202,7 @@ export default function BattlePage() {
                         <Avatar avatarId={match.p1?.avatar_id} size={32} />
                         <span className="text-[8px] font-black text-white/40 uppercase truncate w-12 text-center">{match.p1?.username || match.player1_guest_name}</span>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 font-createfuture">
                         <div className="text-xl font-black text-white italic">{match.points_p1}</div>
                         <div className="text-[10px] font-black text-white/20">VS</div>
                         <div className="text-xl font-black text-white italic">{match.points_p2}</div>
@@ -220,11 +232,11 @@ export default function BattlePage() {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-[3px] h-5 bg-[#E94560]" />
-          <div className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase">
+          <div className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase font-createfuture">
             Battle Arena
           </div>
         </div>
-        <h1 className="text-2xl font-black text-white tracking-tight">
+        <h1 className="text-2xl font-black text-white tracking-tight font-createfuture uppercase">
           Inizia una sfida
         </h1>
       </div>
@@ -252,7 +264,7 @@ export default function BattlePage() {
         <section className="mb-10">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-[3px] h-3.5 bg-primary" />
-            <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase">Sfide in arrivo</h2>
+            <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase font-createfuture">Sfide in arrivo</h2>
           </div>
           <div className="space-y-3">
             {pendingInvitations.map(inv => (
@@ -292,7 +304,7 @@ export default function BattlePage() {
       {openTournaments.length > 0 && (
         <section className="mb-10 px-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[11px] font-black text-white/40 tracking-[0.2em] uppercase">Iscrizioni Aperte</h2>
+            <h2 className="text-[11px] font-black text-white/40 tracking-[0.2em] uppercase font-createfuture">Iscrizioni Aperte</h2>
             <div className="px-2 py-1 bg-primary/10 rounded text-[8px] font-black text-primary animate-pulse uppercase">Live</div>
           </div>
           <div className="space-y-4">
@@ -400,7 +412,7 @@ export default function BattlePage() {
               </div>
 
               <div className="flex-1 text-left relative">
-                <div className="text-white font-black text-xl leading-tight">
+                <div className="text-white font-black text-xl leading-tight font-createfuture">
                   {fmt.title}
                 </div>
                 <div className="text-white/40 text-xs mt-1 font-medium tracking-wide">
@@ -416,17 +428,21 @@ export default function BattlePage() {
         })}
       </div>
 
+      <div className="mb-10">
+        <LeaderboardCarousel bladers={topBladers} />
+      </div>
+
       {/* Recent battles header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className="w-[3px] h-3.5 bg-[#4361EE]" />
-          <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase">
+          <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase font-createfuture">
             Recenti
           </h2>
         </div>
         <button 
           onClick={() => navigate('/battle/history')}
-          className="text-[10px] font-black text-primary flex items-center gap-1 hover:opacity-80 transition-opacity"
+          className="text-[10px] font-black text-primary flex items-center gap-1 hover:opacity-80 transition-opacity font-createfuture"
         >
           VEDI TUTTE <History size={12} />
         </button>
@@ -489,13 +505,13 @@ export default function BattlePage() {
                     {/* Player 1 */}
                     <div className="flex items-center gap-3 flex-1">
                       <Avatar avatarId={battle.p1?.avatar_id} size={28} showFallback={!battle.p1} username={battle.player1_guest_name} />
-                      <div className={`text-xs font-black uppercase tracking-tight truncate ${battle.winner_side === 'p1' ? 'text-white' : 'text-white/30'}`}>
+                      <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p1' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p1?.username || battle.player1_guest_name}
                       </div>
                     </div>
 
                     {/* Scores */}
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[80px] justify-center">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[80px] justify-center font-createfuture">
                       <span className={`text-lg font-black italic ${battle.winner_side === 'p1' ? 'text-[#E94560]' : 'text-white/40'}`}>
                         {battle.points_p1}
                       </span>
@@ -508,7 +524,7 @@ export default function BattlePage() {
                     {/* Player 2 */}
                     <div className="flex items-center gap-3 flex-1 flex-row-reverse text-right">
                       <Avatar avatarId={battle.p2?.avatar_id} size={28} showFallback={!battle.p2} username={battle.player2_guest_name} />
-                      <div className={`text-xs font-black uppercase tracking-tight truncate ${battle.winner_side === 'p2' ? 'text-white' : 'text-white/30'}`}>
+                      <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p2' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p2?.username || battle.player2_guest_name}
                       </div>
                     </div>

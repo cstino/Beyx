@@ -226,7 +226,7 @@ RETURNS TABLE(
     JOIN battles b ON b.id = r.battle_id
     WHERE r.created_at >= p_since
       AND r.winner_side IN ('p1', 'p2')
-      AND b.is_official = true
+      
   ),
   combo_stats AS (
     SELECT
@@ -244,11 +244,11 @@ RETURNS TABLE(
     FROM (
       SELECT p1_combo_id AS combo_id FROM rounds r
         JOIN battles b ON b.id = r.battle_id
-        WHERE r.created_at >= p_since AND b.is_official = true AND p1_combo_id IS NOT NULL
+        WHERE r.created_at >= p_since  AND p1_combo_id IS NOT NULL
       UNION ALL
       SELECT p2_combo_id FROM rounds r
         JOIN battles b ON b.id = r.battle_id
-        WHERE r.created_at >= p_since AND b.is_official = true AND p2_combo_id IS NOT NULL
+        WHERE r.created_at >= p_since  AND p2_combo_id IS NOT NULL
     ) x
     GROUP BY combo_id
   )
@@ -288,7 +288,7 @@ RETURNS TABLE(
   WHERE r.finish_type = p_finish_type
     AND r.winner_side IN ('p1', 'p2')
     AND r.created_at >= p_since
-    AND b.is_official = true
+    
   GROUP BY 1, 2
   HAVING CASE WHEN r.winner_side = 'p1' THEN r.p1_combo_id
               WHEN r.winner_side = 'p2' THEN r.p2_combo_id
@@ -325,7 +325,7 @@ RETURNS TABLE(
     FROM profiles p
     JOIN battles b ON (b.player1_user_id = p.id OR b.player2_user_id = p.id)
     WHERE b.status = 'completed'
-      AND b.is_official = true
+      
       AND b.played_at >= p_since
     GROUP BY p.id, p.username, p.avatar_id, p.elo
   )

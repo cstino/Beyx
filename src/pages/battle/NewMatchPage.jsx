@@ -73,10 +73,10 @@ export function NewMatchPage() {
     <div className="min-h-screen bg-[#0A0A1A] pb-24 px-4 pt-4">
       {/* Status Info */}
       <div className="mb-4 px-2">
-          <div className="text-[10px] font-bold tracking-[0.15em] text-[#E94560] mb-1">
+          <div className="text-[10px] font-bold tracking-[0.15em] text-[#E94560] mb-1 font-createfuture">
             STEP {step + 1} / {STEPS.length}
           </div>
-          <div className="text-white font-black text-lg uppercase italic">
+          <div className="text-white font-black text-lg uppercase italic font-createfuture">
             {['Giocatori', 'Configurazione', 'Selezione Deck'][step]}
           </div>
       </div>
@@ -127,7 +127,7 @@ function MatchSettings({ match, onChange, onNext }) {
     <div>
       {/* Format selector */}
       <div className="mb-6">
-        <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">
+        <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 font-createfuture">
           FORMATO
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -152,7 +152,7 @@ function MatchSettings({ match, onChange, onNext }) {
 
       {/* Point target */}
       <div className="mb-6">
-        <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3">
+        <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 font-createfuture">
           PUNTI PER VINCERE
         </div>
         <div className="flex gap-2">

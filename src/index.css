@@ -149,3 +149,15 @@ input:-webkit-autofill:active  {
 .shadow-glow-blue-sm {
   box-shadow: 0 0 6px rgba(67, 97, 238, 0.25);
 }
+
+.shadow-glow-gold {
+  box-shadow: 0 0 15px rgba(245, 166, 35, 0.4), 0 0 5px rgba(245, 166, 35, 0.2);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

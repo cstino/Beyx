@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Star, Trash2 } from 'lucide-react';
+import { ChevronRight, Star, Trash2, Trophy } from 'lucide-react';
 
 const TYPE_COLORS = {
   attack:  '#E94560',
@@ -19,13 +19,11 @@ const TYPE_LABELS = {
 export function SavedComboCard({ combo, onClick, onDelete }) {
   if (!combo) return null;
   
-  // Determine dynamic type based on user stats or base stats
   const stats = combo.user_stats || {};
   const currentType = determineType(stats, combo.combo_type);
   const accentColor = TYPE_COLORS[currentType] ?? '#4361EE';
   const typeLabel = TYPE_LABELS[currentType] ?? 'COMBO';
 
-  // Compose the full name
   const composedName = [
     combo.blade?.name,
     combo.ratchet?.name,
@@ -33,20 +31,24 @@ export function SavedComboCard({ combo, onClick, onDelete }) {
   ].filter(Boolean).join(' ');
 
   return (
-    <div className="relative group">
+    <motion.div 
+      className="relative group"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
        <motion.button
          onClick={() => onClick(combo)}
          whileTap={{ scale: 0.98 }}
-         className="w-full bg-[#12122A] rounded-[22px] overflow-hidden border border-white/5
-           hover:border-white/15 transition-all text-left shadow-lg"
-         style={{ borderLeft: `5px solid ${accentColor}` }}
+         className="w-full bg-[#12122A] rounded-[32px] overflow-hidden border border-white/5
+           hover:border-white/10 transition-all text-left shadow-xl p-5"
+         style={{ borderTop: `4px solid ${accentColor}` }}
        >
-         <div className="flex items-center">
-           {/* Left: Metadata & Name */}
-           <div className="flex-1 px-4 py-3 min-w-0">
+         {/* Top: Name & Info */}
+         <div className="flex items-start justify-between mb-4">
+           <div className="flex-1 min-w-0 pr-8">
              <div className="flex items-center gap-2 mb-1.5">
                <span
-                 className="text-[7px] font-black tracking-[0.2em] px-2 py-0.5 rounded-md"
+                 className="text-[7px] font-black tracking-[0.2em] px-2 py-0.5 rounded-md uppercase"
                  style={{
                    color: accentColor,
                    background: `${accentColor}15`,
@@ -61,19 +63,40 @@ export function SavedComboCard({ combo, onClick, onDelete }) {
                        <span className="text-[8px] font-black text-[#F5A623]">{combo.user_rating}</span>
                    </div>
                )}
+               <div className="flex items-center gap-1 px-2 py-0.5 bg-white/5 border border-white/10 rounded-md">
+                  <Trophy size={8} className="text-white/40" />
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Stats Ready</span>
+               </div>
              </div>
-             <div className="text-white font-black text-base tracking-tighter truncate uppercase italic">
+             <h3 className="text-white font-black text-sm tracking-tight leading-tight uppercase italic font-createfuture truncate">
                {composedName || combo.name}
-             </div>
-           </div>
-   
-           {/* Right: Compact Parts Icons */}
-           <div className="flex items-center gap-1.5 px-4 pr-12">
-               <CompactChip img={combo.blade?.image_url} />
-               <CompactChip img={combo.ratchet?.image_url} />
-               <CompactChip img={combo.bit?.image_url} />
+             </h3>
            </div>
          </div>
+
+         {/* Center Content: Large Blade + Vertical Parts */}
+         <div className="flex items-stretch gap-4 h-48">
+           {/* Left: Large Blade */}
+           <div className="flex-[0.7] bg-gradient-to-br from-white/5 to-transparent rounded-2xl border border-white/5 flex items-center justify-center p-5 relative overflow-hidden group-hover:from-white/10 transition-all">
+             <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-full scale-75" />
+             <img 
+               src={combo.blade?.image_url} 
+               alt="blade" 
+               className="w-full h-full object-contain relative z-10 drop-shadow-[0_10px_15px_rgba(0,0,0,0.5)] transition-transform duration-500 group-hover:rotate-12 group-hover:scale-105" 
+             />
+           </div>
+
+           {/* Right: Vertical Ratchet & Bit (Stretched to match height) */}
+           <div className="flex-[0.3] flex flex-col gap-3">
+             <div className="flex-1 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-center p-3 group-hover:bg-white/10 transition-all">
+               <img src={combo.ratchet?.image_url} alt="ratchet" className="w-2/3 h-2/3 object-contain drop-shadow-md" />
+             </div>
+             <div className="flex-1 bg-white/5 rounded-2xl border border-white/5 flex items-center justify-center p-3 group-hover:bg-white/10 transition-all">
+               <img src={combo.bit?.image_url} alt="bit" className="w-2/3 h-2/3 object-contain drop-shadow-md" />
+             </div>
+           </div>
+         </div>
+
        </motion.button>
 
        {/* Floating Delete Action */}
@@ -82,11 +105,11 @@ export function SavedComboCard({ combo, onClick, onDelete }) {
            e.stopPropagation();
            onDelete(combo);
          }}
-         className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-90 transition-all opacity-0 group-hover:opacity-100"
+         className="absolute right-4 top-4 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-90 transition-all opacity-40 hover:opacity-100 hover:bg-red-500 hover:text-white shadow-lg"
        >
          <Trash2 size={14} />
        </button>
-    </div>
+    </motion.div>
   );
 }
 

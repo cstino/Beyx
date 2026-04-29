@@ -27,6 +27,7 @@ import { NewMatchPage } from './pages/battle/NewMatchPage';
 import { LiveMatchPage } from './pages/battle/LiveMatchPage';
 import { AcceptChallengePage } from './pages/battle/AcceptChallengePage';
 import { useAuthStore } from './store/useAuthStore';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   const { user, profile, setUser, fetchProfile, setLoading, loading } = useAuthStore();
@@ -69,6 +70,7 @@ function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         {/* Auth routes — solo se NON loggato */}
         {!user ? (

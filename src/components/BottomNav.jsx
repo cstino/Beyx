@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, LayoutGrid, Hammer, Trophy, User } from 'lucide-react';
+import { Home, LayoutGrid, Layers, Trophy, User } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -12,7 +12,7 @@ function cn(...inputs) {
 const navItems = [
   { icon: Home, label: 'HOME', path: '/' },
   { icon: LayoutGrid, label: 'COLLECT', path: '/collection' },
-  { icon: Hammer, label: 'BUILDER', path: '/builder' },
+  { icon: Layers, label: 'DECK', path: '/builder' },
   { icon: Trophy, label: 'BATTLE', path: '/battle' },
   { icon: User, label: 'ACCOUNT', path: '/account' },
 ];

@@ -9,7 +9,7 @@ import { BladerHeroCard } from '../components/BladerHeroCard';
 import { StatCard } from '../components/StatCard';
 import { AcademyBanner } from '../components/AcademyBanner';
 import { SectionHeader } from '../components/SectionHeader';
-import { LeaderboardRow } from '../components/LeaderboardRow';
+import { LeaderboardCarousel } from '../components/LeaderboardCarousel';
 import { Trophy, ChevronRight, CheckCircle2, Trash2, Check, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar } from '../components/Avatar';
@@ -144,7 +144,7 @@ export default function Dashboard() {
           onClick={() => navigate('/collection')}
         />
         <StatCard
-          label="Combo" 
+          label="I tuoi beys" 
           value={combos.count}
           subtitle="Creati da te" 
           accentColor="#E94560"
@@ -214,18 +214,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 4. Top Bladers Section */}
-      <div className="mx-4 mb-8">
-        <SectionHeader
-          title="Top Bladers" 
-          accentColor="#F5A623"
-          onSeeAll={() => navigate('/leaderboard')}
-        />
-        <div className="space-y-3 mt-4">
-          {topBladers.map((b, i) => (
-            <LeaderboardRow key={b.id} rank={i + 1} blader={b} />
-          ))}
-        </div>
+      {/* 4. Top Bladers Section - Carousel */}
+      <div className="mb-8">
+        <LeaderboardCarousel bladers={topBladers} />
       </div>
 
     </PageContainer>

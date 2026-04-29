@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Edit2, Shield, Zap, Quote, Plus } from 'lucide-react';
+import { ChevronRight, Edit2, Shield, Zap, Quote, Plus, BarChart3, Trophy, Target, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import StatRadar from '../components/StatRadar';
 import { PageContainer } from '../components/PageContainer';
@@ -16,6 +16,7 @@ export default function ComboDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activePart, setActivePart] = useState(null);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [performance, setPerformance] = useState(null);
 
   const { setHeader, clearHeader } = useUIStore();
 
@@ -44,6 +45,13 @@ export default function ComboDetailPage() {
       return;
     }
     setCombo(data);
+
+    // Fetch performance stats
+    const { data: perf } = await supabase.rpc('get_combo_performance', { p_combo_id: id });
+    if (perf && perf.length > 0) {
+      setPerformance(perf[0]);
+    }
+
     setLoading(false);
   }
 
@@ -125,6 +133,66 @@ export default function ComboDetailPage() {
               </div>
            </div>
         </section>
+
+        {/* Arena Performance Section */}
+        {performance && performance.total_rounds > 0 && (
+          <section className="bg-[#12122A] rounded-[32px] p-6 border border-white/5 shadow-2xl relative overflow-hidden">
+             <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
+                  <Trophy size={18} />
+                </div>
+                <h2 className="text-[11px] font-black text-white/40 uppercase tracking-[0.2em]">Arena Performance</h2>
+             </div>
+
+             <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                   <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Win Rate</div>
+                   <div className="text-3xl font-black text-green-400 italic leading-none">{performance.win_rate}%</div>
+                </div>
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                   <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">W / L Record</div>
+                   <div className="text-xl font-black text-white italic leading-none mt-1">
+                      {performance.wins}W <span className="text-white/20 mx-1">/</span> {performance.losses}L
+                   </div>
+                </div>
+             </div>
+
+             {/* Finish Breakdown */}
+             <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                   <h3 className="text-[10px] font-black text-white/60 uppercase tracking-widest">Finish Type Breakdown</h3>
+                   <span className="text-[10px] font-bold text-white/20">{performance.total_rounds} Rounds</span>
+                </div>
+                
+                <div className="space-y-3">
+                   {[
+                      { label: 'Over Finish', type: 'ko', color: 'bg-blue-500' },
+                      { label: 'Extreme Finish', type: 'xtreme', color: 'bg-red-500' },
+                      { label: 'Burst Finish', type: 'burst', color: 'bg-yellow-500' },
+                      { label: 'Spin Finish', type: 'spin_finish', color: 'bg-green-500' },
+                   ].map((f) => {
+                      const count = (performance.finish_breakdown && performance.finish_breakdown[f.type]) || 0;
+                      const percentage = performance.total_rounds > 0 ? (count / performance.total_rounds) * 100 : 0;
+                      return (
+                         <div key={f.type} className="space-y-1.5">
+                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-tight">
+                               <span className="text-white/60">{f.label}</span>
+                               <span className="text-white italic">{count}</span>
+                            </div>
+                            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                               <motion.div 
+                                 initial={{ width: 0 }}
+                                 animate={{ width: `${percentage}%` }}
+                                 className={`h-full ${f.color} shadow-[0_0_10px_rgba(0,0,0,0.5)]`} 
+                               />
+                            </div>
+                         </div>
+                      );
+                   })}
+                </div>
+             </div>
+          </section>
+        )}
 
         {/* User Evaluation Card - Conditional Content */}
         <section className="bg-gradient-to-br from-[#1A1A3A] to-[#11112B] rounded-[32px] p-8 border border-white/5 shadow-2xl relative overflow-hidden">

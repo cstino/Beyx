@@ -25,7 +25,7 @@ export function useHomeData(userId) {
             supabase.from('combos').select('id', { count: 'exact', head: true }).eq('user_id', userId),
             supabase.from('profiles')
               .select('id, username, avatar_id, title, elo, elo_peak, elo_matches')
-              .gte('elo_matches', 5)
+              .gte('elo_matches', 0)
               .order('elo', { ascending: false })
               .limit(3),
           ]);

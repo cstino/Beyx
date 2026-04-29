@@ -94,10 +94,10 @@ export function LiveMatchPage() {
 
       // Load combos from config
       if (data.p1_deck_config?.beys) {
-        setP1Combos(data.p1_deck_config.beys.map((b, i) => ({ id: `p1-${i}`, ...b })));
+        setP1Combos(data.p1_deck_config.beys.map((b, i) => ({ ...b, localId: `p1-${i}` })));
       }
       if (data.p2_deck_config?.beys) {
-        setP2Combos(data.p2_deck_config.beys.map((b, i) => ({ id: `p2-${i}`, ...b })));
+        setP2Combos(data.p2_deck_config.beys.map((b, i) => ({ ...b, localId: `p2-${i}` })));
       }
       
       loadRounds();
@@ -116,10 +116,19 @@ export function LiveMatchPage() {
     if (!config) return '—';
     const blade = parts.blades.find(b => b.id === config.blade_id);
     if (!blade) return 'Bey...';
-    if (config.is_stock) return blade.name;
-    const ratchet = parts.ratchets.find(r => r.id === config.ratchet_id);
-    const bit = parts.bits.find(b => b.id === config.bit_id);
-    return `${blade.name} ${ratchet?.name || ''} ${bit?.name || ''}`.trim();
+    
+    let ratchetName = '';
+    let bitName = '';
+    
+    if (config.is_stock) {
+      ratchetName = blade.stock_ratchet || '';
+      bitName = blade.stock_bit || '';
+    } else {
+      ratchetName = parts.ratchets.find(r => r.id === config.ratchet_id)?.name || '';
+      bitName = parts.bits.find(b => b.id === config.bit_id)?.name || '';
+    }
+    
+    return `${blade.name} ${ratchetName} ${bitName}`.trim();
   };
 
   if (!battle) return null;
@@ -145,6 +154,10 @@ export function LiveMatchPage() {
       round_number:   currentRound,
       p1_combo_label: getBeyName(selectedP1Combo),
       p2_combo_label: getBeyName(selectedP2Combo),
+      p1_combo_id:    selectedP1Combo?.id,
+      p2_combo_id:    selectedP2Combo?.id,
+      p1_blade_id:    selectedP1Combo?.blade_id,
+      p2_blade_id:    selectedP2Combo?.blade_id,
       winner_side:    selectedWinner,
       finish_type:    selectedFinish,
       points_awarded: finishData?.points ?? 0,
@@ -182,7 +195,7 @@ export function LiveMatchPage() {
   return (
     <PageContainer>
       <div className="px-4 mb-4 text-center">
-        <div className="text-[10px] font-bold text-white/40 tracking-[0.15em]">
+        <div className="text-[10px] font-bold text-white/40 tracking-[0.15em] font-createfuture">
           {battle.is_official ? '⚔️ UFFICIALE' : 'AMICHEVOLE'} · ROUND {currentRound}
         </div>
         <div className="text-[10px] text-white/30">
@@ -414,7 +427,7 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
               <div className="grid grid-cols-1 gap-3">
                 {combos.map((c, idx) => {
                   const blade = blades.find(b => b.id === c.blade_id);
-                  const isSelected = selected?.id === c.id;
+                  const isSelected = selected?.localId === c.localId;
                   return (
                     <button 
                       key={c.id || idx} 

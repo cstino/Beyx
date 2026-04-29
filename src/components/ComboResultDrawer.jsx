@@ -20,8 +20,8 @@ const getAssessment = (score) => {
   return { text: "Combo equilibrata, versatile per ogni situazione.", icon: TrendingUp, color: "text-primary" };
 };
 
-export default function ComboResultDrawer({ combo, score, onClose, onSave, saving }) {
-  if (!combo.blade || !combo.ratchet || !combo.bit || !score) return null;
+export default function ComboResultDrawer({ isOpen, combo, score, onClose, onSave, saving }) {
+  if (!isOpen || !combo.blade || !combo.ratchet || !combo.bit || !score) return null;
 
   const assessment = getAssessment(score);
 
