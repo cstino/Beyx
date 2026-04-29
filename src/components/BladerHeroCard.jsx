@@ -88,7 +88,7 @@ export function BladerHeroCard({ blader }) {
                    {isPlacement ? 'Unranked' : `Ranking ${rank.display}`}
                  </span>
                  <span className="text-[10px] font-black text-white/80 tabular-nums">
-                   {isPlacement ? `${placementProgress}/5` : blader.elo} <span className="text-white/20">/</span> {isPlacement ? '5' : (nextTarget ? nextTarget : 'MAX')} {isPlacement ? 'MATCH' : 'ELO'}
+                   {isPlacement ? placementProgress : blader.elo} <span className="text-white/20">/</span> {isPlacement ? '5' : (nextTarget ? nextTarget : 'MAX')} {isPlacement ? 'MATCH' : 'ELO'}
                  </span>
               </div>
               <div className="h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
