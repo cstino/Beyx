@@ -3,12 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Trophy, Shield, Info, Check, Plus, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUIStore } from '../../store/useUIStore';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TournamentJoinPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const setHeader = useUIStore(s => s.setHeader);
+  const clearHeader = useUIStore(s => s.clearHeader);
   
   const [tournament, setTournament] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,11 @@ export default function TournamentJoinPage() {
   const [myCombos, setMyCombos] = useState([]);
   const [myDecks, setMyDecks] = useState([]);
   const [activeSlot, setActiveSlot] = useState(null);
+
+  useEffect(() => {
+    setHeader('TORNEO', '/battle');
+    return () => clearHeader();
+  }, []);
 
   useEffect(() => {
     fetchTournament();
@@ -186,16 +194,11 @@ export default function TournamentJoinPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32">
-      {/* Header */}
-      <div className="px-6 pt-10 pb-6 flex items-center gap-4 sticky top-0 bg-[#0A0A1A]/80 backdrop-blur-xl z-30">
-        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5">
-          <ChevronLeft size={22} />
-        </button>
-        <div>
-          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">Registrazione</div>
+    <div className="min-h-screen bg-[#0A0A1A] pb-32 pt-4">
+      {/* Tournament Info Header */}
+      <div className="px-6 mb-6">
+          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1">Registrazione</div>
           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none">{tournament?.name}</h1>
-        </div>
       </div>
 
       <div className="px-6 space-y-8">

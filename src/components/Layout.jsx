@@ -9,7 +9,7 @@ import { ToastContainer } from './Toast';
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { headerTitle, backPath } = useUIStore();
+  const { headerTitle, backPath, backAction } = useUIStore();
 
   const getFallbackTitle = (path) => {
     if (path === '/') return 'HOME';
@@ -36,9 +36,9 @@ export default function Layout() {
       >
         {/* Left: Back Button or Empty Space */}
         <div className="flex-1 flex justify-start">
-          {backPath && (
+          {(backPath || backAction) && (
             <button 
-              onClick={() => navigate(backPath)} 
+              onClick={() => backAction ? backAction() : navigate(backPath)} 
               className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5 active:scale-90 transition-all flex-shrink-0"
             >
               <ChevronLeft size={20} />

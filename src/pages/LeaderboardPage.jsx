@@ -5,6 +5,7 @@ import { ChevronLeft, Trophy, Zap, Target, Flame, RotateCcw, Crown, TrendingUp }
 import { supabase } from '../lib/supabaseClient';
 import { PageContainer } from '../components/PageContainer';
 import { Avatar } from '../components/Avatar';
+import { useUIStore } from '../store/useUIStore';
 import { RankBadge, getRankFromElo } from '../components/RankBadge';
 
 const TABS = [
@@ -25,10 +26,16 @@ const PERIODS = [
 
 export default function LeaderboardPage() {
   const navigate = useNavigate();
+  const { setHeader, clearHeader } = useUIStore();
   const [activeTab, setActiveTab] = useState('elo');
   const [activePeriod, setActivePeriod] = useState('week');
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setHeader('CLASSIFICHE', '/battle');
+    return () => clearHeader();
+  }, [setHeader, clearHeader]);
 
   useEffect(() => {
     loadData();
@@ -102,20 +109,14 @@ export default function LeaderboardPage() {
 
   return (
     <PageContainer>
-      {/* Header */}
-      <div className="px-4 mb-4 pt-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)}
-          className="p-2 rounded-xl bg-white/5 text-white/70">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <div className="text-[10px] font-bold tracking-[0.15em] text-[#F5A623]">
+      {/* Tab Context Info */}
+      <div className="px-4 mb-4 pt-4">
+          <div className="text-[10px] font-bold tracking-[0.15em] text-[#F5A623] mb-1">
             ▲ LEADERBOARD
           </div>
-          <h1 className="text-white text-2xl font-black uppercase tracking-tight">
-            Classifiche
+          <h1 className="text-white text-lg font-black uppercase italic tracking-tight">
+            Top Players & Combo
           </h1>
-        </div>
       </div>
 
       {/* Tab selector (horizontal scroll) */}

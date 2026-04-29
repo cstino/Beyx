@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Zap, Target, Flame, RotateCcw, Minus, Trophy, ChevronLeft, X, Check, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUIStore } from '../../store/useUIStore';
+import { useToastStore } from '../../store/useToastStore';
 import { PageContainer } from '../../components/PageContainer';
 
 const FINISH_TYPES = [
@@ -18,6 +20,8 @@ export function LiveMatchPage() {
   const { battleId } = useParams();
   const navigate = useNavigate();
   const userId = useAuthStore(s => s.user?.id);
+  const setHeader = useUIStore(s => s.setHeader);
+  const clearHeader = useUIStore(s => s.clearHeader);
 
   const [battle, setBattle] = useState(null);
   const [rounds, setRounds] = useState([]);
@@ -32,8 +36,14 @@ export function LiveMatchPage() {
   const [selectedFinish, setSelectedFinish] = useState(null);
 
   useEffect(() => {
+    setHeader('BATTLE ARENA', '/battle');
+    return () => clearHeader();
+  }, []);
+
+  useEffect(() => {
     loadBattle();
 
+    console.log("Subscribing to realtime for battle:", battleId);
     const channel = supabase
       .channel(`battle-${battleId}`)
       .on('postgres_changes', {
@@ -41,14 +51,22 @@ export function LiveMatchPage() {
         schema: 'public',
         table: 'rounds',
         filter: `battle_id=eq.${battleId}`,
-      }, () => loadRounds())
+      }, (payload) => {
+        console.log("Realtime Round Change:", payload);
+        loadRounds();
+      })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'battles',
         filter: `id=eq.${battleId}`,
-      }, () => loadBattle())
-      .subscribe();
+      }, (payload) => {
+        console.log("Realtime Battle Update:", payload);
+        loadBattle();
+      })
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
     return () => supabase.removeChannel(channel);
   }, [battleId]);
@@ -122,7 +140,7 @@ export function LiveMatchPage() {
     if (!selectedWinner || !selectedFinish) return;
     const finishData = FINISH_TYPES.find(f => f.id === selectedFinish);
 
-    await supabase.from('rounds').insert({
+    const { error } = await supabase.from('rounds').insert({
       battle_id:      battleId,
       round_number:   currentRound,
       p1_combo_label: getBeyName(selectedP1Combo),
@@ -133,42 +151,43 @@ export function LiveMatchPage() {
       [`confirmed_by_${mySide}`]: true,
     });
 
-    setSelectedP1Combo(null);
-    setSelectedP2Combo(null);
-    setSelectedWinner(null);
-    setSelectedFinish(null);
+    if (!error) {
+      loadRounds(); // Optimistic load
+      setSelectedP1Combo(null);
+      setSelectedP2Combo(null);
+      setSelectedWinner(null);
+      setSelectedFinish(null);
+    } else {
+      console.error("Error submitting round:", error);
+    }
   }
 
   async function confirmRound(roundId, status = 'confirmed') {
-    await supabase.from('rounds')
+    const { error } = await supabase.from('rounds')
       .update({ 
         [`confirmed_by_${mySide}`]: true,
         status: status 
       })
       .eq('id', roundId);
+    
+    if (!error) loadRounds();
   }
 
   async function deleteRound(roundId) {
     if (!isCreator) return;
-    await supabase.from('rounds').delete().eq('id', roundId);
+    const { error } = await supabase.from('rounds').delete().eq('id', roundId);
+    if (!error) loadRounds();
   }
 
   return (
     <PageContainer>
-      <div className="px-4 mb-4 flex items-center gap-3">
-        <button onClick={() => navigate('/battle')}
-          className="p-2 rounded-xl bg-white/5 text-white/70">
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1 text-center">
-          <div className="text-[10px] font-bold text-white/40 tracking-[0.15em]">
-            {battle.is_official ? '⚔️ UFFICIALE' : 'AMICHEVOLE'} · ROUND {currentRound}
-          </div>
-          <div className="text-[10px] text-white/30">
-            Primo a {battle.point_target} punti
-          </div>
+      <div className="px-4 mb-4 text-center">
+        <div className="text-[10px] font-bold text-white/40 tracking-[0.15em]">
+          {battle.is_official ? '⚔️ UFFICIALE' : 'AMICHEVOLE'} · ROUND {currentRound}
         </div>
-        <div className="w-10" />
+        <div className="text-[10px] text-white/30">
+          Primo a {battle.point_target} punti
+        </div>
       </div>
 
       {/* SCOREBOARD */}
@@ -176,16 +195,16 @@ export function LiveMatchPage() {
         style={{ background: 'linear-gradient(135deg, #1A1A3A, #0F0F25)' }}>
         <div className="grid grid-cols-3 p-4">
           <div className="text-center">
-            <div className="text-[10px] font-bold text-[#E94560] tracking-wider mb-1">{p1Name}</div>
-            <motion.div key={p1Score} className="text-5xl font-black text-white tabular-nums"
+            <div className="text-[10px] font-createfuture text-[#E94560] tracking-wider mb-1 uppercase">{p1Name}</div>
+            <motion.div key={p1Score} className="text-5xl font-createfuture text-white"
               initial={{ scale: 1.3 }} animate={{ scale: 1 }}>{p1Score}</motion.div>
           </div>
           <div className="flex items-center justify-center">
-            <div className="text-white/20 font-black text-xl">VS</div>
+            <div className="text-white/20 font-createfuture text-xl">VS</div>
           </div>
           <div className="text-center">
-            <div className="text-[10px] font-bold text-[#4361EE] tracking-wider mb-1">{p2Name}</div>
-            <motion.div key={p2Score} className="text-5xl font-black text-white tabular-nums"
+            <div className="text-[10px] font-createfuture text-[#4361EE] tracking-wider mb-1 uppercase">{p2Name}</div>
+            <motion.div key={p2Score} className="text-5xl font-createfuture text-white"
               initial={{ scale: 1.3 }} animate={{ scale: 1 }}>{p2Score}</motion.div>
           </div>
         </div>
@@ -203,10 +222,10 @@ export function LiveMatchPage() {
           style={{ background: 'linear-gradient(135deg, rgba(245,166,35,0.1), rgba(233,69,96,0.1))', borderColor: '#F5A623' }}
           initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
           <Trophy size={40} className="text-[#F5A623] mx-auto mb-3 drop-shadow-glow" />
-          <div className="text-white text-2xl font-black uppercase italic tracking-tighter mb-1">
+          <div className="text-white text-2xl font-createfuture uppercase mb-1">
             {battle.winner_side === 'p1' ? p1Name : p2Name} VINCE!
           </div>
-          <div className="text-white/40 text-[10px] font-black uppercase tracking-widest">
+          <div className="text-white/40 text-[10px] font-createfuture uppercase tracking-widest">
             RISULTATO FINALE: {p1Score} - {p2Score}
           </div>
         </motion.div>
@@ -226,13 +245,13 @@ export function LiveMatchPage() {
                 }).eq('id', battleId);
 
                 if (error) {
-                  alert("Errore durante la chiusura del match: " + error.message);
+                  useToastStore.getState().error("Errore: " + error.message);
                 } else {
-                  alert("Match concluso con successo!");
+                  useToastStore.getState().success("Match concluso con successo!");
                   navigate('/battle');
                 }
              }}
-             className="w-full py-4 rounded-2xl bg-[#F5A623] text-white font-black uppercase tracking-widest shadow-glow-accent"
+             className="w-full py-4 rounded-2xl bg-[#F5A623] text-white font-createfuture uppercase tracking-widest shadow-glow-accent"
            >
              CONCLUDI MATCH
            </button>
@@ -250,9 +269,9 @@ export function LiveMatchPage() {
 
           <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 uppercase text-center">Chi ha vinto questo round?</div>
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <button onClick={() => setSelectedWinner('p1')} className={`py-4 rounded-xl border-2 font-bold text-sm transition-all ${selectedWinner === 'p1' ? 'bg-[#E94560] border-[#E94560] text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>{p1Name}</button>
-            <button onClick={() => { setSelectedWinner('draw'); setSelectedFinish('draw'); }} className={`py-4 rounded-xl border-2 font-bold text-xs transition-all ${selectedWinner === 'draw' ? 'bg-white/20 border-white/40 text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>DRAW</button>
-            <button onClick={() => setSelectedWinner('p2')} className={`py-4 rounded-xl border-2 font-bold text-sm transition-all ${selectedWinner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>{p2Name}</button>
+            <button onClick={() => setSelectedWinner('p1')} className={`py-4 rounded-xl border-2 font-createfuture text-sm transition-all ${selectedWinner === 'p1' ? 'bg-[#E94560] border-[#E94560] text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>{p1Name}</button>
+            <button onClick={() => { setSelectedWinner('draw'); setSelectedFinish('draw'); }} className={`py-4 rounded-xl border-2 font-createfuture text-xs transition-all ${selectedWinner === 'draw' ? 'bg-white/20 border-white/40 text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>DRAW</button>
+            <button onClick={() => setSelectedWinner('p2')} className={`py-4 rounded-xl border-2 font-createfuture text-sm transition-all ${selectedWinner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white' : 'bg-[#12122A] border-white/10 text-white/50'}`}>{p2Name}</button>
           </div>
 
           {selectedWinner && selectedWinner !== 'draw' && (
@@ -268,7 +287,7 @@ export function LiveMatchPage() {
                         <Icon size={16} style={{ color: ft.color }} />
                         <span className="text-white font-bold text-sm">{ft.name}</span>
                       </div>
-                      <span className="text-xs font-extrabold" style={{ color: ft.color }}>+{ft.points} PT</span>
+                      <span className="text-xs font-createfuture" style={{ color: ft.color }}>+{ft.points} PT</span>
                     </button>
                   );
                 })}
@@ -308,14 +327,18 @@ export function LiveMatchPage() {
                   ${isContested ? 'border-red-500/50 bg-red-500/5' : isConfirmed ? 'border-white/5' : 'border-yellow-500/30'}`}>
                   <div className="text-white/30 font-black text-[10px] w-6 text-center">R{r.round_number}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] text-white font-black uppercase italic truncate mb-0.5">{r.p1_combo_label ?? '—'} vs {r.p2_combo_label ?? '—'}</div>
+                    <div className="text-[10px] font-black uppercase italic truncate mb-0.5 flex items-center">
+                      <span className="text-[#E94560]">{r.p1_combo_label ?? '—'}</span>
+                      <span className="text-white/10 mx-2 text-[8px] not-italic">vs</span>
+                      <span className="text-[#4361EE]">{r.p2_combo_label ?? '—'}</span>
+                    </div>
                     <div className="flex items-center gap-2">
                        {ft && <div className="text-[8px] font-black uppercase px-2 py-0.5 rounded" style={{ color: ft.color, background: `${ft.color}15` }}>{ft.name}</div>}
                        {isContested && <div className="text-[8px] font-black text-red-500 uppercase tracking-widest">Contestato</div>}
                        {!isConfirmed && !isContested && <div className="text-[8px] font-black text-yellow-500 uppercase tracking-widest">In verifica</div>}
                     </div>
                   </div>
-                  <div className={`text-xl font-black italic ${r.winner_side === 'p1' ? 'text-[#E94560]' : r.winner_side === 'p2' ? 'text-[#4361EE]' : 'text-white/30'}`}>
+                  <div className={`text-xl font-createfuture ${r.winner_side === 'p1' ? 'text-[#E94560]' : r.winner_side === 'p2' ? 'text-[#4361EE]' : 'text-white/30'}`}>
                     {r.winner_side === 'p1' ? 'P1' : r.winner_side === 'p2' ? 'P2' : '—'}
                   </div>
 
@@ -347,7 +370,7 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
 
   return (
     <div className="relative">
-      <div className="text-[9px] font-black tracking-[0.2em] mb-2 uppercase opacity-40 text-center" style={{ color: accentColor }}>{label}</div>
+      <div className="text-[9px] font-createfuture tracking-[0.2em] mb-2 uppercase opacity-40 text-center" style={{ color: accentColor }}>{label}</div>
       
       <button 
         onClick={() => setOpen(true)} 

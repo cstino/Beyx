@@ -5,8 +5,13 @@ export const useUIStore = create((set) => ({
   modalOpen: false,
   headerTitle: null,
   backPath: null,
+  backAction: null,
   
   setModalOpen: (open) => set({ modalOpen: open }),
-  setHeader: (title, back) => set({ headerTitle: title, backPath: back }),
-  clearHeader: () => set({ headerTitle: null, backPath: null }),
+  setHeader: (title, back, action = null) => set({ 
+    headerTitle: title, 
+    backPath: back, 
+    backAction: action 
+  }),
+  clearHeader: () => set({ headerTitle: null, backPath: null, backAction: null }),
 }));

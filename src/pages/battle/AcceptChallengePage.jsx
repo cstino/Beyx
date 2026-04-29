@@ -4,14 +4,22 @@ import { ChevronLeft } from 'lucide-react';
 import { DeckPicker } from '../../components/battle/DeckPicker';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUIStore } from '../../store/useUIStore';
 import { motion } from 'framer-motion';
 
 export function AcceptChallengePage() {
   const { battleId } = useParams();
   const navigate = useNavigate();
   const userId = useAuthStore(s => s.user?.id);
+  const setHeader = useUIStore(s => s.setHeader);
+  const clearHeader = useUIStore(s => s.clearHeader);
   const [battle, setBattle] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setHeader('ACCETTA SFIDA', '/battle');
+    return () => clearHeader();
+  }, []);
 
   useEffect(() => {
     fetchBattle();
@@ -70,15 +78,10 @@ export function AcceptChallengePage() {
 
   return (
     <div className="min-h-screen bg-[#0A0A1A] pb-24 px-4 pt-4">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-xl bg-white/5 text-white/70">
-          <ChevronLeft size={20} />
-        </button>
-        <div>
-          <div className="text-[10px] font-bold tracking-[0.15em] text-primary uppercase">Accetta Sfida</div>
-          <div className="text-white font-black text-lg">Scegli il tuo Deck</div>
-        </div>
+      {/* Informazioni Match */}
+      <div className="mb-8 px-2">
+        <div className="text-[10px] font-bold tracking-[0.15em] text-primary uppercase mb-1">Configura</div>
+        <div className="text-white font-black text-lg uppercase italic">Scegli il tuo Deck</div>
       </div>
 
       <div className="mb-6 p-5 rounded-[32px] bg-primary/5 border border-primary/20 flex items-center gap-4">

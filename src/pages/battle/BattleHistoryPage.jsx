@@ -5,12 +5,20 @@ import { supabase } from '../../lib/supabaseClient';
 import { motion } from 'framer-motion';
 import { Avatar } from '../../components/Avatar';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useUIStore } from '../../store/useUIStore';
 
 export default function BattleHistoryPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const setHeader = useUIStore(s => s.setHeader);
+  const clearHeader = useUIStore(s => s.clearHeader);
   const [battles, setBattles] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setHeader('STORICO ARENE', '/battle');
+    return () => clearHeader();
+  }, []);
 
   useEffect(() => {
     fetchHistory();
@@ -31,16 +39,11 @@ export default function BattleHistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] pb-32">
-      {/* Header */}
-      <div className="px-6 pt-10 pb-6 flex items-center gap-4 sticky top-0 bg-[#0A0A1A]/80 backdrop-blur-xl z-30">
-        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5 active:scale-90 transition-all">
-          <ChevronLeft size={22} />
-        </button>
-        <div>
-          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase">Archive</div>
-          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none">Storico Arene</h1>
-        </div>
+    <div className="min-h-screen bg-[#0A0A1A] pb-32 pt-4">
+      {/* Header Info */}
+      <div className="px-6 mb-6">
+          <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1">Archive</div>
+          <h1 className="text-white font-black text-lg uppercase italic">Cronologia Battaglie</h1>
       </div>
 
       <div className="px-6 space-y-4">

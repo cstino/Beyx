@@ -5,8 +5,13 @@
 @font-face {
   font-family: 'CreateFuture';
   src: url('/fonts/CreateFutureRegular-m2Mw2.otf') format('opentype');
-  font-weight: normal;
+  font-weight: 400;
   font-style: normal;
+  font-display: swap;
+}
+
+.font-createfuture {
+  font-family: 'CreateFuture', sans-serif !important;
 }
 
 @layer base {
