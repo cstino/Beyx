@@ -39,6 +39,7 @@ export default function BattlePage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [recentBattles, setRecentBattles] = useState([]);
+  const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openTournaments, setOpenTournaments] = useState([]);
   const [userRegistrations, setUserRegistrations] = useState([]);
@@ -56,6 +57,7 @@ export default function BattlePage() {
 
   useEffect(() => {
     fetchRecentBattles();
+    fetchLiveMatches();
     fetchOpenTournaments();
     if (user) {
       fetchPendingInvitations();
@@ -85,11 +87,28 @@ export default function BattlePage() {
         p1:player1_user_id(username, avatar_id, avatar_color),
         p2:player2_user_id(username, avatar_id, avatar_color)
       `)
+      .or('status.eq.completed,status.is.null') // Show completed or old matches
       .order('played_at', { ascending: false })
       .limit(5);
     
     setRecentBattles(data || []);
     setLoading(false);
+  }
+
+  async function fetchLiveMatches() {
+    if (!user) return;
+    const { data } = await supabase
+      .from('battles')
+      .select(`
+        *,
+        p1:player1_user_id(username, avatar_id, avatar_color),
+        p2:player2_user_id(username, avatar_id, avatar_color)
+      `)
+      .or(`player1_user_id.eq.${user.id},player2_user_id.eq.${user.id}`)
+      .in('status', ['active', 'deck_select'])
+      .order('played_at', { ascending: false });
+    
+    setLiveMatches(data || []);
   }
 
   async function fetchOpenTournaments() {
@@ -146,6 +165,57 @@ export default function BattlePage() {
 
   return (
     <PageContainer className="px-4 pt-6">
+      {/* Live Matches Section */}
+      {liveMatches.length > 0 && (
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-[3px] h-3.5 bg-red-500" />
+            <h2 className="text-[11px] font-extrabold text-white tracking-[0.2em] uppercase flex items-center gap-2">
+              Match in corso <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {liveMatches.map(match => {
+              const isAdmin = match.created_by === user?.id || match.player1_user_id === user?.id;
+              return (
+                <motion.div 
+                  key={match.id}
+                  onClick={() => navigate(`/battle/live/${match.id}`)}
+                  whileTap={{ scale: 0.98 }}
+                  className="p-5 rounded-[32px] bg-gradient-to-br from-[#1A1A3A] to-[#0A0A1A] border border-red-500/20 flex flex-col gap-4 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex flex-col items-center gap-1">
+                        <Avatar avatarId={match.p1?.avatar_id} size={32} />
+                        <span className="text-[8px] font-black text-white/40 uppercase truncate w-12 text-center">{match.p1?.username || match.player1_guest_name}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-xl font-black text-white italic">{match.points_p1}</div>
+                        <div className="text-[10px] font-black text-white/20">VS</div>
+                        <div className="text-xl font-black text-white italic">{match.points_p2}</div>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <Avatar avatarId={match.p2?.avatar_id} size={32} />
+                        <span className="text-[8px] font-black text-white/40 uppercase truncate w-12 text-center">{match.p2?.username || match.player2_guest_name}</span>
+                      </div>
+                    </div>
+                    <button className="px-5 py-2.5 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest shadow-glow-red transition-all group-hover:scale-105">
+                      {isAdmin ? 'Gestisci' : 'Entra'}
+                    </button>
+                  </div>
+                  <div className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] flex items-center gap-2">
+                    {match.format} · {match.battle_type || 'Amichevole'} · Primo a {match.point_target}
+                  </div>
+                  {/* Subtle BG effect */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[40px] -translate-y-1/2 translate-x-1/2" />
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Title */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">

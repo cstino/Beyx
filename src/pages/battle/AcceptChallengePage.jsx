@@ -48,18 +48,21 @@ export function AcceptChallengePage() {
     // aggiornando l'oggetto battle nello stato del genitore (NewMatchPage).
     // Qui dobbiamo assicurarci di inviare l'update finale.
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('battles')
       .update({
         p2_deck_config: battle.p2_deck_config,
-        status: 'active'
+        status: 'active',
+        played_at: new Date().toISOString()
       })
-      .eq('id', battleId);
+      .eq('id', battleId)
+      .select();
 
-    if (!error) {
+    if (!error && data && data.length > 0) {
       navigate(`/battle/live/${battleId}`);
     } else {
-      alert("Errore durante l'attivazione della sfida");
+      console.error("Update failed or blocked by RLS:", error);
+      alert("Errore durante l'attivazione della sfida. Assicurati di avere i permessi necessari.");
     }
   };
 
@@ -88,13 +91,9 @@ export function AcceptChallengePage() {
 
       <DeckPicker
         match={battle}
+        isPlayer2={true}
         onChange={(updatedMatch) => {
-          // Mapping p1_deck_config to p2_deck_config since DeckPicker by default updates p1 in NewMatch context
-          // But here we are Player 2. We need a way to tell DeckPicker we are P2 or just map it here.
-          setBattle({
-            ...updatedMatch,
-            p2_deck_config: updatedMatch.p1_deck_config // Re-routing the output
-          });
+          setBattle(updatedMatch);
         }}
         onStart={handleConfirmDeck}
       />

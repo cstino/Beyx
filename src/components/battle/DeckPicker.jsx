@@ -4,7 +4,7 @@ import { Plus, Check, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 
-export function DeckPicker({ match, onChange, onStart }) {
+export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
   const userId = useAuthStore(s => s.user?.id);
   
   // Data for selection
@@ -86,9 +86,8 @@ export function DeckPicker({ match, onChange, onStart }) {
   };
 
   function updateMatch(currentDeck) {
-    // For simplicity, we store the deck config in p1_deck_id or as a new metadata field if we had one
-    // But since NewMatchPage expect a deck_id, we'll keep the current structure but pass the config
-    onChange({ ...match, p1_deck_config: { beys: currentDeck } });
+    const configField = isPlayer2 ? 'p2_deck_config' : 'p1_deck_config';
+    onChange({ ...match, [configField]: { beys: currentDeck } });
   }
 
   const isInvitation = !!match.player2.user_id;
@@ -220,7 +219,7 @@ export function DeckPicker({ match, onChange, onStart }) {
           className={`w-full py-5 rounded-[24px] font-black uppercase tracking-[0.2em] text-sm text-white transition-all shadow-xl disabled:opacity-30
             ${isInvitation ? 'bg-primary shadow-glow-primary' : 'bg-gradient-to-r from-primary to-[#4361EE]'}`}
         >
-          {isInvitation ? 'Invia Sfida' : 'Inizia Match'}
+          {isPlayer2 ? 'Inizia Battaglia' : isInvitation ? 'Invia Sfida' : 'Inizia Match'}
         </motion.button>
       </div>
 
