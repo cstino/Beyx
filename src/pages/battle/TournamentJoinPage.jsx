@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToastStore } from '../../store/useToastStore';
 
 export default function TournamentJoinPage() {
   const { id } = useParams();
@@ -55,7 +56,10 @@ export default function TournamentJoinPage() {
     
     if (data) {
       setExistingReg(data);
-      setDone(true);
+      // Solo se il deck è già presente consideriamo l'iscrizione "completata"
+      if (data.deck_config) {
+        setDone(true);
+      }
     }
   }
 
@@ -151,19 +155,21 @@ export default function TournamentJoinPage() {
     if (!user) return;
     setSubmitting(true);
     
-    const { error } = await supabase.from('tournament_registrations').insert({
+    const { error } = await supabase.from('tournament_registrations').upsert({
+      ...(existingReg ? { id: existingReg.id } : {}),
       tournament_id: id,
       user_id: user.id,
       deck_id: selectedDeckId,
       deck_config: { beys: deck },
-      status: 'pending'
+      status: (tournament?.registration_mode === 'manual') ? 'approved' : 'pending'
     });
 
     setSubmitting(false);
     if (error) {
       console.error("Registration Error:", error);
-      alert("Errore durante l'invio: " + (error.message || "Riprova più tardi"));
+      useToastStore.getState().error("Errore durante l'invio: " + error.message);
     } else {
+      useToastStore.getState().success("Iscrizione confermata!");
       setDone(true);
     }
   }

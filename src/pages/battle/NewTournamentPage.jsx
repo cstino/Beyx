@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
 import { Avatar } from '../../components/Avatar';
 import { ConfirmModal } from '../../components/ConfirmModal';
+import { useToastStore } from '../../store/useToastStore';
 
 export default function NewTournamentPage() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function NewTournamentPage() {
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
   
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [stage, setStage] = useState('setup'); // 'setup' | 'active'
   const [tournament, setTournament] = useState(null);
   const [activeMatch, setActiveMatch] = useState(null); // { rIndex, mIndex }
@@ -68,23 +70,25 @@ export default function NewTournamentPage() {
       }
       
       const targetId = location.state?.tournamentId;
-      let query = supabase.from('tournaments').select('*').eq('created_by', user.id);
+      let query = supabase.from('tournaments').select('*');
       
       if (targetId) {
         query = query.eq('id', targetId);
       } else {
-        query = query.neq('status', 'completed').order('created_at', { ascending: false }).limit(1);
+        // Se non c'è un ID specifico, cerchiamo l'ultimo creato dall'utente non concluso
+        query = query.eq('created_by', user.id).neq('status', 'completed').order('created_at', { ascending: false }).limit(1);
       }
       
       const { data, error } = await query.maybeSingle();
 
       if (data) {
+        setIsReadOnly(data.created_by !== user.id);
         const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
         const rounds = structure.rounds || [];
         const finalRound = rounds[rounds.length - 1];
         const finalMatch = finalRound?.matches[0];
         
-        if (finalMatch?.winner && data.status === 'active') {
+        if (finalMatch?.winner && data.status === 'active' && data.created_by === user.id) {
           const winner = finalMatch.winner === 'p1' ? finalMatch.p1 : finalMatch.p2;
           const repaired = { ...data, structure, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name };
           setTournament(repaired);
@@ -100,13 +104,31 @@ export default function NewTournamentPage() {
           }
         }
       } else {
-        // Se non troviamo nulla e avevamo un targetId, resettiamo
         setTournament(null);
         setStage('setup');
       }
       setLoadingTournament(false);
     }
     checkActiveTournament();
+    
+    // Add Realtime subscription for tournament updates
+    const targetId = location.state?.tournamentId;
+    if (targetId) {
+      const channel = supabase.channel(`tournament-${targetId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'tournaments', 
+          filter: `id=eq.${targetId}` 
+        }, (payload) => {
+          const updated = payload.new;
+          const structure = typeof updated.structure === 'string' ? JSON.parse(updated.structure) : updated.structure;
+          setTournament({ ...updated, structure });
+        })
+        .subscribe();
+        
+      return () => supabase.removeChannel(channel);
+    }
   }, [user, location.state?.tournamentId]);
 
   // Manage Global Header
@@ -201,7 +223,7 @@ export default function NewTournamentPage() {
       .eq('id', tournament.id);
 
     if (error) {
-      alert("Errore durante l'eliminazione: " + error.message);
+      useToastStore.getState().error("Errore eliminazione: " + error.message);
     } else {
       setTournament(null);
       setStage('setup');
@@ -211,17 +233,17 @@ export default function NewTournamentPage() {
 
   async function handleCreate(config) {
     const name = config.name || `Torneo ${new Date().toLocaleDateString()}`;
-    const structure = config.registrationOpen ? { rounds: [] } : (config.format === 'bracket' 
-      ? generateBracket(config.participants) 
-      : generateRoundRobin(config.participants));
-
+    
+    // All tournaments now start with registration_open: true 
+    // to allow deck selection, even if by invitation.
     const { data, error } = await supabase.from('tournaments').insert({
       name: name,
       format: config.format,
       battle_type: config.battleType,
       participants: config.participants || [],
-      structure: structure,
-      registration_open: config.registrationOpen,
+      structure: { rounds: [] },
+      registration_open: true,
+      registration_mode: (config.registrationMode === 'invitation' ? 'manual' : 'open'),
       max_participants: config.maxParticipants,
       description: config.description,
       created_by: user.id,
@@ -230,10 +252,28 @@ export default function NewTournamentPage() {
 
     if (error) {
       console.error('Error creating tournament:', error);
+      useToastStore.getState().error("Errore creazione: " + error.message);
       return;
     }
+
+    // If invitation mode, pre-register the invited users (not guests) as pending
+    if (config.registrationMode === 'invitation' && config.participants?.length > 0) {
+      const userInvites = config.participants
+        .filter(p => p.user_id)
+        .map(p => ({
+          tournament_id: data.id,
+          user_id: p.user_id,
+          status: 'pending'
+        }));
+      
+      if (userInvites.length > 0) {
+        await supabase.from('tournament_registrations').insert(userInvites);
+      }
+    }
+
     setTournament(data);
     setStage('active');
+    useToastStore.getState().success("Torneo creato con successo!");
   }
 
   async function handleMatchWin() {
@@ -348,10 +388,11 @@ export default function NewTournamentPage() {
   ];
 
   function handleSelectMatch(rIndex, mIndex) {
-    // Reset match states
-    setMatchRounds([]);
-    setP1Score(0);
-    setP2Score(0);
+    const match = tournament.structure.rounds[rIndex].matches[mIndex];
+    // Reset match states and sync with tournament structure
+    setMatchRounds(match.rounds || []);
+    setP1Score(match.p1Score || 0);
+    setP2Score(match.p2Score || 0);
     setCurrentRoundEntry({ p1_bey: null, p2_bey: null, winner: null, finish: null });
     setActiveMatch({ rIndex, mIndex });
   }
@@ -407,6 +448,18 @@ export default function NewTournamentPage() {
       return () => supabase.removeChannel(sub);
     }
   }, [tournament]);
+
+  // Sync active match data if tournament updates via realtime
+  useEffect(() => {
+    if (activeMatch && tournament) {
+      const match = tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex];
+      if (match) {
+        setMatchRounds(match.rounds || []);
+        setP1Score(match.p1Score || 0);
+        setP2Score(match.p2Score || 0);
+      }
+    }
+  }, [tournament, activeMatch]);
 
   async function fetchRegistrations() {
     const { data } = await supabase
@@ -470,6 +523,7 @@ export default function NewTournamentPage() {
   }
 
   async function startFromRegistrations() {
+    // Collect approved users from registrations
     const approved = registrations.filter(r => r.status === 'approved').map(r => ({
       user_id: r.user_id,
       username: r.profiles?.username || 'Sconosciuto',
@@ -477,12 +531,27 @@ export default function NewTournamentPage() {
       deck: r.deck_config
     }));
     
-    if (approved.length < 2) return;
+    // Add guests from the original participants list (they don't have registrations)
+    const guests = (tournament.participants || []).filter(p => !p.user_id).map(p => ({
+      ...p,
+      seed: 0,
+      deck: null // Creator will handle guest beys during match
+    }));
+
+    const finalParticipants = [...approved, ...guests];
     
-    const structure = tournament.format === 'bracket' ? generateBracket(approved) : generateRoundRobin(approved);
+    if (finalParticipants.length < 2) {
+      useToastStore.getState().error("Servono almeno 2 partecipanti confermati");
+      return;
+    }
+    
+    const structure = tournament.format === 'bracket' 
+      ? generateBracket(finalParticipants) 
+      : generateRoundRobin(finalParticipants);
+
     const updated = { 
        ...tournament, 
-       participants: approved, 
+       participants: finalParticipants, 
        structure, 
        registration_open: false,
        status: 'active'
@@ -490,6 +559,7 @@ export default function NewTournamentPage() {
     
     setTournament(updated);
     updateTournamentDB(updated);
+    useToastStore.getState().success("Torneo avviato!");
   }
 
   if (loadingTournament) {
@@ -611,7 +681,7 @@ export default function NewTournamentPage() {
                            </div>
                         </div>
 
-                        {reg.status === 'pending' && (
+                        {reg.status === 'pending' && !isReadOnly && (
                           <div className="flex gap-2">
                              <button 
                                onClick={() => handleRegistrationStatus(reg.id, 'approved')}
@@ -629,20 +699,24 @@ export default function NewTournamentPage() {
                  </div>
               </div>
 
-              <button 
-                onClick={startFromRegistrations}
-                disabled={registrations.filter(r => r.status === 'approved').length < 2}
-                className="w-full py-5 bg-primary rounded-[22px] text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-20"
-              >
-                Genera Tabellone e Inizia
-              </button>
+              {!isReadOnly && (
+                <>
+                  <button 
+                    onClick={startFromRegistrations}
+                    disabled={registrations.filter(r => r.status === 'approved').length < 2}
+                    className="w-full py-5 bg-primary rounded-[22px] text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-20"
+                  >
+                    Genera Tabellone e Inizia
+                  </button>
 
-              <button 
-                onClick={deleteTournament}
-                className="w-full py-4 text-white/20 hover:text-red-500/50 text-[9px] font-black uppercase tracking-[0.2em] transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 size={14} /> Elimina Torneo
-              </button>
+                  <button 
+                    onClick={deleteTournament}
+                    className="w-full py-4 text-white/20 hover:text-red-500/50 text-[9px] font-black uppercase tracking-[0.2em] transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={14} /> Elimina Torneo
+                  </button>
+                </>
+              )}
            </div>
          ) : tournament?.status === 'completed' ? (
            <motion.div 
@@ -673,12 +747,17 @@ export default function NewTournamentPage() {
            </motion.div>
          ) : (
            <>
-             <BracketView 
-               tournament={tournament} 
-               onSelectMatch={handleSelectMatch}
-             />
+            <div className="p-8 pb-32 overflow-y-auto no-scrollbar">
+              <BracketView 
+                tournament={tournament} 
+                onSelectMatch={(rIndex, mIndex) => {
+                  if (isReadOnly) return;
+                  handleSelectMatch(rIndex, mIndex);
+                }}
+              />
+            </div>
              {/* Bottone di emergenza se la riparazione automatica fallisce */}
-             {tournament.structure?.rounds?.[tournament.structure.rounds.length - 1]?.matches[0]?.winner && (
+             {tournament.structure?.rounds?.[tournament.structure.rounds.length - 1]?.matches[0]?.winner && !isReadOnly && (
                <div className="px-6 mt-8">
                  <button 
                    onClick={() => handleMatchWin({ 
@@ -692,14 +771,16 @@ export default function NewTournamentPage() {
                </div>
              )}
               {/* Bottone Elimina Torneo (Anche se attivo) */}
-              <div className="px-6 mt-12 mb-8">
-                 <button 
-                  onClick={deleteTournament}
-                  className="w-full py-4 text-white/10 hover:text-red-500/30 text-[9px] font-black uppercase tracking-[0.2em] transition-colors flex items-center justify-center gap-2"
-                 >
-                   <Trash2 size={14} /> Annulla ed Elimina Torneo
-                 </button>
-              </div>
+              {!isReadOnly && (
+                <div className="px-6 mt-12 mb-8">
+                   <button 
+                    onClick={deleteTournament}
+                    className="w-full py-4 text-white/10 hover:text-red-500/30 text-[9px] font-black uppercase tracking-[0.2em] transition-colors flex items-center justify-center gap-2"
+                   >
+                     <Trash2 size={14} /> Annulla ed Elimina Torneo
+                   </button>
+                </div>
+              )}
            </>
          )}
       </div>
@@ -710,152 +791,166 @@ export default function NewTournamentPage() {
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[60] bg-[#0A0A1A] flex flex-col pt-12"
           >
-            <div className="flex justify-between items-center px-6 mb-12">
-               <h3 className="text-white font-black italic uppercase tracking-tight">Risultato Match</h3>
-               <button onClick={() => setActiveMatch(null)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/20"><X size={20} /></button>
+            <div className="flex justify-between items-center px-6 mb-8">
+               <div className="text-white font-createfuture text-xl italic uppercase tracking-widest">Risultato Match</div>
+               <button onClick={() => setActiveMatch(null)} className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 border border-white/5 active:scale-90 transition-all"><X size={20} /></button>
             </div>
             
             <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-20">
-               <div className="bg-[#12122A] rounded-3xl p-6 border border-white/5 space-y-8">
+               <div className="space-y-6">
                   {/* Scoreboard Display */}
-                  <div className="flex items-center justify-around py-4 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="text-center">
-                         <div className="text-[40px] font-black text-white italic leading-none">{p1Score}</div>
-                         <div className="mt-2 text-[10px] font-bold text-white/40 uppercase tracking-widest truncate w-24">
-                           {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.username}
-                         </div>
-                      </div>
-                      <div className="text-white/10 font-black text-xl italic mt-4">VS</div>
-                      <div className="text-center">
-                         <div className="text-[40px] font-black text-white italic leading-none">{p2Score}</div>
-                         <div className="mt-2 text-[10px] font-bold text-white/40 uppercase tracking-widest truncate w-24">
-                           {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.username}
-                         </div>
-                      </div>
+                  <div className="relative overflow-hidden rounded-[32px] bg-[#12122A] border border-white/5 p-6 shadow-2xl">
+                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
+                     
+                     <div className="flex items-center justify-between relative z-10">
+                        {/* P1 Score */}
+                        <div className="flex-1 flex flex-col items-center gap-1">
+                           <div className="text-[48px] font-createfuture text-[#E94560] italic leading-none drop-shadow-glow-red">{p1Score}</div>
+                           <div className="text-[10px] font-createfuture text-[#E94560] tracking-widest uppercase opacity-60 truncate w-24 text-center">
+                             {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.username}
+                           </div>
+                        </div>
+
+                        <div className="px-4">
+                           <div className="text-white/10 font-createfuture text-2xl italic tracking-tighter">VS</div>
+                        </div>
+
+                        {/* P2 Score */}
+                        <div className="flex-1 flex flex-col items-center gap-1">
+                           <div className="text-[48px] font-createfuture text-[#4361EE] italic leading-none drop-shadow-glow-blue">{p2Score}</div>
+                           <div className="text-[10px] font-createfuture text-[#4361EE] tracking-widest uppercase opacity-60 truncate w-24 text-center">
+                             {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.username}
+                           </div>
+                        </div>
+                     </div>
                   </div>
 
-                  {/* Round Entry Form */}
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-6">
-                      {/* P1 Bey Selector */}
+                  {/* Round Entry Form (Hidden for ReadOnly) */}
+                  {!isReadOnly && (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* P1 Bey Selector */}
+                        <div className="space-y-2">
+                          <div className="text-[9px] font-createfuture text-[#E94560] tracking-[0.2em] mb-2 uppercase opacity-40 text-center">Bey P1</div>
+                          <div className="flex justify-center gap-2">
+                            {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.user_id)?.deck_config?.beys?.map((b, i) => {
+                               const isSelected = currentRoundEntry.p1_bey === b.blade_id;
+                               const blade = blades.find(p => p.id === b.blade_id);
+                               return (
+                                 <button 
+                                   key={i}
+                                   onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p1_bey: b.blade_id }))}
+                                   className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#E94560]/10 border-[#E94560] shadow-glow-red scale-105' : 'bg-white/5 border-white/5 opacity-40'}`}
+                                 >
+                                   <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
+                                   {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#E94560] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
+                                 </button>
+                               );
+                            })}
+                          </div>
+                          <div className="text-[9px] font-bold text-white/20 text-center truncate italic mt-1">
+                            {currentRoundEntry.p1_bey ? getPartName('blade', currentRoundEntry.p1_bey) : 'Seleziona...'}
+                          </div>
+                        </div>
+
+                        {/* P2 Bey Selector */}
+                        <div className="space-y-2">
+                          <div className="text-[9px] font-createfuture text-[#4361EE] tracking-[0.2em] mb-2 uppercase opacity-40 text-center">Bey P2</div>
+                          <div className="flex justify-center gap-2">
+                            {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.user_id)?.deck_config?.beys?.map((b, i) => {
+                               const isSelected = currentRoundEntry.p2_bey === b.blade_id;
+                               const blade = blades.find(p => p.id === b.blade_id);
+                               return (
+                                 <button 
+                                   key={i}
+                                   onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p2_bey: b.blade_id }))}
+                                   className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#4361EE]/10 border-[#4361EE] shadow-glow-blue scale-105' : 'bg-white/5 border-white/5 opacity-40'}`}
+                                 >
+                                   <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
+                                   {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#4361EE] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
+                                 </button>
+                               );
+                            })}
+                          </div>
+                          <div className="text-[9px] font-bold text-white/20 text-center truncate italic mt-1">
+                            {currentRoundEntry.p2_bey ? getPartName('blade', currentRoundEntry.p2_bey) : 'Seleziona...'}
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="space-y-3">
-                        <label className="text-[9px] font-black text-primary uppercase tracking-widest block text-center">Bey P1</label>
-                        <div className="flex justify-center gap-2">
-                          {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.user_id)?.deck_config?.beys?.map((b, i) => {
-                             const isSelected = currentRoundEntry.p1_bey === b.blade_id;
-                             const blade = blades.find(p => p.id === b.blade_id);
-                             return (
-                               <button 
-                                 key={i}
-                                 onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p1_bey: b.blade_id }))}
-                                 className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-primary/20 border-primary shadow-glow-primary scale-110' : 'bg-white/5 border-white/10 opacity-40 hover:opacity-100'}`}
-                               >
-                                 <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-lg" alt="" />
-                                 {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
-                               </button>
-                             );
-                          })}
-                        </div>
-                        <div className="text-[9px] font-bold text-white/30 text-center truncate">
-                          {currentRoundEntry.p1_bey ? getPartName('blade', currentRoundEntry.p1_bey) : 'Seleziona...'}
+                        <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase text-center">Vincitore Round</div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button 
+                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p1' }))}
+                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'p1' ? 'bg-[#E94560] border-[#E94560] text-white shadow-glow-red' : 'bg-[#12122A] border-white/5 text-white/20'}`}
+                          >P1</button>
+                          <button 
+                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'draw', finish: 'draw' }))}
+                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'draw' ? 'bg-white/10 border-white/20 text-white' : 'bg-[#12122A] border-white/5 text-white/20'}`}
+                          >Draw</button>
+                          <button 
+                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p2' }))}
+                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white shadow-glow-blue' : 'bg-[#12122A] border-white/5 text-white/20'}`}
+                          >P2</button>
                         </div>
                       </div>
 
-                      {/* P2 Bey Selector */}
-                      <div className="space-y-3">
-                        <label className="text-[9px] font-black text-[#4361EE] uppercase tracking-widest block text-center">Bey P2</label>
-                        <div className="flex justify-center gap-2">
-                          {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.user_id)?.deck_config?.beys?.map((b, i) => {
-                             const isSelected = currentRoundEntry.p2_bey === b.blade_id;
-                             const blade = blades.find(p => p.id === b.blade_id);
-                             return (
-                               <button 
-                                 key={i}
-                                 onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p2_bey: b.blade_id }))}
-                                 className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#4361EE]/20 border-[#4361EE] shadow-glow-blue scale-110' : 'bg-white/5 border-white/10 opacity-40 hover:opacity-100'}`}
-                               >
-                                 <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-lg" alt="" />
-                                 {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#4361EE] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
-                               </button>
-                             );
-                          })}
+                      {currentRoundEntry.winner && currentRoundEntry.winner !== 'draw' && (
+                        <div className="space-y-3">
+                          <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase text-center">Tipo Finish</div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {FINISH_TYPES.filter(f => f.id !== 'draw').map(ft => (
+                              <button 
+                                key={ft.id}
+                                onClick={() => setCurrentRoundEntry(prev => ({ ...prev, finish: ft.id }))}
+                                className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${currentRoundEntry.finish === ft.id ? '' : 'bg-[#12122A] border-white/5 opacity-40'}`}
+                                style={currentRoundEntry.finish === ft.id ? { background: `${ft.color}15`, borderColor: ft.color } : {}}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <ft.icon size={18} style={{ color: ft.color }} />
+                                  <div className="text-[11px] font-createfuture text-white uppercase">{ft.name}</div>
+                                </div>
+                                <div className="text-[10px] font-createfuture" style={{ color: ft.color }}>+{ft.points} PT</div>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <div className="text-[9px] font-bold text-white/30 text-center truncate">
-                          {currentRoundEntry.p2_bey ? getPartName('blade', currentRoundEntry.p2_bey) : 'Seleziona...'}
-                        </div>
-                      </div>
+                      )}
+
+                      <button 
+                        onClick={addRound}
+                        disabled={!currentRoundEntry.winner || (!currentRoundEntry.finish && currentRoundEntry.winner !== 'draw')}
+                        className="w-full py-5 rounded-[22px] bg-white text-[#0A0A1A] font-black text-[11px] tracking-[0.2em] uppercase shadow-glow-white disabled:opacity-20 active:scale-95 transition-all"
+                      >
+                        Invia Risultato Round
+                      </button>
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Vincitore Round</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button 
-                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p1' }))}
-                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'p1' ? 'bg-primary border-primary text-white shadow-glow-primary' : 'bg-white/5 border-white/5 text-white/30'}`}
-                        >P1</button>
-                        <button 
-                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'draw', finish: 'draw' }))}
-                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'draw' ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/5 text-white/30'}`}
-                        >Draw</button>
-                        <button 
-                          onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p2' }))}
-                          className={`py-3 rounded-xl border-2 font-black text-[10px] uppercase transition-all ${currentRoundEntry.winner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white shadow-glow-blue' : 'bg-white/5 border-white/5 text-white/30'}`}
-                        >P2</button>
-                      </div>
-                    </div>
-
-                    {currentRoundEntry.winner && currentRoundEntry.winner !== 'draw' && (
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Tipo Finish</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {FINISH_TYPES.filter(f => f.id !== 'draw').map(ft => (
-                            <button 
-                              key={ft.id}
-                              onClick={() => setCurrentRoundEntry(prev => ({ ...prev, finish: ft.id }))}
-                              className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${currentRoundEntry.finish === ft.id ? '' : 'bg-[#0A0A1A] border-white/5 opacity-40'}`}
-                              style={currentRoundEntry.finish === ft.id ? { background: `${ft.color}15`, borderColor: ft.color } : {}}
-                            >
-                              <ft.icon size={16} style={{ color: ft.color }} />
-                              <div className="text-left">
-                                <div className="text-[10px] font-black text-white uppercase">{ft.name}</div>
-                                <div className="text-[9px] font-bold" style={{ color: ft.color }}>+{ft.points} PT</div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <button 
-                      onClick={addRound}
-                      disabled={!currentRoundEntry.winner || (!currentRoundEntry.finish && currentRoundEntry.winner !== 'draw')}
-                      className="w-full py-4 rounded-2xl bg-white text-black font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 disabled:opacity-20"
-                    >
-                      <Plus size={16} /> Aggiungi Round
-                    </button>
-                  </div>
+                  )}
 
                   {/* History of Rounds */}
                   {matchRounds.length > 0 && (
-                    <div className="space-y-3 pt-6 border-t border-white/5">
-                      <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Cronologia Round ({matchRounds.length})</label>
+                    <div className="space-y-3 pt-8 border-t border-white/5">
+                      <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase">Storico Round ({matchRounds.length})</div>
                       <div className="space-y-2">
                         {matchRounds.map((r, i) => {
                           const ft = FINISH_TYPES.find(f => f.id === r.finish);
                           return (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-                              <div className="text-[10px] font-black text-white/20">R{i+1}</div>
+                            <div key={i} className="flex items-center gap-3 p-4 rounded-[20px] bg-white/5 border border-white/5">
+                              <div className="text-white/20 font-createfuture text-[10px] w-6 text-center">R{i+1}</div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-bold text-white/60 truncate">
-                                  {r.p1_bey ? getPartName('blade', r.p1_bey) : '—'} vs {r.p2_bey ? getPartName('blade', r.p2_bey) : '—'}
+                                <div className="text-[10px] font-createfuture uppercase italic truncate mb-0.5 flex items-center">
+                                  <span className="text-[#E94560]">{r.p1_bey ? getPartName('blade', r.p1_bey) : '—'}</span>
+                                  <span className="text-white/10 mx-2 text-[8px] not-italic">vs</span>
+                                  <span className="text-[#4361EE]">{r.p2_bey ? getPartName('blade', r.p2_bey) : '—'}</span>
                                 </div>
+                                <div className="text-[8px] font-createfuture uppercase" style={{ color: ft.color }}>{ft.name}</div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className="text-[8px] font-black px-2 py-0.5 rounded uppercase" style={{ color: ft.color, background: `${ft.color}15` }}>{ft.name}</div>
-                                <div className={`text-xs font-black ${r.winner === 'p1' ? 'text-primary' : r.winner === 'p2' ? 'text-[#4361EE]' : 'text-white/20'}`}>
-                                  {r.winner === 'p1' ? 'P1' : r.winner === 'p2' ? 'P2' : 'D'}
+                              <div className="flex items-center gap-4">
+                                <div className={`text-lg font-createfuture ${r.winner === 'p1' ? 'text-[#E94560]' : r.winner === 'p2' ? 'text-[#4361EE]' : 'text-white/20'}`}>
+                                  {r.winner === 'p1' ? 'P1' : r.winner === 'p2' ? 'P2' : '—'}
                                 </div>
-                                <button onClick={() => removeRound(i)} className="text-white/20 hover:text-red-500"><X size={14} /></button>
+                                <button onClick={() => removeRound(i)} className="p-2 text-white/10 hover:text-red-500 transition-colors"><X size={14} /></button>
                               </div>
                             </div>
                           );
@@ -867,7 +962,7 @@ export default function NewTournamentPage() {
                   <button 
                     onClick={handleMatchWin}
                     disabled={p1Score === p2Score && matchRounds.length === 0}
-                    className="w-full py-5 rounded-2xl bg-primary text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-30 mt-8"
+                    className="w-full py-5 rounded-[24px] bg-[#F5A623] text-[#0A0A1A] font-createfuture uppercase text-[14px] tracking-widest shadow-glow-accent disabled:opacity-20 mt-8 active:scale-95 transition-all"
                   >
                     Salva Risultato Torneo
                   </button>

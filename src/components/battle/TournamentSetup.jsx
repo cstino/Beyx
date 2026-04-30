@@ -11,7 +11,7 @@ export function TournamentSetup({ onConfirm }) {
   const [guestName, setGuestName] = useState('');
   const [activeUsers, setActiveUsers] = useState([]);
   
-  const [entryMode, setEntryMode] = useState('manual'); // 'manual' | 'open'
+  const [entryMode, setEntryMode] = useState('invitation'); // 'invitation' | 'open'
   const [maxParticipants, setMaxParticipants] = useState(8);
   const [description, setDescription] = useState('');
 
@@ -49,7 +49,7 @@ export function TournamentSetup({ onConfirm }) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={entryMode === 'open' ? "Nome del Torneo Pubblico..." : "es. Torneo d'Estate 2024"}
-          className="w-full bg-transparent text-white font-black text-xl text-center italic outline-none placeholder-white/10"
+          className="w-full bg-transparent text-white font-createfuture text-xl text-center italic outline-none placeholder-white/10"
         />
       </div>
 
@@ -65,8 +65,8 @@ export function TournamentSetup({ onConfirm }) {
         <div className="space-y-2">
            <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Sfida</label>
            <div className="flex bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner">
-             <button onClick={() => setBattleType('1v1')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '1v1' ? 'bg-white/20 text-white' : 'text-white/30'}`}>1v1</button>
-             <button onClick={() => setBattleType('3v3')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '3v3' ? 'bg-white/20 text-white' : 'text-white/30'}`}>3v3</button>
+             <button onClick={() => setBattleType('1v1')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '1v1' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}>1v1</button>
+             <button onClick={() => setBattleType('3v3')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '3v3' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}>3v3</button>
            </div>
         </div>
       </div>
@@ -76,10 +76,10 @@ export function TournamentSetup({ onConfirm }) {
          <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Modalità Iscrizione</label>
          <div className="bg-[#12122A] p-2 rounded-[28px] border border-white/5 flex gap-2">
             <button 
-              onClick={() => setEntryMode('manual')}
-              className={`flex-1 py-4 px-4 rounded-[22px] flex items-center justify-center gap-3 transition-all ${entryMode === 'manual' ? 'bg-white/5 text-white border border-white/10' : 'text-white/20 hover:text-white/40'}`}
+              onClick={() => setEntryMode('invitation')}
+              className={`flex-1 py-4 px-4 rounded-[22px] flex items-center justify-center gap-3 transition-all ${entryMode === 'invitation' ? 'bg-[#4361EE]/10 text-[#4361EE] border border-[#4361EE]/20' : 'text-white/20 hover:text-white/40'}`}
             >
-              <Users size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Manuale</span>
+              <Users size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Ad Invito</span>
             </button>
             <button 
               onClick={() => setEntryMode('open')}
@@ -88,17 +88,22 @@ export function TournamentSetup({ onConfirm }) {
               <Swords size={16} /> <span className="text-[10px] font-black uppercase tracking-widest">Aperte</span>
             </button>
          </div>
+         <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest text-center px-4">
+           {entryMode === 'invitation' 
+             ? "Solo i Blader selezionati potranno confermare e inserire il loro deck."
+             : "Chiunque potrà iscriversi e partecipare al torneo."}
+         </p>
       </div>
 
       <AnimatePresence mode="wait">
-        {entryMode === 'manual' ? (
+        {entryMode === 'invitation' ? (
           <motion.div 
-            key="manual" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            key="invitation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-[11px] font-black text-white tracking-[0.2em] uppercase pl-1">Partecipanti ({participants.length})</h3>
-              {participants.length < 2 && <div className="text-[9px] font-bold text-white/20 italic animate-pulse">Aggiungi almeno 2 Blader</div>}
+              <h3 className="text-[11px] font-black text-white tracking-[0.2em] uppercase pl-1">Invitati ({participants.length})</h3>
+              {participants.length < 2 && <div className="text-[9px] font-bold text-white/20 italic animate-pulse">Invita almeno 2 Blader</div>}
             </div>
             <div className="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar pr-2">
               {participants.map((p, i) => (
@@ -121,7 +126,7 @@ export function TournamentSetup({ onConfirm }) {
               </div>
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mask-linear-right">
                 {activeUsers.map(u => (
-                  <button key={u.id} onClick={() => addParticipant(u)} className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black text-white/60 uppercase tracking-widest hover:border-primary/50 hover:bg-primary/5 transition-all">
+                  <button key={u.id} onClick={() => addParticipant(u)} className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black text-white/60 uppercase tracking-widest hover:border-[#4361EE]/50 hover:bg-[#4361EE]/5 transition-all">
                     {u.username}
                   </button>
                 ))}
@@ -162,8 +167,9 @@ export function TournamentSetup({ onConfirm }) {
       <motion.button
         onClick={() => onConfirm({ 
           name, format, battleType, participants, 
-          registrationOpen: entryMode === 'open',
-          maxParticipants,
+          registrationOpen: true, // Always true now, but filtered by mode
+          registrationMode: entryMode, 
+          maxParticipants: entryMode === 'invitation' ? participants.length : maxParticipants,
           description
         })}
         disabled={!canStart}
@@ -175,7 +181,7 @@ export function TournamentSetup({ onConfirm }) {
         }}
       >
         <div className="relative z-10 flex items-center gap-3">
-           {entryMode === 'open' ? 'APRI ISCRIZIONI' : `GENERA ${format === 'bracket' ? 'TABELLONE' : 'GIRONE'}`} <Trophy size={18} strokeWidth={3} />
+           {entryMode === 'open' ? 'APRI ISCRIZIONI' : 'CREA E INVITA'} <Trophy size={18} strokeWidth={3} />
         </div>
       </motion.button>
     </div>

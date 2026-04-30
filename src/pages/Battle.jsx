@@ -43,8 +43,8 @@ export default function BattlePage() {
   const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openTournaments, setOpenTournaments] = useState([]);
+  const [myTournaments, setMyTournaments] = useState([]);
   const [userRegistrations, setUserRegistrations] = useState([]);
-  const [registrationsLoading, setRegistrationsLoading] = useState(true);
   const [pendingInvitations, setPendingInvitations] = useState([]);
   const [topBladers, setTopBladers] = useState([]);
   const [invitationFeedback, setInvitationFeedback] = useState(location.state?.invitationSent || false);
@@ -64,6 +64,7 @@ export default function BattlePage() {
     fetchLeaderboard();
     if (user) {
       fetchPendingInvitations();
+      fetchMyTournaments();
     }
   }, [user]);
 
@@ -128,8 +129,31 @@ export default function BattlePage() {
       .from('tournaments')
       .select('*')
       .eq('registration_open', true)
-      .eq('status', 'setup');
+      .eq('status', 'setup')
+      .order('created_at', { ascending: false });
     setOpenTournaments(data || []);
+  }
+
+  async function fetchMyTournaments() {
+    if (!user) return;
+    
+    // Get tournaments where user is registered
+    const { data: regs } = await supabase
+      .from('tournament_registrations')
+      .select('tournament_id')
+      .eq('user_id', user.id);
+    
+    const tourneyIds = regs?.map(r => r.tournament_id) || [];
+    
+    // Also get tournaments created by user
+    const { data: tourneys } = await supabase
+      .from('tournaments')
+      .select('*')
+      .or(`id.in.(${tourneyIds.length > 0 ? tourneyIds.join(',') : '00000000-0000-0000-0000-000000000000'}),created_by.eq.${user.id}`)
+      .neq('status', 'completed')
+      .order('created_at', { ascending: false });
+    
+    setMyTournaments(tourneys || []);
   }
 
   async function fetchPendingInvitations() {
@@ -296,6 +320,73 @@ export default function BattlePage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* My Tournaments (Invited or Active) */}
+      {myTournaments.length > 0 && (
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-[3px] h-3.5 bg-primary" />
+            <h2 className="text-[11px] font-extrabold text-white tracking-[0.2em] uppercase font-createfuture">
+              I Miei Tornei
+            </h2>
+          </div>
+          <div className="space-y-4">
+            {myTournaments.map(t => {
+              const isCreator = t.created_by === user?.id;
+              const registration = userRegistrations.find(r => r.tournament_id === t.id);
+              
+              let statusLabel = t.status === 'setup' ? 'In Preparazione' : 'In Corso';
+              let btnLabel = isCreator ? "Gestisci" : "Entra";
+              let btnAction = () => {
+                if (isCreator) {
+                  navigate(`/battle/new/tournament`, { state: { tournamentId: t.id } });
+                } else if (t.status === 'setup') {
+                  navigate(`/battle/tournament/${t.id}/join`);
+                } else {
+                  // If active, we need a way for participants to view the bracket
+                  // For now, let's lead them to the tournament page which should handle active state
+                  navigate(`/battle/new/tournament`, { state: { tournamentId: t.id, viewOnly: true } });
+                }
+              };
+
+              return (
+                <motion.div 
+                  key={t.id}
+                  onClick={btnAction}
+                  whileTap={{ scale: 0.98 }}
+                  className="p-6 rounded-[32px] bg-gradient-to-br from-[#1A1A3A] to-[#0A0A1A] border border-primary/20 flex flex-col gap-4 relative overflow-hidden group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex flex-col gap-1">
+                      <div className="text-[9px] font-black text-primary uppercase tracking-widest italic">{t.battle_type} · {t.format}</div>
+                      <div className="text-xl font-black text-white uppercase italic tracking-tighter font-createfuture truncate max-w-[200px]">{t.name}</div>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-xl border text-[8px] font-black uppercase tracking-widest ${t.status === 'active' ? 'bg-green-500/10 text-green-500 border-green-500/20 animate-pulse' : 'bg-white/5 text-white/40 border-white/10'}`}>
+                      {statusLabel}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-2 relative z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center">
+                        <Trophy size={14} className="text-primary" />
+                      </div>
+                      <div className="text-[10px] font-bold text-white/40 uppercase">
+                        {isCreator ? 'Creato da te' : 'Partecipante'}
+                      </div>
+                    </div>
+                    <button className="px-5 py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-glow-primary">
+                      {btnLabel}
+                    </button>
+                  </div>
+                  
+                  <Trophy size={120} className="absolute right-[-20px] bottom-[-20px] text-white/[0.03] rotate-12 pointer-events-none" />
+                </motion.div>
+              );
+            })}
           </div>
         </section>
       )}
