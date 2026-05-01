@@ -22,16 +22,6 @@ export default function NewTournamentPage() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [stage, setStage] = useState('setup'); // 'setup' | 'active'
   const [tournament, setTournament] = useState(null);
-  const [activeMatch, setActiveMatch] = useState(null); // { rIndex, mIndex }
-  const [p1Score, setP1Score] = useState(0);
-  const [p2Score, setP2Score] = useState(0);
-  const [matchRounds, setMatchRounds] = useState([]);
-  const [currentRoundEntry, setCurrentRoundEntry] = useState({
-    p1_bey: null,
-    p2_bey: null,
-    winner: null,
-    finish: null
-  });
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [blades, setBlades] = useState([]);
@@ -276,153 +266,49 @@ export default function NewTournamentPage() {
     useToastStore.getState().success("Torneo creato con successo!");
   }
 
-  async function handleMatchWin() {
-    if (!activeMatch) {
-      // Emergenza: se non c'è un match attivo ma forziamo la chiusura
-      const finalRound = tournament.structure.rounds[tournament.structure.rounds.length - 1];
-      const finalMatch = finalRound.matches[0];
-      if (finalMatch.winner) {
-        const winner = finalMatch.winner === 'p1' ? finalMatch.p1 : finalMatch.p2;
-        const updated = { ...tournament, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name };
-        setTournament(updated);
-        updateTournamentDB(updated);
-      }
-      return;
-    }
-    const { rIndex, mIndex } = activeMatch;
-    const newStructure = JSON.parse(JSON.stringify(tournament.structure));
-    const currentMatch = newStructure.rounds[rIndex].matches[mIndex];
-    
-    const winnerSide = p1Score > p2Score ? 'p1' : (p2Score > p1Score ? 'p2' : 'draw');
-    if (winnerSide === 'draw') return;
-
-    currentMatch.winner = winnerSide;
-    currentMatch.score = { p1: p1Score, p2: p2Score };
-    const winner = winnerSide === 'p1' ? currentMatch.p1 : currentMatch.p2;
-
-    // Prepare data for the ranked record
-    const battleRecord = {
-       format: 'tournament', // Usiamo 'tournament' come formato per consistenza nella cronologia
-       is_official: true,
-       tournament_id: tournament.id,
-       player1_user_id: currentMatch.p1.user_id || null,
-       player1_guest_name: currentMatch.p1.user_id ? null : currentMatch.p1.username,
-       player2_user_id: currentMatch.p2.user_id || null,
-       player2_guest_name: currentMatch.p2.user_id ? null : currentMatch.p2.username,
-       winner_side: winnerSide,
-       points_p1: parseInt(p1Score) || 0,
-       points_p2: parseInt(p2Score) || 0,
-       created_by: user.id
-    };
-
-    const { data: battleData, error: battleError } = await supabase.from('battles').insert(battleRecord).select().single();
-    if (battleError) console.error('Battle insert error:', battleError);
-
-    // Save individual rounds to the database for history tracking
-    if (battleData && matchRounds.length > 0) {
-      const roundsToInsert = matchRounds.map((r, i) => ({
-        battle_id: battleData.id,
-        round_number: i + 1,
-        p1_combo_label: getPartName('blade', r.p1_bey),
-        p2_combo_label: getPartName('blade', r.p2_bey),
-        winner_side: r.winner,
-        finish_type: r.finish,
-        points_awarded: r.points
-      }));
-      await supabase.from('rounds').insert(roundsToInsert);
-    }
-
-    let updatedStatus = tournament.status;
-    let winnerUserId = null;
-    let winnerGuestName = null;
-
-    if (tournament.format === 'bracket') {
-      if (rIndex < newStructure.rounds.length - 1) {
-         let currentR = rIndex;
-         let currentM = mIndex;
-         let currentWinner = winner;
-
-         while (currentR < newStructure.rounds.length - 1) {
-            const nextR = currentR + 1;
-            const nextM = Math.floor(currentM / 2);
-            
-            if (currentM % 2 === 0) newStructure.rounds[nextR].matches[nextM].p1 = currentWinner;
-            else newStructure.rounds[nextR].matches[nextM].p2 = currentWinner;
-
-            const nextMatch = newStructure.rounds[nextR].matches[nextM];
-            if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
-               nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
-               currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
-               currentR = nextR;
-               currentM = nextM;
-            } else break;
-         }
-      } else {
-         updatedStatus = 'completed';
-         winnerUserId = winner.user_id;
-         winnerGuestName = winner.guest_name;
-      }
-    }
-
-    const updatedTournament = { 
-      ...tournament, 
-      structure: newStructure, 
-      status: updatedStatus,
-      winner_user_id: winnerUserId,
-      winner_guest_name: winnerGuestName
-    };
-
-    setTournament(updatedTournament);
-    setActiveMatch(null);
-    setP1Score(0);
-    setP2Score(0);
-    updateTournamentDB(updatedTournament);
-  }
-
-  const FINISH_TYPES = [
-    { id: 'burst',       name: 'Burst',   points: 2, icon: Zap,       color: '#E94560' },
-    { id: 'ko',          name: 'KO',      points: 2, icon: Target,    color: '#4361EE' },
-    { id: 'xtreme',      name: 'Xtreme',  points: 3, icon: Flame,     color: '#F5A623' },
-    { id: 'spin_finish', name: 'Spin',    points: 1, icon: RotateCcw, color: '#00D68F' },
-    { id: 'draw',        name: 'Draw',    points: 0, icon: Minus,     color: '#6B7280' },
-  ];
-
-  function handleSelectMatch(rIndex, mIndex) {
+  async function handleSelectMatch(rIndex, mIndex) {
     const match = tournament.structure.rounds[rIndex].matches[mIndex];
-    // Reset match states and sync with tournament structure
-    setMatchRounds(match.rounds || []);
-    setP1Score(match.p1Score || 0);
-    setP2Score(match.p2Score || 0);
-    setCurrentRoundEntry({ p1_bey: null, p2_bey: null, winner: null, finish: null });
-    setActiveMatch({ rIndex, mIndex });
-  }
+    if (!match.p1 || !match.p2 || match.winner) return;
 
-  function addRound() {
-    if (!currentRoundEntry.winner || !currentRoundEntry.finish) return;
-    
-    const ft = FINISH_TYPES.find(f => f.id === currentRoundEntry.finish);
-    const newRound = { ...currentRoundEntry, points: ft.points };
-    const newRounds = [...matchRounds, newRound];
-    
-    setMatchRounds(newRounds);
-    
-    // Update scores
-    const s1 = newRounds.reduce((acc, r) => acc + (r.winner === 'p1' ? r.points : 0), 0);
-    const s2 = newRounds.reduce((acc, r) => acc + (r.winner === 'p2' ? r.points : 0), 0);
-    setP1Score(s1);
-    setP2Score(s2);
-    
-    // Reset round entry (keep Beys for faster entry if they repeat)
-    setCurrentRoundEntry(prev => ({ ...prev, winner: null, finish: null }));
-  }
+    // Check if we already have a battle_id for this match
+    let battleId = match.battle_id;
 
-  function removeRound(idx) {
-    const newRounds = matchRounds.filter((_, i) => i !== idx);
-    setMatchRounds(newRounds);
-    const s1 = newRounds.reduce((acc, r) => acc + (r.winner === 'p1' ? r.points : 0), 0);
-    const s2 = newRounds.reduce((acc, r) => acc + (r.winner === 'p2' ? r.points : 0), 0);
-    setP1Score(s1);
-    setP2Score(s2);
+    if (!battleId) {
+      // Create a new active battle for this tournament match
+      const { data: battleData, error: battleError } = await supabase.from('battles').insert({
+        format: 'tournament',
+        is_official: true,
+        tournament_id: tournament.id,
+        player1_user_id: match.p1.user_id || null,
+        player1_guest_name: match.p1.user_id ? null : match.p1.username,
+        player2_user_id: match.p2.user_id || null,
+        player2_guest_name: match.p2.user_id ? null : match.p2.username,
+        p1_deck_config: match.p1.deck,
+        p2_deck_config: match.p2.deck,
+        status: 'active',
+        point_target: tournament.format === 'bracket' ? 3 : 5, // Custom targets could be added later
+        created_by: user.id
+      }).select().single();
+
+      if (battleError) {
+        console.error('Battle creation error:', battleError);
+        useToastStore.getState().error("Errore creazione match: " + battleError.message);
+        return;
+      }
+
+      battleId = battleData.id;
+
+      // Update tournament structure with this battle_id
+      const newStructure = JSON.parse(JSON.stringify(tournament.structure));
+      newStructure.rounds[rIndex].matches[mIndex].battle_id = battleId;
+      
+      const updatedTournament = { ...tournament, structure: newStructure };
+      setTournament(updatedTournament);
+      await updateTournamentDB(updatedTournament);
+    }
+
+    // Navigate to the live match page
+    navigate(`/battle/live/${battleId}`);
   }
 
   async function updateTournamentDB(t) {
@@ -449,17 +335,12 @@ export default function NewTournamentPage() {
     }
   }, [tournament]);
 
-  // Sync active match data if tournament updates via realtime
+  // Sync tournament data if it updates via realtime
   useEffect(() => {
-    if (activeMatch && tournament) {
-      const match = tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex];
-      if (match) {
-        setMatchRounds(match.rounds || []);
-        setP1Score(match.p1Score || 0);
-        setP2Score(match.p2Score || 0);
-      }
+    if (tournament) {
+      // Nothing specific to sync now as matches are handled externally
     }
-  }, [tournament, activeMatch]);
+  }, [tournament]);
 
   async function fetchRegistrations() {
     const { data } = await supabase
@@ -756,20 +637,6 @@ export default function NewTournamentPage() {
                 }}
               />
             </div>
-             {/* Bottone di emergenza se la riparazione automatica fallisce */}
-             {tournament.structure?.rounds?.[tournament.structure.rounds.length - 1]?.matches[0]?.winner && !isReadOnly && (
-               <div className="px-6 mt-8">
-                 <button 
-                   onClick={() => handleMatchWin({ 
-                     winner_side: tournament.structure.rounds[tournament.structure.rounds.length - 1].matches[0].winner,
-                     win_type: 'final'
-                   })}
-                   className="w-full py-4 bg-primary/20 border border-primary/40 rounded-2xl text-primary font-black uppercase text-[11px] tracking-widest shadow-glow-primary"
-                 >
-                   Finalizza Torneo Manualmente
-                 </button>
-               </div>
-             )}
               {/* Bottone Elimina Torneo (Anche se attivo) */}
               {!isReadOnly && (
                 <div className="px-6 mt-12 mb-8">
@@ -784,193 +651,6 @@ export default function NewTournamentPage() {
            </>
          )}
       </div>
-
-      <AnimatePresence>
-        {activeMatch && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-[#0A0A1A] flex flex-col pt-12"
-          >
-            <div className="flex justify-between items-center px-6 mb-8">
-               <div className="text-white font-createfuture text-xl italic uppercase tracking-widest">Risultato Match</div>
-               <button onClick={() => setActiveMatch(null)} className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center text-white/20 border border-white/5 active:scale-90 transition-all"><X size={20} /></button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-20">
-               <div className="space-y-6">
-                  {/* Scoreboard Display */}
-                  <div className="relative overflow-hidden rounded-[32px] bg-[#12122A] border border-white/5 p-6 shadow-2xl">
-                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] to-transparent pointer-events-none" />
-                     
-                     <div className="flex items-center justify-between relative z-10">
-                        {/* P1 Score */}
-                        <div className="flex-1 flex flex-col items-center gap-1">
-                           <div className="text-[48px] font-createfuture text-[#E94560] italic leading-none drop-shadow-glow-red">{p1Score}</div>
-                           <div className="text-[10px] font-createfuture text-[#E94560] tracking-widest uppercase opacity-60 truncate w-24 text-center">
-                             {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.username}
-                           </div>
-                        </div>
-
-                        <div className="px-4">
-                           <div className="text-white/10 font-createfuture text-2xl italic tracking-tighter">VS</div>
-                        </div>
-
-                        {/* P2 Score */}
-                        <div className="flex-1 flex flex-col items-center gap-1">
-                           <div className="text-[48px] font-createfuture text-[#4361EE] italic leading-none drop-shadow-glow-blue">{p2Score}</div>
-                           <div className="text-[10px] font-createfuture text-[#4361EE] tracking-widest uppercase opacity-60 truncate w-24 text-center">
-                             {tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.username}
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-
-                  {/* Round Entry Form (Hidden for ReadOnly) */}
-                  {!isReadOnly && (
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* P1 Bey Selector */}
-                        <div className="space-y-2">
-                          <div className="text-[9px] font-createfuture text-[#E94560] tracking-[0.2em] mb-2 uppercase opacity-40 text-center">Bey P1</div>
-                          <div className="flex justify-center gap-2">
-                            {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p1.user_id)?.deck_config?.beys?.map((b, i) => {
-                               const isSelected = currentRoundEntry.p1_bey === b.blade_id;
-                               const blade = blades.find(p => p.id === b.blade_id);
-                               return (
-                                 <button 
-                                   key={i}
-                                   onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p1_bey: b.blade_id }))}
-                                   className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#E94560]/10 border-[#E94560] shadow-glow-red scale-105' : 'bg-white/5 border-white/5 opacity-40'}`}
-                                 >
-                                   <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
-                                   {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#E94560] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
-                                 </button>
-                               );
-                            })}
-                          </div>
-                          <div className="text-[9px] font-bold text-white/20 text-center truncate italic mt-1">
-                            {currentRoundEntry.p1_bey ? getPartName('blade', currentRoundEntry.p1_bey) : 'Seleziona...'}
-                          </div>
-                        </div>
-
-                        {/* P2 Bey Selector */}
-                        <div className="space-y-2">
-                          <div className="text-[9px] font-createfuture text-[#4361EE] tracking-[0.2em] mb-2 uppercase opacity-40 text-center">Bey P2</div>
-                          <div className="flex justify-center gap-2">
-                            {registrations.find(r => r.user_id === tournament.structure.rounds[activeMatch.rIndex].matches[activeMatch.mIndex].p2.user_id)?.deck_config?.beys?.map((b, i) => {
-                               const isSelected = currentRoundEntry.p2_bey === b.blade_id;
-                               const blade = blades.find(p => p.id === b.blade_id);
-                               return (
-                                 <button 
-                                   key={i}
-                                   onClick={() => setCurrentRoundEntry(prev => ({ ...prev, p2_bey: b.blade_id }))}
-                                   className={`w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center p-2 relative ${isSelected ? 'bg-[#4361EE]/10 border-[#4361EE] shadow-glow-blue scale-105' : 'bg-white/5 border-white/5 opacity-40'}`}
-                                 >
-                                   <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
-                                   {isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#4361EE] rounded-full flex items-center justify-center border-2 border-[#12122A]"><Check size={8} className="text-white" /></div>}
-                                 </button>
-                               );
-                            })}
-                          </div>
-                          <div className="text-[9px] font-bold text-white/20 text-center truncate italic mt-1">
-                            {currentRoundEntry.p2_bey ? getPartName('blade', currentRoundEntry.p2_bey) : 'Seleziona...'}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase text-center">Vincitore Round</div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button 
-                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p1' }))}
-                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'p1' ? 'bg-[#E94560] border-[#E94560] text-white shadow-glow-red' : 'bg-[#12122A] border-white/5 text-white/20'}`}
-                          >P1</button>
-                          <button 
-                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'draw', finish: 'draw' }))}
-                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'draw' ? 'bg-white/10 border-white/20 text-white' : 'bg-[#12122A] border-white/5 text-white/20'}`}
-                          >Draw</button>
-                          <button 
-                            onClick={() => setCurrentRoundEntry(prev => ({ ...prev, winner: 'p2' }))}
-                            className={`py-4 rounded-2xl border-2 font-createfuture text-[11px] uppercase transition-all ${currentRoundEntry.winner === 'p2' ? 'bg-[#4361EE] border-[#4361EE] text-white shadow-glow-blue' : 'bg-[#12122A] border-white/5 text-white/20'}`}
-                          >P2</button>
-                        </div>
-                      </div>
-
-                      {currentRoundEntry.winner && currentRoundEntry.winner !== 'draw' && (
-                        <div className="space-y-3">
-                          <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase text-center">Tipo Finish</div>
-                          <div className="grid grid-cols-2 gap-3">
-                            {FINISH_TYPES.filter(f => f.id !== 'draw').map(ft => (
-                              <button 
-                                key={ft.id}
-                                onClick={() => setCurrentRoundEntry(prev => ({ ...prev, finish: ft.id }))}
-                                className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${currentRoundEntry.finish === ft.id ? '' : 'bg-[#12122A] border-white/5 opacity-40'}`}
-                                style={currentRoundEntry.finish === ft.id ? { background: `${ft.color}15`, borderColor: ft.color } : {}}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <ft.icon size={18} style={{ color: ft.color }} />
-                                  <div className="text-[11px] font-createfuture text-white uppercase">{ft.name}</div>
-                                </div>
-                                <div className="text-[10px] font-createfuture" style={{ color: ft.color }}>+{ft.points} PT</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <button 
-                        onClick={addRound}
-                        disabled={!currentRoundEntry.winner || (!currentRoundEntry.finish && currentRoundEntry.winner !== 'draw')}
-                        className="w-full py-5 rounded-[22px] bg-white text-[#0A0A1A] font-black text-[11px] tracking-[0.2em] uppercase shadow-glow-white disabled:opacity-20 active:scale-95 transition-all"
-                      >
-                        Invia Risultato Round
-                      </button>
-                    </div>
-                  )}
-
-                  {/* History of Rounds */}
-                  {matchRounds.length > 0 && (
-                    <div className="space-y-3 pt-8 border-t border-white/5">
-                      <div className="text-[10px] font-createfuture text-white/20 tracking-[0.2em] uppercase">Storico Round ({matchRounds.length})</div>
-                      <div className="space-y-2">
-                        {matchRounds.map((r, i) => {
-                          const ft = FINISH_TYPES.find(f => f.id === r.finish);
-                          return (
-                            <div key={i} className="flex items-center gap-3 p-4 rounded-[20px] bg-white/5 border border-white/5">
-                              <div className="text-white/20 font-createfuture text-[10px] w-6 text-center">R{i+1}</div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[10px] font-createfuture uppercase italic truncate mb-0.5 flex items-center">
-                                  <span className="text-[#E94560]">{r.p1_bey ? getPartName('blade', r.p1_bey) : '—'}</span>
-                                  <span className="text-white/10 mx-2 text-[8px] not-italic">vs</span>
-                                  <span className="text-[#4361EE]">{r.p2_bey ? getPartName('blade', r.p2_bey) : '—'}</span>
-                                </div>
-                                <div className="text-[8px] font-createfuture uppercase" style={{ color: ft.color }}>{ft.name}</div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className={`text-lg font-createfuture ${r.winner === 'p1' ? 'text-[#E94560]' : r.winner === 'p2' ? 'text-[#4361EE]' : 'text-white/20'}`}>
-                                  {r.winner === 'p1' ? 'P1' : r.winner === 'p2' ? 'P2' : '—'}
-                                </div>
-                                <button onClick={() => removeRound(i)} className="p-2 text-white/10 hover:text-red-500 transition-colors"><X size={14} /></button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <button 
-                    onClick={handleMatchWin}
-                    disabled={p1Score === p2Score && matchRounds.length === 0}
-                    className="w-full py-5 rounded-[24px] bg-[#F5A623] text-[#0A0A1A] font-createfuture uppercase text-[14px] tracking-widest shadow-glow-accent disabled:opacity-20 mt-8 active:scale-95 transition-all"
-                  >
-                    Salva Risultato Torneo
-                  </button>
-               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <ConfirmModal 
         isOpen={showConfirmDelete}

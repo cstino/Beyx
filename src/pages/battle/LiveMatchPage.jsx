@@ -249,20 +249,95 @@ export function LiveMatchPage() {
         <div className="mx-4 mb-6">
            <button 
              onClick={async () => {
-                const winner = p1Score >= battle.point_target ? 'p1' : 'p2';
-                const { error } = await supabase.from('battles').update({ 
+                const winnerSide = p1Score >= battle.point_target ? 'p1' : 'p2';
+                
+                // 1. Update the battle status
+                const { error: battleErr } = await supabase.from('battles').update({ 
                   status: 'completed', 
-                  winner_side: winner,
+                  winner_side: winnerSide,
                   points_p1: p1Score,
                   points_p2: p2Score 
                 }).eq('id', battleId);
 
-                if (error) {
-                  useToastStore.getState().error("Errore: " + error.message);
-                } else {
-                  useToastStore.getState().success("Match concluso con successo!");
-                  navigate('/battle');
+                if (battleErr) {
+                  useToastStore.getState().error("Errore: " + battleErr.message);
+                  return;
                 }
+
+                // 2. If it's a tournament match, update the tournament structure
+                if (battle.tournament_id) {
+                  const { data: tourney } = await supabase.from('tournaments')
+                    .select('*')
+                    .eq('id', battle.tournament_id)
+                    .single();
+                  
+                  if (tourney) {
+                    const structure = typeof tourney.structure === 'string' ? JSON.parse(tourney.structure) : tourney.structure;
+                    let found = false;
+                    let rIdx = -1;
+                    let mIdx = -1;
+
+                    // Find the match in the structure
+                    structure.rounds.forEach((r, ri) => {
+                      r.matches.forEach((m, mi) => {
+                        if (m.battle_id === battleId) {
+                          rIdx = ri;
+                          mIdx = mi;
+                          m.winner = winnerSide;
+                          m.score = { p1: p1Score, p2: p2Score };
+                          found = true;
+                        }
+                      });
+                    });
+
+                    if (found) {
+                      const winner = winnerSide === 'p1' ? structure.rounds[rIdx].matches[mIdx].p1 : structure.rounds[rIdx].matches[mIdx].p2;
+                      let updatedStatus = tourney.status;
+                      let winnerUserId = tourney.winner_user_id;
+                      let winnerGuestName = tourney.winner_guest_name;
+
+                      if (tourney.format === 'bracket') {
+                        if (rIdx < structure.rounds.length - 1) {
+                          let currentR = rIdx;
+                          let currentM = mIdx;
+                          let currentWinner = winner;
+
+                          while (currentR < structure.rounds.length - 1) {
+                            const nextR = currentR + 1;
+                            const nextM = Math.floor(currentM / 2);
+                            
+                            if (currentM % 2 === 0) structure.rounds[nextR].matches[nextM].p1 = currentWinner;
+                            else structure.rounds[nextR].matches[nextM].p2 = currentWinner;
+
+                            const nextMatch = structure.rounds[nextR].matches[nextM];
+                            if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
+                              nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
+                              currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
+                              currentR = nextR;
+                              currentM = nextM;
+                            } else break;
+                          }
+                        } else {
+                          updatedStatus = 'completed';
+                          winnerUserId = winner.user_id;
+                          winnerGuestName = winner.username;
+                        }
+                      }
+
+                      // Update tournament in DB
+                      await supabase.from('tournaments').update({
+                        structure,
+                        status: updatedStatus,
+                        winner_user_id: winnerUserId,
+                        winner_guest_name: winnerGuestName,
+                        completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
+                      }).eq('id', tourney.id);
+                    }
+                  }
+                }
+
+                useToastStore.getState().success("Match concluso con successo!");
+                navigate('/battle');
              }}
              className="w-full py-4 rounded-2xl bg-[#F5A623] text-white font-createfuture uppercase tracking-widest shadow-glow-accent"
            >
