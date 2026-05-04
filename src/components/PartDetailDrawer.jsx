@@ -241,7 +241,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                 )}
               </AnimatePresence>
 
-              <div className="w-full flex justify-between items-center py-4 px-6 relative">
+              <div className="w-full flex justify-between items-center pt-8 pb-4 px-6 relative">
                 {/* Collection Toggle (Top Left) */}
                 <button 
                   onClick={() => handleToggle(false)}
