@@ -11,19 +11,11 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const FORMATS = [
   {
-    key: '1v1',
+    key: 'quick',
     icon: Swords,
-    title: '1v1',
-    subtitle: 'Battaglia singola',
+    title: 'Quick Match',
+    subtitle: 'Sfida 1v1 o 3v3',
     color: '#E94560',
-    path: '/battle/new',
-  },
-  {
-    key: '3v3',
-    icon: Users,
-    title: '3v3',
-    subtitle: 'Deck format',
-    color: '#4361EE',
     path: '/battle/new',
   },
   {

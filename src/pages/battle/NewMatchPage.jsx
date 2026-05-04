@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Swords, Users } from 'lucide-react';
 import { PlayerPicker } from '../../components/battle/PlayerPicker';
 import { DeckPicker } from '../../components/battle/DeckPicker';
 import { supabase } from '../../lib/supabaseClient';
@@ -20,7 +20,7 @@ export function NewMatchPage() {
   const [step, setStep] = useState(0);
 
   const [match, setMatch] = useState({
-    format: location.state?.format || '1v1',       // '1v1' | '3v3'
+    format: (location.state?.format === 'quick' ? '1v1' : location.state?.format) || '1v1',
     player1: { user_id: userId, guest_name: null },
     player2: { user_id: null, guest_name: null },
     point_target: 4,
@@ -127,26 +127,35 @@ function MatchSettings({ match, onChange, onNext }) {
     <div>
       {/* Format selector */}
       <div className="mb-6">
-        <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 font-createfuture">
-          FORMATO
+        <div className="text-[10px] font-bold text-primary tracking-[0.2em] mb-4 uppercase font-createfuture">
+          TIPO DI SFIDA
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { key: '1v1', label: '1v1', desc: 'Singolo' },
-            { key: '3v3', label: '3v3', desc: 'Deck format' },
-          ].map(fmt => (
-            <button
-              key={fmt.key}
-              onClick={() => onChange({ ...match, format: fmt.key })}
-              className={`p-4 rounded-xl border transition-colors text-left
-                ${match.format === fmt.key
-                  ? 'bg-[#4361EE]/10 border-[#4361EE]/50'
-                  : 'bg-[#12122A] border-white/10'}`}
-            >
-              <div className="text-white font-black text-lg">{fmt.label}</div>
-              <div className="text-white/50 text-xs">{fmt.desc}</div>
-            </button>
-          ))}
+            { key: '1v1', label: '1v1', desc: 'Battaglia Singola', icon: Swords },
+            { key: '3v3', label: '3v3', desc: 'Deck Format', icon: Users },
+          ].map(fmt => {
+            const Icon = fmt.icon;
+            const isSelected = match.format === fmt.key;
+            return (
+              <button
+                key={fmt.key}
+                onClick={() => onChange({ ...match, format: fmt.key })}
+                className={`p-4 rounded-2xl border-2 transition-all text-left relative overflow-hidden
+                  ${isSelected
+                    ? 'bg-primary/10 border-primary shadow-glow-primary'
+                    : 'bg-[#12122A] border-white/5 opacity-50 hover:opacity-100'}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isSelected ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/20'}`}>
+                      <Icon size={16} />
+                   </div>
+                </div>
+                <div className="text-white font-black text-lg font-createfuture">{fmt.label}</div>
+                <div className="text-white/40 text-[10px] font-bold uppercase tracking-wider">{fmt.desc}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
