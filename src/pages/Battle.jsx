@@ -89,7 +89,6 @@ export default function BattlePage() {
       .select('tournament_id, status')
       .eq('user_id', user.id);
     setUserRegistrations(data || []);
-    setRegistrationsLoading(false);
   }
 
   async function fetchRecentBattles() {

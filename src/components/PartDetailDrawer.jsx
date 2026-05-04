@@ -33,14 +33,66 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
     setActivePart(initialPart);
   }, [initialPart]);
 
+  // 1. Fetch Variants List (Stable order)
+  useEffect(() => {
+    if (!initialPart) return;
+
+    async function fetchVariants() {
+      const tableName = initialPart.kind === 'ratchet' ? 'ratchets' : initialPart.kind === 'bit' ? 'bits' : 'blades';
+      const { data: siblings } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('name', initialPart.name);
+
+      const all = [initialPart, ...(siblings || [])];
+      const unique = [];
+      const keys = new Set();
+      
+      all.forEach(p => {
+        // Main part entry
+        const key = `${p.release_code}-${p.image_url}`;
+        if (!keys.has(key)) {
+          unique.push(p);
+          keys.add(key);
+        }
+        // Sub-variants from JSON blob if any
+        (p.variants || []).forEach((v, i) => {
+           const subKey = `${v.release_code}-${v.image_url}`;
+           if (!keys.has(subKey)) {
+             unique.push({ 
+               ...p, 
+               id: `${p.id}_v${i}`, 
+               release_code: v.release_code, 
+               image_url: v.image_url, 
+               is_consolidated: true 
+             });
+             keys.add(subKey);
+           }
+        });
+      });
+      
+      // SORT BY RELEASE CODE TO ENSURE FIXED POSITIONS
+      unique.sort((a, b) => {
+        const codeA = a.release_code || '';
+        const codeB = b.release_code || '';
+        if (codeA !== codeB) return codeA.localeCompare(codeB);
+        return (a.id || '').toString().localeCompare((b.id || '').toString());
+      });
+      
+      setVariants(unique);
+    }
+    fetchVariants();
+  }, [initialPart]);
+
+  // 2. Fetch Ownership & Wishlist for the current active variant
   useEffect(() => {
     if (!activePart) return;
 
-    async function fetchData() {
+    async function fetchActiveData() {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       setUserId(user.id);
       
-      // Check ownership/wishlist of active variant
       const { data: ownership } = await supabase
         .from('user_collections')
         .select('id, is_wishlist')
@@ -60,37 +112,8 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
          setOwned(false);
          setWishlisted(false);
       }
-
-      // Fetch other variants (consolidated + siblings)
-      const tableName = activePart.kind === 'ratchet' ? 'ratchets' : activePart.kind === 'bit' ? 'bits' : 'blades';
-      const { data: siblings } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('name', activePart.name);
-
-      // Merge and unique-ify
-      const consolidated = (activePart.variants || []).map((v, i) => ({
-        ...activePart,
-        id: `${activePart.id}_v${i}`,
-        release_code: v.release_code,
-        image_url: v.image_url,
-        is_consolidated: true
-      }));
-
-      const all = [activePart, ...consolidated, ...(siblings || [])];
-      const unique = [];
-      const keys = new Set();
-      all.forEach(v => {
-        const key = `${v.release_code}-${v.image_url}`;
-        if (!keys.has(key)) {
-          unique.push(v);
-          keys.add(key);
-        }
-      });
-      
-      setVariants(unique);
     }
-    fetchData();
+    fetchActiveData();
   }, [activePart]);
 
   const handleToggle = async (isWishlistToggle = false) => {
@@ -259,7 +282,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
               {variants.length > 1 && (
                 <div className="mb-10">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Color Variants / Special Editions</p>
-                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide px-1">
+                  <div className="flex gap-3 overflow-x-auto pt-2 pb-4 scrollbar-hide px-2">
                     {variants.map((v) => (
                       <button
                         key={v.id}
@@ -267,7 +290,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                         className="flex flex-col items-center gap-2 group"
                       >
                         <div className={`w-16 h-16 rounded-2xl border-2 flex-shrink-0 transition-all p-1 bg-white/5 ${
-                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-110' : 'border-white/5 opacity-40 group-hover:opacity-100'
+                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/5 opacity-40 group-hover:opacity-100'
                         }`}>
                           <PartImage src={v.image_url} name={v.name} type={activePart.kind} />
                         </div>
