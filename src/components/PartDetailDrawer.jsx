@@ -241,57 +241,58 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                 )}
               </AnimatePresence>
 
-              <div className="w-full flex justify-between items-center pt-8 pb-4 px-6 relative">
-                {/* Collection Toggle (Top Left) */}
-                <button 
-                  onClick={() => handleToggle(false)}
-                  disabled={loading}
-                  className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center relative ${
-                    owned 
-                      ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
-                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 active:scale-90'
-                  }`}
-                >
-                  {loading && !wishlisted ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : owned ? (
-                    <Check size={22} strokeWidth={4} />
-                  ) : (
-                    <Plus size={22} />
-                  )}
-                </button>
+              <div className="w-full flex justify-between items-start py-4 px-6 relative">
+                {/* Left Action Stack */}
+                <div className="flex flex-col gap-3">
+                  {/* Collection Toggle */}
+                  <button 
+                    onClick={() => handleToggle(false)}
+                    disabled={loading}
+                    className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center relative ${
+                      owned 
+                        ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 active:scale-90'
+                    }`}
+                  >
+                    {loading && !wishlisted ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : owned ? (
+                      <Check size={22} strokeWidth={4} />
+                    ) : (
+                      <Plus size={22} />
+                    )}
+                  </button>
 
-                {/* Drag Handle */}
-                <div className="w-12 h-1.5 bg-white/10 rounded-full" />
-
-                <div className="flex items-center gap-3">
-                  {/* Wishlist Toggle (Top Right) */}
+                  {/* Wishlist Toggle */}
                   {!owned && (
                     <button 
                       onClick={() => handleToggle(true)}
                       disabled={loading}
-                      className={`w-11 h-11 flex items-center justify-center transition-all active:scale-90 ${
+                      className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center active:scale-90 ${
                         wishlisted 
-                          ? 'text-[#4361EE] drop-shadow-[0_0_12px_rgba(67,97,238,0.6)]' 
-                          : 'text-slate-400 hover:text-white'
+                          ? 'bg-[#4361EE]/10 border-[#4361EE]/50 text-[#4361EE] drop-shadow-[0_0_12px_rgba(67,97,238,0.4)]' 
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
                       }`}
                     >
                       {loading && wishlisted ? (
                         <div className="w-5 h-5 border-2 border-[#4361EE] border-t-transparent rounded-full animate-spin" />
                       ) : (
-                        <Heart size={26} className={wishlisted ? 'fill-[#4361EE]' : ''} />
+                        <Heart size={22} className={wishlisted ? 'fill-[#4361EE]' : ''} />
                       )}
                     </button>
                   )}
-
-                  {/* Close Button */}
-                  <button 
-                    onClick={onClose} 
-                    className="w-11 h-11 bg-white/5 rounded-full flex items-center justify-center text-slate-400 hover:bg-white/10 active:scale-90 transition-all"
-                  >
-                    <X size={22} />
-                  </button>
                 </div>
+
+                {/* Drag Handle */}
+                <div className="w-12 h-1.5 bg-white/10 rounded-full mt-2" />
+
+                {/* Close Button (Top Right) */}
+                <button 
+                  onClick={onClose} 
+                  className="w-11 h-11 bg-white/5 rounded-full flex items-center justify-center text-slate-400 hover:bg-white/10 active:scale-90 transition-all"
+                >
+                  <X size={22} />
+                </button>
               </div>
 
             <div className="flex-1 overflow-y-auto px-6 pb-24">
