@@ -182,7 +182,7 @@ export default function Collection() {
                     onClick={() => setSelectedPart(part)}
                     className={
                       ownedSet.has(part.id) 
-                      ? 'border-[#4361EE]/40' 
+                      ? 'border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)] bg-gradient-to-b from-[#12122A] to-[#0A0A1A]' 
                       : wishlistSet.has(part.id) 
                       ? 'border-[#4361EE]/60 shadow-[0_0_15px_rgba(67,97,238,0.15)] bg-gradient-to-b from-[#12122A] to-[#0A0A1A]' 
                       : 'border-white/5'

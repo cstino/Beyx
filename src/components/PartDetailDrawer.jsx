@@ -28,6 +28,14 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   useEffect(() => {
     setActivePart(initialPart);
@@ -133,6 +141,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
             });
             setWishlisted(true);
             setOwned(false);
+            setToast({ message: 'Aggiunto alla wishlist!', type: 'wishlist' });
          }
       } else {
          if (owned) {
@@ -143,6 +152,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
             });
             setOwned(true);
             setWishlisted(false);
+            setToast({ message: 'Aggiunto alla collezione!', type: 'owned' });
          }
       }
       
@@ -203,22 +213,86 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
           />
 
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 z-[101] bg-surface rounded-t-[2.5rem] border-t border-white/10 overflow-hidden max-h-[95vh] flex flex-col"
-          >
-            <div className="w-full flex justify-center py-4 relative">
-              <div className="w-12 h-1.5 bg-white/10 rounded-full" />
-              <button 
-                onClick={onClose} 
-                className="absolute right-6 top-3 p-2 bg-white/5 rounded-full text-slate-400"
-              >
-                <X size={20} />
-              </button>
-            </div>
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 z-[101] bg-surface rounded-t-[2.5rem] border-t border-white/10 overflow-hidden max-h-[95vh] flex flex-col"
+            >
+              {/* Toast Notification */}
+              <AnimatePresence>
+                {toast && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20, x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, x: '-50%' }}
+                    exit={{ opacity: 0, y: -20, x: '-50%' }}
+                    className="absolute top-20 left-1/2 z-[110] pointer-events-none"
+                  >
+                    <div className={`px-6 py-2.5 rounded-full border shadow-2xl backdrop-blur-xl flex items-center gap-3 ${
+                      toast.type === 'owned' 
+                        ? 'bg-green-500/90 border-green-400 text-white shadow-green-500/40' 
+                        : 'bg-[#4361EE]/90 border-[#4361EE] text-white shadow-[#4361EE]/40'
+                    }`}>
+                      {toast.type === 'owned' ? <Check size={14} strokeWidth={4} /> : <Heart size={14} className="fill-white" />}
+                      <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="w-full flex justify-between items-center py-4 px-6 relative">
+                {/* Collection Toggle (Top Left) */}
+                <button 
+                  onClick={() => handleToggle(false)}
+                  disabled={loading}
+                  className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center relative ${
+                    owned 
+                      ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
+                      : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 active:scale-90'
+                  }`}
+                >
+                  {loading && !wishlisted ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : owned ? (
+                    <Check size={22} strokeWidth={4} />
+                  ) : (
+                    <Plus size={22} />
+                  )}
+                </button>
+
+                {/* Drag Handle */}
+                <div className="w-12 h-1.5 bg-white/10 rounded-full" />
+
+                <div className="flex items-center gap-3">
+                  {/* Wishlist Toggle (Top Right) */}
+                  {!owned && (
+                    <button 
+                      onClick={() => handleToggle(true)}
+                      disabled={loading}
+                      className={`w-11 h-11 flex items-center justify-center transition-all active:scale-90 ${
+                        wishlisted 
+                          ? 'text-[#4361EE] drop-shadow-[0_0_12px_rgba(67,97,238,0.6)]' 
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {loading && wishlisted ? (
+                        <div className="w-5 h-5 border-2 border-[#4361EE] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Heart size={26} className={wishlisted ? 'fill-[#4361EE]' : ''} />
+                      )}
+                    </button>
+                  )}
+
+                  {/* Close Button */}
+                  <button 
+                    onClick={onClose} 
+                    className="w-11 h-11 bg-white/5 rounded-full flex items-center justify-center text-slate-400 hover:bg-white/10 active:scale-90 transition-all"
+                  >
+                    <X size={22} />
+                  </button>
+                </div>
+              </div>
 
             <div className="flex-1 overflow-y-auto px-6 pb-24">
               {/* Central Header */}
@@ -414,41 +488,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                  <button
-                    onClick={() => handleToggle(false)}
-                    disabled={loading}
-                    className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
-                      owned 
-                        ? 'bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20' 
-                        : 'text-white shadow-glow-primary hover:scale-[1.02]'
-                    }`}
-                    style={!owned ? { backgroundColor: accentColor } : {}}
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : owned ? (
-                      <><Trash2 size={18} /> Rimuovi</>
-                    ) : (
-                      <><Check size={18} strokeWidth={3} /> Lo Possiedo</>
-                    )}
-                  </button>
-                  
-                  {!owned && (
-                      <button
-                        onClick={() => handleToggle(true)}
-                        disabled={loading}
-                        className={`w-16 flex-shrink-0 flex items-center justify-center rounded-2xl border transition-all ${
-                            wishlisted 
-                            ? 'bg-[#4361EE]/10 border-[#4361EE]/50 text-[#4361EE]'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                        }`}
-                      >
-                         <Heart size={22} className={wishlisted ? 'fill-[#4361EE] text-[#4361EE]' : ''} />
-                      </button>
-                  )}
-              </div>
+              {/* No more action buttons at the bottom */}
             </div>
           </motion.div>
         </>
