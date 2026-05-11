@@ -63,10 +63,10 @@ export function AcademyBanner({ onClick }) {
 
         {/* Text and Progress bar */}
         <div className="flex-1 min-w-0 text-left">
-          <div className="text-[15px] font-black text-white leading-tight drop-shadow-md tracking-wider">
+          <div className="text-[15px] font-black text-white leading-tight drop-shadow-md tracking-wider font-createfuture">
             X ACADEMY
           </div>
-          <div className="text-[11px] text-white/90 mt-0.5 font-bold drop-shadow-md">
+          <div className="text-[11px] text-white/90 mt-0.5 font-bold drop-shadow-md font-createfuture">
             {stats.completed} / {stats.total} lezioni completate
           </div>
           

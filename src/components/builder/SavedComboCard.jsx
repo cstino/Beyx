@@ -16,7 +16,7 @@ const TYPE_LABELS = {
   balance: 'BALANCE',
 };
 
-export function SavedComboCard({ combo, onClick, onDelete }) {
+export function SavedComboCard({ combo, onClick, onDelete, hideActions }) {
   if (!combo) return null;
   
   const stats = combo.user_stats || {};
@@ -100,15 +100,17 @@ export function SavedComboCard({ combo, onClick, onDelete }) {
        </motion.button>
 
        {/* Floating Delete Action */}
-       <button 
-         onClick={(e) => {
-           e.stopPropagation();
-           onDelete(combo);
-         }}
-         className="absolute right-4 top-4 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-90 transition-all opacity-40 hover:opacity-100 hover:bg-red-500 hover:text-white shadow-lg"
-       >
-         <Trash2 size={14} />
-       </button>
+       {!hideActions && onDelete && (
+         <button 
+           onClick={(e) => {
+             e.stopPropagation();
+             onDelete(combo);
+           }}
+           className="absolute right-4 top-4 w-8 h-8 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 active:scale-90 transition-all opacity-40 hover:opacity-100 hover:bg-red-500 hover:text-white shadow-lg"
+         >
+           <Trash2 size={14} />
+         </button>
+       )}
     </motion.div>
   );
 }
@@ -133,14 +135,18 @@ function determineType(stats, defaultType) {
   
   const { attack, defense, stamina } = stats;
   
-  // Weights (if values are closer than 10%, it's Balance)
+  // If stats are completely balanced/default, fallback to original type
+  if ((!attack && !defense && !stamina) || (attack === defense && defense === stamina)) {
+    return defaultType?.toLowerCase() || 'balance';
+  }
+  
   const max = Math.max(attack || 0, defense || 0, stamina || 0);
+  if (max < 40) return defaultType?.toLowerCase() || 'balance';
   
-  if (max < 40) return 'balance';
+  // Must be strictly greater to override the official type
+  if (attack === max && attack > defense && attack > stamina) return 'attack';
+  if (defense === max && defense > attack && defense > stamina) return 'defense';
+  if (stamina === max && stamina > attack && stamina > defense) return 'stamina';
   
-  if (attack === max) return 'attack';
-  if (defense === max) return 'defense';
-  if (stamina === max) return 'stamina';
-  
-  return 'balance';
+  return defaultType?.toLowerCase() || 'balance';
 }

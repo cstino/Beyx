@@ -284,13 +284,18 @@ export function LiveMatchPage() {
           }
 
           // Update tournament in DB
-          await supabase.from('tournaments').update({
+          const { error: tourneyUpdateError } = await supabase.from('tournaments').update({
             structure,
             status: updatedStatus,
             winner_user_id: winnerUserId,
             winner_guest_name: winnerGuestName,
             completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
           }).eq('id', tourney.id);
+
+          if (tourneyUpdateError) {
+            console.error("Error updating tournament:", tourneyUpdateError);
+            useToastStore.getState().error("Errore aggiornamento torneo: " + tourneyUpdateError.message);
+          }
         }
       }
     }
@@ -694,20 +699,17 @@ function EloSummary({ result, battle, onDone }) {
                 </motion.span>
               </div>
 
-              {/* Progress Bar */}
-              <div className="w-full space-y-3 mb-2">
-                <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-white/30">
-                  <span style={{ color: tier.color }}>{display}</span>
-                  <span>{nextTarget || 'MAX'} ELO</span>
+              {/* Next Rank Info */}
+              <div className="w-full mt-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Prossimo Obiettivo</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: tier.color }}>{display}</span>
                 </div>
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${eloProgress}%` }}
-                    transition={{ delay: 1, duration: 1.5, ease: "easeOut" }}
-                    className="h-full rounded-full"
-                    style={{ backgroundColor: tier.color, boxShadow: `0 0 15px ${tier.color}60` }}
-                  />
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white italic font-createfuture">
+                    {nextTarget ? nextTarget - elo_after : 'MAX'}
+                  </span>
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Punti rimanenti per il prossimo Rank</span>
                 </div>
               </div>
            </div>

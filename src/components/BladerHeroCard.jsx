@@ -1,171 +1,177 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar } from './Avatar';
-import { TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { Zap, Sparkles, Shield, Target, TrendingUp, ChevronRight } from 'lucide-react';
 import { RankBadge, getRankFromElo, getNextThreshold, RANK_TIERS, RANK_RANGES } from './RankBadge';
 
 export function BladerHeroCard({ blader }) {
   if (!blader) return null;
   
+  const [displayElo, setDisplayElo] = useState(0);
+  const targetElo = blader.elo || 1000;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let start = 0;
+      const end = targetElo;
+      if (start === end) return;
+      
+      let totalMiliseconds = 1000;
+      let incrementTime = (totalMiliseconds / end) * 5;
+      
+      let timer = setInterval(() => {
+        start += 5;
+        setDisplayElo(start);
+        if (start >= end) {
+          setDisplayElo(end);
+          clearInterval(timer);
+        }
+      }, incrementTime);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [targetElo]);
+
   const xpBase = Math.pow(blader.level - 1, 2) * 50;
   const xpNext = Math.pow(blader.level, 2) * 50;
   const progress = ((blader.xp - xpBase) / (xpNext - xpBase)) * 100;
 
-  // ELO Ranking logic
-  const { display, tier } = getRankFromElo(blader.elo || 1000);
-  const { target: nextTarget } = getNextThreshold(blader.elo || 1000);
-  
-  // Progress between current and next title
-  let eloProgress = 0;
-  if (nextTarget) {
-    const currentRange = RANK_RANGES.find(r => blader.elo >= r.minElo);
-    const floor = currentRange ? currentRange.minElo : 0;
-    const range = nextTarget - floor;
-    eloProgress = ((blader.elo - floor) / range) * 100;
-    eloProgress = Math.max(5, Math.min(100, eloProgress));
-  } else {
-    eloProgress = 100; // God Blader
-  }
-
+  const { display, tier } = getRankFromElo(targetElo);
+  const { target: nextTarget } = getNextThreshold(targetElo);
   const currentAvatarId = blader.avatar_id || blader.avatar_url;
 
   return (
-    <div className="mx-4 relative">
-      {/* Dynamic Glow Background - Adjusted to avoid clipping */}
+    <div className="mx-4 relative group">
+      {/* Background Ambience */}
       <div 
-        className="absolute -inset-2 rounded-[32px] blur-3xl opacity-20 pointer-events-none"
-        style={{ background: tier.color }}
+        className="absolute -inset-4 rounded-[40px] blur-[60px] opacity-10 transition-all duration-1000 group-hover:opacity-20"
+        style={{ background: `radial-gradient(circle, ${tier.color} 0%, transparent 70%)` }}
       />
 
-      <div className="relative bg-[#0A0A1A] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
-        {/* Pattern & Decor */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-           <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-        </div>
+      <div className="relative bg-[#050510] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl backdrop-blur-xl">
+        {/* Futuristic Grid Overlay */}
+        <div className="absolute inset-0 opacity-[0.05] pointer-events-none" 
+             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+        
+        {/* Animated Scanning Line */}
+        <motion.div 
+          animate={{ top: ['0%', '100%', '0%'] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          className="absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent z-0"
+        />
 
-        <div className="relative z-10 p-5">
-          {/* TOP SECTION: Name, Title & Avatar */}
-          <div className="flex justify-between items-start mb-6">
-            <div className="flex-1 pr-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[8px] font-black text-white/40 tracking-[0.2em] uppercase">
-                  BLADER PROFILE
+        <div className="relative z-10 p-6">
+          {/* HEADER SECTION */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-0 blur-lg opacity-40 rounded-2xl" style={{ background: tier.color }} />
+                <div className="relative bg-[#0A0A1A] rounded-2xl p-0.5 border border-white/20">
+                  <Avatar avatarId={currentAvatarId} size={64} />
                 </div>
-                <div className="flex gap-1">
-                   {[...Array(3)].map((_, i) => (
-                     <div key={i} className="w-1 h-1 rounded-full bg-white/10" />
-                   ))}
+                <motion.div 
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-[#050510] flex items-center justify-center text-[10px] font-black text-white shadow-lg"
+                  style={{ background: tier.color }}
+                >
+                  {blader.level}
+                </motion.div>
+              </div>
+              <div className="flex flex-col">
+                 <h2 className="text-2xl font-black text-white italic leading-tight font-createfuture tracking-[0.05em]">
+                   {blader.username}
+                 </h2>
+                <div className="flex items-center gap-1.5 py-0.5 px-2 rounded-full bg-white/5 border border-white/10 w-fit">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: tier.color }} />
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">
+                    {display}
+                  </span>
                 </div>
               </div>
-              
-              <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1 font-createfuture">
-                {blader.username}
-              </h2>
-              
-              <div className="flex items-center gap-1.5 py-1 px-2 rounded-lg bg-white/5 border border-white/5 w-fit">
-                <Sparkles size={10} style={{ color: tier.color }} />
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: tier.color }}>
-                  {display}
-                </span>
-              </div>
-            </div>
-
-            {/* Compact Avatar in top right */}
-            <div className="relative group/avatar">
-               <motion.div 
-                 animate={{ rotate: 360 }}
-                 transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                 className="absolute inset-0 blur-xl opacity-30 rounded-full"
-                 style={{ background: tier.color }}
-               />
-               <motion.div
-                 whileHover={{ scale: 1.1 }}
-                 className="relative z-10 rounded-2xl overflow-hidden border-2 border-white/10 shadow-xl"
-               >
-                 <Avatar avatarId={currentAvatarId} size={76} />
-               </motion.div>
             </div>
           </div>
 
-          {/* MAIN STATS SECTION: Gauges */}
-          <div className="space-y-5">
-            {/* POWER RATING (ELO) */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-end">
-                 <div className="flex items-center gap-2">
-                    <div className="w-1 h-3 rounded-full" style={{ background: tier.color }} />
-                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">Power Rating</span>
-                 </div>
-                 <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-white italic font-createfuture tracking-tighter" style={{ textShadow: `0 0 12px ${tier.color}44` }}>
-                      {blader.elo || 1000}
+          {/* BENTO GRID STATS */}
+          <div className="grid grid-cols-12 gap-3">
+            {/* POWER CORE (ELO) */}
+            <div className="col-span-8 relative group/core">
+               <div className="absolute inset-0 bg-white/[0.02] border border-white/10 rounded-3xl transition-all group-hover/core:border-white/20" />
+               <div className="relative p-5 overflow-hidden">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Power Rating</span>
+                    <TrendingUp size={12} className="text-white/10" />
+                  </div>
+                  
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-5xl font-black text-white italic font-createfuture tracking-[0.02em] tabular-nums leading-none">
+                      {displayElo}
                     </span>
-                    <span className="text-[8px] font-black text-white/20 uppercase">ELO</span>
+                    <span className="text-xs font-black text-white/20 uppercase tracking-widest italic">ELO</span>
+                  </div>
+
+                  {/* Next Milestone Info */}
+                  <div className="pt-3 border-t border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                       <div className="w-1 h-1 rounded-full bg-primary" />
+                       <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">Next Milestone</span>
+                    </div>
+                    <div className="text-[10px] font-black text-white italic">
+                      {nextTarget ? nextTarget - targetElo : '0'} <span className="text-[8px] opacity-30 not-italic ml-0.5">PT TO GO</span>
+                    </div>
+                  </div>
+               </div>
+               
+               {/* Decorative Tech Detail */}
+               <div className="absolute top-0 right-0 p-2 opacity-10">
+                 <div className="w-8 h-8 border-t-2 border-r-2 border-white rounded-tr-lg" />
+               </div>
+            </div>
+
+            {/* SECONDARY INFO */}
+            <div className="col-span-4 flex flex-col gap-3">
+               <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
+                  <Zap size={16} className="text-primary mb-2" />
+                  <div className="text-[14px] font-black text-white italic font-createfuture leading-none">{blader.xp}</div>
+                  <div className="text-[7px] font-black text-white/20 uppercase tracking-widest mt-1">Total XP</div>
+               </div>
+               <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
+                  <div className="text-xs font-black text-white italic font-createfuture leading-none">#{blader.rank || '--'}</div>
+                  <div className="text-[7px] font-black text-white/20 uppercase tracking-widest mt-1">Global</div>
+               </div>
+            </div>
+
+            {/* PROGRESS BAR (Integrated) */}
+            <div className="col-span-12 mt-2 bg-white/[0.02] border border-white/10 rounded-2xl p-4">
+               <div className="flex justify-between items-center mb-2">
+                 <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-sm bg-white/10" />
+                   <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Battle Proficiency</span>
                  </div>
-              </div>
-              
-              <div className="relative h-3.5 bg-white/[0.03] rounded-md p-0.5 border border-white/10 overflow-hidden">
-                 <div className="absolute inset-0 flex gap-0.5 px-1 py-1 opacity-10">
-                    {[...Array(15)].map((_, i) => (
-                      <div key={i} className="flex-1 h-full bg-white/20 rounded-sm" />
-                    ))}
-                 </div>
-                 
+                 <span className="text-[10px] font-black text-white italic">{Math.round(progress)}%</span>
+               </div>
+               <div className="h-2 bg-black/50 rounded-full p-0.5 border border-white/5 overflow-hidden">
                  <motion.div 
                    initial={{ width: 0 }}
-                   animate={{ width: `${eloProgress}%` }}
-                   transition={{ duration: 1.5, ease: "easeOut" }}
-                   className="h-full rounded-sm relative z-10"
-                   style={{ 
-                     background: `linear-gradient(90deg, ${tier.color}66, ${tier.color})`,
-                     boxShadow: `0 0 15px ${tier.color}44`
-                   }}
-                 >
-                   <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-30" />
-                   <motion.div 
-                      animate={{ x: ['-100%', '300%'] }}
-                      transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-y-0 w-12 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]"
-                   />
-                 </motion.div>
-              </div>
-              
-              <div className="flex justify-between text-[7px] font-bold text-white/15 uppercase tracking-widest">
-                 <span>START</span>
-                 <span>NEXT TITLE AT: {nextTarget || 'MAX'}</span>
-              </div>
-            </div>
-
-            {/* BATTLE XP */}
-            <div className="py-2 border-t border-white/5">
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center px-0.5">
-                   <div className="flex items-center gap-2">
-                      <Zap size={9} className="text-white/40" />
-                      <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Battle XP</span>
-                   </div>
-                   <div className="text-[9px] font-black text-white/40 italic">
-                      LEVEL {blader.level}
-                   </div>
-                </div>
-                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                   <motion.div 
-                     initial={{ width: 0 }}
-                     animate={{ width: `${progress}%` }}
-                     className="h-full bg-white/20 rounded-full"
-                   />
-                </div>
-              </div>
+                   animate={{ width: `${progress}%` }}
+                   transition={{ duration: 1, ease: "easeOut" }}
+                   className="h-full rounded-full bg-gradient-to-r from-white/10 via-white/40 to-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+                 />
+               </div>
             </div>
           </div>
         </div>
-
-        {/* Decorative corner accent */}
-        <div 
-          className="absolute bottom-0 right-0 w-16 h-16 opacity-10 blur-2xl"
-          style={{ background: tier.color }}
-        />
+        
+        {/* Subtle Bottom Accent */}
+        <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, transparent, ${tier.color}44, transparent)` }} />
       </div>
+    </div>
+  );
+}
+
+function StatPill({ icon: Icon, value, color, iconColor }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/5">
+      <Icon size={10} style={{ color: iconColor || 'white' }} />
+      <span className="text-[8px] font-black text-white/60 tracking-widest">{value}</span>
     </div>
   );
 }

@@ -11,16 +11,16 @@ export function StatCard({ label, value, total, subtitle, accentColor, onClick }
       {/* Visual Accent Line */}
       <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: accentColor }} />
       
-      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.1em] mb-1">{label}</span>
+      <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.1em] mb-1 font-createfuture">{label}</span>
       
       <div className="flex items-baseline gap-1">
-        <span className="text-4xl font-black tracking-tighter text-white leading-none">{value}</span>
+        <span className="text-4xl font-black tracking-tighter text-white leading-none font-createfuture">{value}</span>
         {total && (
-          <span className="text-[11px] font-bold text-white/20 tracking-tighter">/{total}</span>
+          <span className="text-[11px] font-bold text-white/20 tracking-tighter font-createfuture">/{total}</span>
         )}
       </div>
       
-      <span className="text-[9px] font-black text-white/30 uppercase tracking-tighter mt-2">{subtitle}</span>
+      <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.05em] mt-2 font-createfuture italic">{subtitle}</span>
       
       {/* Subtle Glow Overlay */}
       <div 

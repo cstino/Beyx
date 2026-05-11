@@ -5,6 +5,9 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
+import { PoolSetup } from '../../components/battle/PoolSetup';
+import { PoolDraftPlayerView } from '../../components/battle/PoolDraftPlayerView';
+import { determineComboType } from '../../utils/comboUtils';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
@@ -105,11 +108,20 @@ export default function NewTournamentPage() {
           }
         } else {
           setTournament({ ...data, structure });
-          // Se siamo venuti qui per gestire o se è un torneo in fase di iscrizione, andiamo direttamente alla gestione
-          if (targetId || (data.status === 'setup' && data.registration_open)) {
-            setStage('active');
+          
+          // Determine stage based on status
+          if (data.status === 'drafting') {
+            setStage('drafting');
+          } else if (data.status === 'draft_complete') {
+            setStage('drafting'); // Show the drafting view but in complete state
+          } else if (data.status === 'setup') {
+            if (data.beyblade_mode === 'pool' && (!structure.pool || structure.pool.length === 0) && data.created_by === user.id) {
+              setStage('pool_setup');
+            } else {
+              setStage('active'); // active stage in status 'setup' shows registrations
+            }
           } else {
-            setStage('setup'); 
+            setStage('active');
           }
         }
       } else {
@@ -121,24 +133,32 @@ export default function NewTournamentPage() {
     checkActiveTournament();
     
     // Add Realtime subscription for tournament updates
-    const targetId = location.state?.tournamentId;
-    if (targetId) {
-      const channel = supabase.channel(`tournament-${targetId}`)
+    const tid = tournamentId || location.state?.tournamentId;
+    if (tid) {
+      const channel = supabase.channel(`tournament-${tid}`)
         .on('postgres_changes', { 
           event: 'UPDATE', 
           schema: 'public', 
           table: 'tournaments', 
-          filter: `id=eq.${targetId}` 
+          filter: `id=eq.${tid}` 
         }, (payload) => {
           const updated = payload.new;
           const structure = typeof updated.structure === 'string' ? JSON.parse(updated.structure) : updated.structure;
-          setTournament({ ...updated, structure });
+          
+          // Only update state if the status or structure actually changed to avoid race conditions
+          setTournament(prev => {
+            if (!prev) return { ...updated, structure };
+            const prevStr = JSON.stringify(prev.structure);
+            const nextStr = JSON.stringify(structure);
+            if (prevStr === nextStr && prev.status === updated.status) return prev;
+            return { ...updated, structure };
+          });
         })
         .subscribe();
         
       return () => supabase.removeChannel(channel);
     }
-  }, [user, location.state?.tournamentId]);
+  }, [user, tournamentId, location.state?.tournamentId]);
 
   function calculateStandings(t) {
     const participants = t.participants || [];
@@ -262,6 +282,56 @@ export default function NewTournamentPage() {
     setHeader((stage === 'setup' && !tournament) ? 'Crea Torneo' : (tournament?.name || 'Torneo'), '/battle');
     return () => clearHeader();
   }, [stage, tournament, setHeader, clearHeader, loadingTournament]);
+
+  function generateRoundRobinOrBracket(participants) {
+    const draft = tournament.structure.draft;
+    const pool = tournament.structure.pool || [];
+    
+    // Create final participants list with assigned beys from draft
+    const finalParticipants = participants.map(p => {
+      const pId = p.id || p.user_id || p.username;
+      const assignedComboIds = draft.playerDecks[pId] || [];
+      
+      // Map combo IDs to full combo objects from pool
+      const assignedDecks = assignedComboIds.map(cid => {
+        const combo = pool.find(c => c.id === cid);
+        return {
+          blade_id: combo.blade_id,
+          is_stock: combo.is_stock,
+          ratchet_id: combo.ratchet_id,
+          bit_id: combo.bit_id,
+          user_stats: combo.user_stats,
+          combo_type: combo.combo_type
+        };
+      });
+
+      return {
+        ...p,
+        deck: assignedDecks
+      };
+    });
+
+    const structure = tournament.format === 'bracket' 
+      ? generateBracket(finalParticipants) 
+      : generateRoundRobin(finalParticipants, tournament.structure.settings?.rrCycles || 1);
+    
+    // Preserve settings
+    structure.settings = tournament.structure.settings;
+    structure.pool = tournament.structure.pool;
+    structure.draft = draft; // Keep draft history
+
+    const updated = {
+      ...tournament,
+      participants: finalParticipants,
+      structure,
+      status: 'active'
+    };
+
+    setTournament(updated);
+    updateTournamentDB(updated);
+    setStage('active');
+    useToastStore.getState().success("Torneo Avviato con le combo assegnate!");
+  }
 
   function generateBracket(participants) {
     const roundCount = Math.ceil(Math.log2(participants.length));
@@ -392,6 +462,8 @@ export default function NewTournamentPage() {
       registration_mode: (config.registrationMode === 'invitation' ? 'manual' : 'open'),
       max_participants: config.maxParticipants,
       description: config.description,
+      beyblade_mode: config.beybladeMode || 'personali',
+      assignment_mode: config.assignmentMode,
       created_by: user.id,
       status: 'setup'
     }).select().single();
@@ -418,8 +490,18 @@ export default function NewTournamentPage() {
     }
 
     setTournament(data);
-    setStage('active');
+    setStage(data.beyblade_mode === 'pool' ? 'pool_setup' : 'active');
     useToastStore.getState().success("Torneo creato con successo!");
+  }
+
+  async function handlePoolSetupComplete(poolCombos) {
+    const updatedStructure = { ...tournament.structure, pool: poolCombos };
+    const updatedTournament = { ...tournament, structure: updatedStructure };
+    
+    setTournament(updatedTournament);
+    await updateTournamentDB(updatedTournament);
+    setStage('active');
+    useToastStore.getState().success("Pool confermata! Apertura iscrizioni.");
   }
 
   async function handleSelectMatch(rIndex, mIndex) {
@@ -439,8 +521,8 @@ export default function NewTournamentPage() {
         player1_guest_name: match.p1.user_id ? null : match.p1.username,
         player2_user_id: match.p2.user_id || null,
         player2_guest_name: match.p2.user_id ? null : match.p2.username,
-        p1_deck_config: match.p1.deck,
-        p2_deck_config: match.p2.deck,
+        p1_deck_config: match.p1.deck || [],
+        p2_deck_config: match.p2.deck || [],
         battle_type: tournament.battle_type || '1v1',
         status: 'active',
         point_target: tournament.point_target || 4,
@@ -532,7 +614,7 @@ export default function NewTournamentPage() {
   }, [tournament?.structure?.rounds]);
 
   async function updateTournamentDB(t) {
-    await supabase.from('tournaments')
+    const { error } = await supabase.from('tournaments')
       .update({ 
         structure: t.structure, 
         status: t.status, 
@@ -541,6 +623,11 @@ export default function NewTournamentPage() {
         completed_at: t.status === 'completed' ? new Date().toISOString() : null
       })
       .eq('id', t.id);
+      
+    if (error) {
+      console.error('Error updating tournament:', error);
+      useToastStore.getState().error("Errore salvataggio: " + error.message);
+    }
   }
 
   const [registrations, setRegistrations] = useState([]);
@@ -645,6 +732,62 @@ export default function NewTournamentPage() {
       useToastStore.getState().error("Servono almeno 2 partecipanti confermati");
       return;
     }
+
+    if (tournament.beyblade_mode === 'pool') {
+      if (tournament.assignment_mode === 'random' || tournament.assignment_mode === 'draft') {
+        const deckSize = tournament.battle_type === '3v3' ? 3 : 1;
+        
+        // Shuffle participants
+        const shuffledParticipants = [...finalParticipants].sort(() => 0.5 - Math.random());
+        
+        const order = [];
+        for (let i = 0; i < deckSize; i++) {
+          if (i % 2 === 0) {
+            order.push(...shuffledParticipants.map(p => p.id || p.user_id || p.username));
+          } else {
+            order.push(...[...shuffledParticipants].reverse().map(p => p.id || p.user_id || p.username));
+          }
+        }
+        
+        // Shuffle pool combos
+        const shuffledCombos = [...(tournament.structure.pool || [])].sort(() => 0.5 - Math.random());
+        
+        const availablePacks = shuffledCombos.map((combo, index) => ({
+          id: `pack_${index}`,
+          combo_id: combo.id,
+          type: determineComboType(combo.user_stats, combo.combo_type),
+          isOpened: false,
+          owner: null
+        }));
+        
+        availablePacks.sort(() => 0.5 - Math.random());
+  
+        const updatedStructure = {
+          ...tournament.structure,
+          draft: {
+            turnOrder: order,
+            currentTurnIndex: 0,
+            availablePacks,
+            playerDecks: {},
+            lastAction: null
+          }
+        };
+  
+        const updated = {
+          ...tournament,
+          participants: finalParticipants,
+          registration_open: false,
+          status: 'drafting',
+          structure: updatedStructure
+        };
+  
+        setTournament(updated);
+        await updateTournamentDB(updated);
+        setStage('drafting');
+        useToastStore.getState().success("Inizia il Draft!");
+        return;
+      }
+    }
     
     const structure = tournament.format === 'bracket' 
       ? generateBracket(finalParticipants) 
@@ -684,6 +827,23 @@ export default function NewTournamentPage() {
 
   return (
     <div className="min-h-screen pb-32 flex flex-col pt-6">
+      <div className="px-6 flex items-center justify-between mb-4">
+        <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+          Torneo ID: <span className="text-white/40">{tournament?.id}</span>
+        </div>
+        {tournament && (
+          <button 
+            onClick={() => {
+              const displayUrl = `${window.location.origin}/battle/tournament/${tournament.id}/display`;
+              navigator.clipboard.writeText(displayUrl);
+              useToastStore.getState().success("Link Display Copiato!");
+            }}
+            className="text-[9px] font-black text-primary uppercase tracking-widest hover:text-white transition-colors"
+          >
+            Copia Link Display
+          </button>
+        )}
+      </div>
       <div className="px-6 flex-1">
          {stage === 'setup' ? (
            <>
@@ -719,6 +879,16 @@ export default function NewTournamentPage() {
              )}
              <TournamentSetup onConfirm={handleCreate} />
            </>
+         ) : stage === 'pool_setup' ? (
+           <PoolSetup tournament={tournament} onComplete={handlePoolSetupComplete} />
+         ) : stage === 'drafting' ? (
+           <PoolDraftPlayerView 
+              tournament={tournament} 
+              setTournament={setTournament} 
+              updateTournamentDB={updateTournamentDB} 
+              onDraftComplete={() => generateRoundRobinOrBracket(tournament.participants)}
+               onDelete={deleteTournament}
+            />
          ) : tournament?.status === 'setup' && tournament?.registration_open ? (
            <div className="space-y-8">
               <div>

@@ -45,6 +45,7 @@ export default function BattlePage() {
   const [openTournaments, setOpenTournaments] = useState([]);
   const [myTournaments, setMyTournaments] = useState([]);
   const [userRegistrations, setUserRegistrations] = useState([]);
+  const [registrationsLoading, setRegistrationsLoading] = useState(true);
   const [pendingInvitations, setPendingInvitations] = useState([]);
   const [topBladers, setTopBladers] = useState([]);
   const [invitationFeedback, setInvitationFeedback] = useState(location.state?.invitationSent || false);

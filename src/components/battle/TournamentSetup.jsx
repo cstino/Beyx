@@ -19,6 +19,8 @@ export function TournamentSetup({ onConfirm }) {
   const [pointTarget, setPointTarget] = useState(4);
   const [winCondition, setWinCondition] = useState('point_target');
   const [description, setDescription] = useState('');
+  const [beybladeMode, setBeybladeMode] = useState('personali'); // 'personali' | 'pool'
+  const [assignmentMode, setAssignmentMode] = useState('random'); // 'random' | 'draft' | 'asta'
 
   useEffect(() => {
     supabase.from('profiles').select('id, username, avatar_id, avatar_color')
@@ -189,6 +191,70 @@ export function TournamentSetup({ onConfirm }) {
         </motion.div>
       )}
 
+      {/* Beyblade Mode Selection */}
+      <div className="space-y-4">
+        <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Beyblade</label>
+        <div className="bg-[#12122A] p-2 rounded-[28px] border border-white/5 flex gap-2">
+          <button 
+            onClick={() => setBeybladeMode('personali')}
+            className={`flex-1 py-4 px-4 rounded-[22px] flex flex-col items-center justify-center gap-1 transition-all ${beybladeMode === 'personali' ? 'bg-[#4361EE]/10 text-[#4361EE] border border-[#4361EE]/20 shadow-[0_0_15px_rgba(67,97,238,0.1)]' : 'text-white/20 hover:text-white/40'}`}
+          >
+            <Users size={16} /> 
+            <span className="text-[10px] font-black uppercase tracking-widest">Personali</span>
+          </button>
+          <button 
+            onClick={() => setBeybladeMode('pool')}
+            className={`flex-1 py-4 px-4 rounded-[22px] flex flex-col items-center justify-center gap-1 transition-all ${beybladeMode === 'pool' ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_rgba(233,69,96,0.1)]' : 'text-white/20 hover:text-white/40'}`}
+          >
+            <Trophy size={16} /> 
+            <span className="text-[10px] font-black uppercase tracking-widest">Pool</span>
+          </button>
+        </div>
+        
+        <AnimatePresence>
+          {beybladeMode === 'pool' ? (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+              className="space-y-4 overflow-hidden"
+            >
+              <div className="p-5 rounded-[32px] bg-primary/5 border border-primary/10 space-y-4">
+                <label className="text-[8px] font-black text-primary tracking-[0.2em] uppercase block text-center">Metodo di Assegnazione Pool</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'random', label: 'Random', desc: 'Assegnazione Casuale' },
+                    { id: 'draft', label: 'Draft', desc: 'Draft a Serpentina' },
+                    { id: 'asta', label: 'Asta', desc: 'Asta a Crediti' }
+                  ].map(m => (
+                    <button 
+                      key={m.id}
+                      onClick={() => setAssignmentMode(m.id)}
+                      className={`py-3 px-1 rounded-xl border flex flex-col items-center gap-1 transition-all ${assignmentMode === m.id ? 'bg-primary/20 border-primary/40' : 'bg-[#0A0A1A] border-white/5'}`}
+                    >
+                      <span className={`text-[9px] font-black uppercase tracking-tighter ${assignmentMode === m.id ? 'text-primary' : 'text-white/40'}`}>{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="bg-black/20 p-3 rounded-2xl">
+                  <p className="text-[8px] text-white/40 font-medium leading-relaxed text-center uppercase tracking-wider">
+                    {assignmentMode === 'random' && "I Beyblade verranno assegnati ai partecipanti in modo completamente casuale."}
+                    {assignmentMode === 'draft' && "I partecipanti sceglieranno i Beyblade seguendo un ordine a serpentina."}
+                    {assignmentMode === 'asta' && "100 crediti a testa. Max 98 per Bey. Devi poterne acquistare 3!"}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.p 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="text-[9px] text-white/20 font-bold uppercase tracking-widest text-center px-4"
+            >
+              Ogni partecipante utilizzerà i propri Beyblade salvati nel profilo.
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Entry Mode Toggle */}
       <div className="space-y-3">
          <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Modalità Iscrizione</label>
@@ -291,7 +357,9 @@ export function TournamentSetup({ onConfirm }) {
           description,
           rrCycles: format === 'round_robin' ? rrCycles : 1,
           rrWinnerMode: format === 'round_robin' ? rrWinnerMode : 'points',
-          playoffType: (format === 'round_robin' && rrWinnerMode === 'playoff') ? playoffType : null
+          playoffType: (format === 'round_robin' && rrWinnerMode === 'playoff') ? playoffType : null,
+          beybladeMode,
+          assignmentMode: beybladeMode === 'pool' ? assignmentMode : null
         })}
         disabled={!canStart}
         whileTap={{ scale: 0.96 }}
