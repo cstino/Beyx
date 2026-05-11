@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Avatar } from './Avatar';
-import { RankBadge, getRankFromElo, getNextThreshold, RANK_TIERS } from './RankBadge';
+import { TrendingUp, Zap, Sparkles } from 'lucide-react';
+import { RankBadge, getRankFromElo, getNextThreshold, RANK_TIERS, RANK_RANGES } from './RankBadge';
 
 export function BladerHeroCard({ blader }) {
   if (!blader) return null;
@@ -11,106 +12,160 @@ export function BladerHeroCard({ blader }) {
   const progress = ((blader.xp - xpBase) / (xpNext - xpBase)) * 100;
 
   // ELO Ranking logic
-  const { rank: rankObj, display, tier } = getRankFromElo(blader.elo || 1000, blader.placement_done);
-  const rank = { display, tier }; // For easier access in JSX
-  const { target: nextTarget, label: nextLabel } = getNextThreshold(blader.elo || 1000, blader.placement_done);
+  const { display, tier } = getRankFromElo(blader.elo || 1000);
+  const { target: nextTarget } = getNextThreshold(blader.elo || 1000);
   
-  // Progress within current division
+  // Progress between current and next title
   let eloProgress = 0;
-  if (nextTarget && !(!blader.placement_done)) {
-    const divFloor = nextTarget - 67;
-    eloProgress = ((blader.elo - divFloor) / (nextTarget - divFloor)) * 100;
+  if (nextTarget) {
+    const currentRange = RANK_RANGES.find(r => blader.elo >= r.minElo);
+    const floor = currentRange ? currentRange.minElo : 0;
+    const range = nextTarget - floor;
+    eloProgress = ((blader.elo - floor) / range) * 100;
     eloProgress = Math.max(5, Math.min(100, eloProgress));
+  } else {
+    eloProgress = 100; // God Blader
   }
 
-  const isPlacement = !blader.placement_done;
-  const placementProgress = Math.min(blader.elo_matches || 0, 5);
-
-  // Use avatar_id first (user choice), then fallback to avatar_url (dicebear defaults)
   const currentAvatarId = blader.avatar_id || blader.avatar_url;
 
   return (
-    <div className="mx-4 bg-[#11112B] border border-white/5 rounded-[28px] p-6 relative overflow-hidden shadow-[0_20px_40px_-20px_rgba(0,0,0,0.5)]">
-       {/* High-tech glow effects */}
-       <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-[#E94560]/10 blur-[60px] rounded-full pointer-events-none" />
-       <div className="absolute bottom-0 left-0 -ml-12 -mb-12 w-48 h-48 bg-[#4361EE]/10 blur-[60px] rounded-full pointer-events-none" />
-       
-       <div className="flex items-center gap-5 mb-8 relative z-10">
-          <div className="relative">
-             {/* Hex-ish rotating avatar container */}
-             <div className="w-20 h-20 bg-gradient-to-br from-[#F5A623] to-[#FF7E5F] p-0.5 rounded-[24px] rotate-3 shadow-lg shadow-[#F5A623]/20">
-                <div className="w-full h-full bg-[#0A0A1A] rounded-[22px] flex items-center justify-center p-0.5 -rotate-3 overflow-hidden">
-                   <Avatar 
-                    avatarId={currentAvatarId} 
-                    username={blader.username} 
-                    size={72} 
+    <div className="mx-4 relative">
+      {/* Dynamic Glow Background - Adjusted to avoid clipping */}
+      <div 
+        className="absolute -inset-2 rounded-[32px] blur-3xl opacity-20 pointer-events-none"
+        style={{ background: tier.color }}
+      />
+
+      <div className="relative bg-[#0A0A1A] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+        {/* Pattern & Decor */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+           <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+        </div>
+
+        <div className="relative z-10 p-5">
+          {/* TOP SECTION: Name, Title & Avatar */}
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex-1 pr-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[8px] font-black text-white/40 tracking-[0.2em] uppercase">
+                  BLADER PROFILE
+                </div>
+                <div className="flex gap-1">
+                   {[...Array(3)].map((_, i) => (
+                     <div key={i} className="w-1 h-1 rounded-full bg-white/10" />
+                   ))}
+                </div>
+              </div>
+              
+              <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none mb-1 font-createfuture">
+                {blader.username}
+              </h2>
+              
+              <div className="flex items-center gap-1.5 py-1 px-2 rounded-lg bg-white/5 border border-white/5 w-fit">
+                <Sparkles size={10} style={{ color: tier.color }} />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: tier.color }}>
+                  {display}
+                </span>
+              </div>
+            </div>
+
+            {/* Compact Avatar in top right */}
+            <div className="relative group/avatar">
+               <motion.div 
+                 animate={{ rotate: 360 }}
+                 transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                 className="absolute inset-0 blur-xl opacity-30 rounded-full"
+                 style={{ background: tier.color }}
+               />
+               <motion.div
+                 whileHover={{ scale: 1.1 }}
+                 className="relative z-10 rounded-2xl overflow-hidden border-2 border-white/10 shadow-xl"
+               >
+                 <Avatar avatarId={currentAvatarId} size={76} />
+               </motion.div>
+            </div>
+          </div>
+
+          {/* MAIN STATS SECTION: Gauges */}
+          <div className="space-y-5">
+            {/* POWER RATING (ELO) */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-end">
+                 <div className="flex items-center gap-2">
+                    <div className="w-1 h-3 rounded-full" style={{ background: tier.color }} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">Power Rating</span>
+                 </div>
+                 <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-black text-white italic font-createfuture tracking-tighter" style={{ textShadow: `0 0 12px ${tier.color}44` }}>
+                      {blader.elo || 1000}
+                    </span>
+                    <span className="text-[8px] font-black text-white/20 uppercase">ELO</span>
+                 </div>
+              </div>
+              
+              <div className="relative h-3.5 bg-white/[0.03] rounded-md p-0.5 border border-white/10 overflow-hidden">
+                 <div className="absolute inset-0 flex gap-0.5 px-1 py-1 opacity-10">
+                    {[...Array(15)].map((_, i) => (
+                      <div key={i} className="flex-1 h-full bg-white/20 rounded-sm" />
+                    ))}
+                 </div>
+                 
+                 <motion.div 
+                   initial={{ width: 0 }}
+                   animate={{ width: `${eloProgress}%` }}
+                   transition={{ duration: 1.5, ease: "easeOut" }}
+                   className="h-full rounded-sm relative z-10"
+                   style={{ 
+                     background: `linear-gradient(90deg, ${tier.color}66, ${tier.color})`,
+                     boxShadow: `0 0 15px ${tier.color}44`
+                   }}
+                 >
+                   <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent opacity-30" />
+                   <motion.div 
+                      animate={{ x: ['-100%', '300%'] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                      className="absolute inset-y-0 w-12 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-20deg]"
+                   />
+                 </motion.div>
+              </div>
+              
+              <div className="flex justify-between text-[7px] font-bold text-white/15 uppercase tracking-widest">
+                 <span>START</span>
+                 <span>NEXT TITLE AT: {nextTarget || 'MAX'}</span>
+              </div>
+            </div>
+
+            {/* BATTLE XP */}
+            <div className="py-2 border-t border-white/5">
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center px-0.5">
+                   <div className="flex items-center gap-2">
+                      <Zap size={9} className="text-white/40" />
+                      <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Battle XP</span>
+                   </div>
+                   <div className="text-[9px] font-black text-white/40 italic">
+                      LEVEL {blader.level}
+                   </div>
+                </div>
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                   <motion.div 
+                     initial={{ width: 0 }}
+                     animate={{ width: `${progress}%` }}
+                     className="h-full bg-white/20 rounded-full"
                    />
                 </div>
-             </div>
-             {/* Floating Level Badge */}
-             <div className="absolute -bottom-1.5 -right-1.5 bg-[#E94560] text-white text-[10px] font-black px-2.5 py-1 rounded-[10px] shadow-2xl border border-white/10 ring-4 ring-[#11112B]">
-                LV {blader.level}
-             </div>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black text-[#E94560] tracking-[0.2em] block uppercase animate-pulse">▲ BLADER</span>
-              <RankBadge elo={blader.elo || 1000} placementDone={blader.placement_done} size="sm" showName={false} showElo={false} />
+              </div>
             </div>
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-white leading-none">{blader.username}</h2>
-            <p className="text-white/40 text-[11px] font-bold uppercase tracking-widest mt-2">{blader.status || "Blader d'Elite"}</p>
           </div>
-       </div>
-
-        {/* XP Section */}
-        <div className="space-y-4 relative z-10">
-           {/* XP Bar */}
-           <div className="space-y-2">
-              <div className="flex justify-between items-end">
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Progresso XP</span>
-                 <span className="text-[10px] font-black text-white/80 tabular-nums">{blader.xp} <span className="text-white/20">/</span> {xpNext} CP</span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                 <motion.div 
-                   initial={{ width: 0 }} 
-                   animate={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }} 
-                   transition={{ duration: 1 }}
-                   className="h-full bg-gradient-to-r from-[#4361EE] to-[#E94560] rounded-full" 
-                 />
-              </div>
-           </div>
-
-           {/* ELO Bar */}
-           <div className="space-y-2 pt-1">
-              <div className="flex justify-between items-end">
-                 <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: isPlacement ? '#6B7280' : rank.tier.color }}>
-                   {isPlacement ? 'Unranked' : `Ranking ${rank.display}`}
-                 </span>
-                 <span className="text-[10px] font-black text-white/80 tabular-nums">
-                   {isPlacement ? placementProgress : blader.elo} <span className="text-white/20">/</span> {isPlacement ? '5' : (nextTarget ? nextTarget : 'MAX')} {isPlacement ? 'MATCH' : 'ELO'}
-                 </span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                 <motion.div 
-                   initial={{ width: 0 }} 
-                   animate={{ width: `${isPlacement ? (placementProgress / 5) * 100 : eloProgress}%` }} 
-                   transition={{ duration: 1 }}
-                   style={{ background: isPlacement ? '#6B7280' : rank.tier.color }}
-                   className="h-full rounded-full shadow-[0_0_8px_rgba(255,255,255,0.1)]" 
-                 />
-              </div>
-              {isPlacement ? (
-                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest text-center mt-1">
-                   Completa i Placement per sbloccare il Rank
-                </p>
-              ) : nextLabel ? (
-                <p className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em] text-center mt-1">
-                   Verso {nextLabel}
-                </p>
-              ) : null}
-           </div>
         </div>
+
+        {/* Decorative corner accent */}
+        <div 
+          className="absolute bottom-0 right-0 w-16 h-16 opacity-10 blur-2xl"
+          style={{ background: tier.color }}
+        />
+      </div>
     </div>
   );
 }

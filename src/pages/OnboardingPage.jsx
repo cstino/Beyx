@@ -34,7 +34,7 @@ export function OnboardingPage() {
     setError(null);
 
     try {
-      // 0. Verifica disponibilità username (opzionale ma consigliato)
+      // 0. Verifica disponibilità username
       const { data: existing } = await supabase
         .from('profiles')
         .select('username')

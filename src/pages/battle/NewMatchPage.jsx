@@ -11,6 +11,14 @@ import { OfficialToggle } from '../../components/battle/OfficialToggle';
 
 const STEPS = ['players', 'settings', 'decks'];
 
+function estimateElo(playerElo, opponentElo) {
+  const expected = 1.0 / (1.0 + Math.pow(10, (opponentElo - playerElo) / 400));
+  const k = 24; 
+  const win = Math.round(k * (1 - expected));
+  const loss = Math.round(k * (0 - expected));
+  return { win, loss };
+}
+
 export function NewMatchPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,6 +38,16 @@ export function NewMatchPage() {
   });
 
   const STEP_TITLES = ['NUOVA SFIDA', 'IMPOSTAZIONI', 'SCEGLI DECK'];
+
+  useEffect(() => {
+    if (userId) {
+      supabase.from('profiles').select('elo').eq('id', userId).single().then(({ data }) => {
+        if (data) {
+          setMatch(m => ({ ...m, player1: { ...m.player1, elo: data.elo } }));
+        }
+      });
+    }
+  }, [userId]);
 
   useEffect(() => {
     const backPath = step > 0 ? null : '/battle';
@@ -198,6 +216,29 @@ function MatchSettings({ match, onChange, onNext }) {
           reason={!canBeOfficial ? 'Solo tra utenti registrati' : ''}
           onChange={val => onChange({ ...match, is_official: val })}
         />
+
+        {match.is_official && canBeOfficial && match.player1.elo && match.player2.elo && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-4 p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-between"
+          >
+            <div className="space-y-1">
+              <div className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">Stima Variazione</div>
+              <div className="text-[10px] font-bold text-white/60">Basata su differenza ELO</div>
+            </div>
+            <div className="flex gap-4">
+              <div className="text-center">
+                 <div className="text-[8px] font-bold text-white/30 uppercase mb-1">Vittoria</div>
+                 <div className="text-sm font-black text-primary italic">+{estimateElo(match.player1.elo, match.player2.elo).win}</div>
+              </div>
+              <div className="text-center">
+                 <div className="text-[8px] font-bold text-white/30 uppercase mb-1">Sconfitta</div>
+                 <div className="text-sm font-black text-[#E94560] italic">{estimateElo(match.player1.elo, match.player2.elo).loss}</div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       <button
