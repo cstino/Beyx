@@ -4,3 +4,6 @@ ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS win_condition TEXT NOT NULL DEF
 
 ALTER TABLE battles ADD COLUMN IF NOT EXISTS win_condition TEXT NOT NULL DEFAULT 'point_target'
   CHECK (win_condition IN ('point_target', 'total_battle'));
+
+ALTER TABLE battles ADD COLUMN IF NOT EXISTS battle_type TEXT NOT NULL DEFAULT '1v1'
+  CHECK (battle_type IN ('1v1', '3v3'));

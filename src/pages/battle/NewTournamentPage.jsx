@@ -79,7 +79,11 @@ export default function NewTournamentPage() {
         const finalRound = rounds[rounds.length - 1];
         const finalMatch = finalRound?.matches[0];
         
-        if (finalMatch?.winner && data.status === 'active' && data.created_by === user.id) {
+        const isPlayoffFinal = finalRound?.isPlayoff && finalRound?.matches.length === 1;
+        const isBracketFinal = data.format === 'bracket' && finalMatch?.winner;
+        const isRRFinal = data.format === 'round_robin' && isPlayoffFinal && finalMatch?.winner;
+
+        if ((isBracketFinal || isRRFinal) && data.status === 'active' && data.created_by === user.id) {
           const winner = finalMatch.winner === 'p1' ? finalMatch.p1 : finalMatch.p2;
           const repaired = { ...data, structure, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name };
           setTournament(repaired);
@@ -145,6 +149,8 @@ export default function NewTournamentPage() {
       played: 0,
       won: 0,
       lost: 0,
+      draws: 0,
+      koPoints: 0,
       points: 0
     }));
 
@@ -158,10 +164,19 @@ export default function NewTournamentPage() {
           const s1 = stats.find(s => (s.user_id || s.username) === p1Id);
           const s2 = stats.find(s => (s.user_id || s.username) === p2Id);
           
-          if (s1) s1.played++;
-          if (s2) s2.played++;
+          if (s1) {
+            s1.played++;
+            s1.koPoints += (m.score?.p1 || 0);
+          }
+          if (s2) {
+            s2.played++;
+            s2.koPoints += (m.score?.p2 || 0);
+          }
           
-          if (m.winner === 'p1') {
+          if (m.winner === 'draw') {
+            if (s1) { s1.draws++; s1.points += 1; }
+            if (s2) { s2.draws++; s2.points += 1; }
+          } else if (m.winner === 'p1') {
             if (s1) { s1.won++; s1.points += 3; }
             if (s2) { s2.lost++; }
           } else {
@@ -172,7 +187,11 @@ export default function NewTournamentPage() {
       });
     });
 
-    return stats.sort((a, b) => b.points - a.points || b.won - a.won);
+    return stats.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.koPoints !== a.koPoints) return b.koPoints - a.koPoints;
+      return b.won - a.won;
+    });
   }
 
   async function startPlayoffs() {
@@ -310,11 +329,15 @@ export default function NewTournamentPage() {
         for (let i = 0; i < matchesPerRound; i++) {
           const p1 = cycleList[i];
           const p2 = cycleList[cycleList.length - 1 - i];
-          // Swap p1/p2 in alternate cycles for home/away effect
+          
+          let winner = null;
+          if (p1.isBye) winner = 'p2';
+          else if (p2.isBye) winner = 'p1';
+
           if (c % 2 === 1) {
-            matches.push({ p1: p2, p2: p1, winner: null });
+            matches.push({ p1: p2, p2: p1, winner: winner === 'p1' ? 'p2' : (winner === 'p2' ? 'p1' : null) });
           } else {
-            matches.push({ p1, p2, winner: null });
+            matches.push({ p1, p2, winner });
           }
         }
         allRounds.push({ matches, cycle: c + 1, roundInCycle: j + 1 });
@@ -418,6 +441,7 @@ export default function NewTournamentPage() {
         player2_guest_name: match.p2.user_id ? null : match.p2.username,
         p1_deck_config: match.p1.deck,
         p2_deck_config: match.p2.deck,
+        battle_type: tournament.battle_type || '1v1',
         status: 'active',
         point_target: tournament.point_target || 4,
         win_condition: tournament.win_condition || 'point_target',
@@ -716,7 +740,7 @@ export default function NewTournamentPage() {
                  </div>
                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                     <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Target</div>
-                    <div className="text-xl font-black text-[#4361EE]">{tournament.point_target || 4}</div>
+                    <div className="text-xl font-black text-[#4361EE] uppercase">{tournament.win_condition === 'total_battle' ? 'TOTAL' : (tournament.point_target || 4)}</div>
                  </div>
               </div>
 
@@ -862,7 +886,7 @@ export default function NewTournamentPage() {
               {tournament.format === 'round_robin' && 
                 tournament.structure.settings?.rrWinnerMode === 'playoff' && 
                 !tournament.structure.rounds.some(r => r.isPlayoff) && 
-                tournament.structure.rounds.every(r => r.matches.every(m => m.winner)) && (
+                tournament.structure.rounds.every(r => r.matches.every(m => m.winner || m.p1?.isBye || m.p2?.isBye)) && (
                   <div className="mt-8 px-6">
                     <button 
                       onClick={startPlayoffs}

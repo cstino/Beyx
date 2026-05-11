@@ -207,7 +207,9 @@ export default function TournamentJoinPage() {
           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-4">{tournament?.name}</h1>
           <div className="flex gap-2">
              <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[9px] font-black text-primary uppercase tracking-widest">{tournament?.battle_type}</div>
-             <div className="px-3 py-1 bg-[#4361EE]/10 border border-[#4361EE]/20 rounded-full text-[9px] font-black text-[#4361EE] uppercase tracking-widest">Target: {tournament?.point_target || 4} Punti</div>
+             <div className="px-3 py-1 bg-[#4361EE]/10 border border-[#4361EE]/20 rounded-full text-[9px] font-black text-[#4361EE] uppercase tracking-widest">
+               {tournament?.win_condition === 'total_battle' ? 'TOTAL BATTLE' : `Target: ${tournament?.point_target || 4} Punti`}
+             </div>
           </div>
       </div>
 
