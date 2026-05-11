@@ -192,14 +192,123 @@ export function LiveMatchPage() {
     if (!error) loadRounds();
   }
 
+  const deckSize = battle.battle_type === '3v3' ? 3 : 1;
+  const isTargetReached = battle.win_condition === 'total_battle' 
+    ? rounds.length >= deckSize 
+    : (p1Score >= battle.point_target || p2Score >= battle.point_target);
+
+  async function handleEndMatch() {
+    let winnerSide = 'draw';
+    if (p1Score > p2Score) winnerSide = 'p1';
+    else if (p2Score > p1Score) winnerSide = 'p2';
+    
+    // 1. Update the battle status if not already completed
+    if (battle.status !== 'completed') {
+      const { error: battleErr } = await supabase.from('battles').update({ 
+        status: 'completed', 
+        winner_side: winnerSide,
+        points_p1: p1Score,
+        points_p2: p2Score,
+        played_at: new Date().toISOString()
+      }).eq('id', battleId);
+
+      if (battleErr) {
+        useToastStore.getState().error("Errore: " + battleErr.message);
+        return;
+      }
+    }
+
+    // 2. If it's a tournament match, update the tournament structure
+    if (battle.tournament_id) {
+      const { data: tourney } = await supabase.from('tournaments')
+        .select('*')
+        .eq('id', battle.tournament_id)
+        .single();
+      
+      if (tourney) {
+        const structure = typeof tourney.structure === 'string' ? JSON.parse(tourney.structure) : tourney.structure;
+        let found = false;
+        let rIdx = -1;
+        let mIdx = -1;
+
+        // Find the match in the structure
+        structure.rounds.forEach((r, ri) => {
+          r.matches.forEach((m, mi) => {
+            if (m.battle_id === battleId) {
+              rIdx = ri;
+              mIdx = mi;
+              m.winner = winnerSide;
+              m.score = { p1: p1Score, p2: p2Score };
+              found = true;
+            }
+          });
+        });
+
+        if (found) {
+          const winner = winnerSide === 'p1' ? structure.rounds[rIdx].matches[mIdx].p1 : 
+                         winnerSide === 'p2' ? structure.rounds[rIdx].matches[mIdx].p2 : null;
+          let updatedStatus = tourney.status;
+          let winnerUserId = tourney.winner_user_id;
+          let winnerGuestName = tourney.winner_guest_name;
+
+          if (tourney.format === 'bracket' && winner) {
+            if (rIdx < structure.rounds.length - 1) {
+              let currentR = rIdx;
+              let currentM = mIdx;
+              let currentWinner = winner;
+
+              while (currentR < structure.rounds.length - 1) {
+                const nextR = currentR + 1;
+                const nextM = Math.floor(currentM / 2);
+                
+                if (currentM % 2 === 0) structure.rounds[nextR].matches[nextM].p1 = currentWinner;
+                else structure.rounds[nextR].matches[nextM].p2 = currentWinner;
+
+                const nextMatch = structure.rounds[nextR].matches[nextM];
+                if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
+                  nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
+                  currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
+                  currentR = nextR;
+                  currentM = nextM;
+                } else break;
+              }
+            } else {
+              updatedStatus = 'completed';
+              winnerUserId = winner.user_id;
+              winnerGuestName = winner.username;
+            }
+          }
+
+          // Update tournament in DB
+          await supabase.from('tournaments').update({
+            structure,
+            status: updatedStatus,
+            winner_user_id: winnerUserId,
+            winner_guest_name: winnerGuestName,
+            completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
+          }).eq('id', tourney.id);
+        }
+      }
+    }
+
+    useToastStore.getState().success("Match concluso!");
+    if (battle.tournament_id) {
+      navigate(`/battle/tournament/${battle.tournament_id}`);
+    } else {
+      navigate('/battle');
+    }
+  }
+
   return (
     <PageContainer>
       <div className="px-4 mb-4 text-center">
         <div className="text-[10px] font-bold text-white/40 tracking-[0.15em] font-createfuture">
           {battle.is_official ? '⚔️ UFFICIALE' : 'AMICHEVOLE'} · ROUND {currentRound}
         </div>
-        <div className="text-[10px] text-white/30">
-          Primo a {battle.point_target} punti
+        <div className="text-[10px] text-white/30 uppercase tracking-widest font-bold">
+          {battle.win_condition === 'total_battle' 
+            ? `MODALITÀ TOTAL BATTLE (${deckSize} BEY)` 
+            : `Primo a ${battle.point_target} punti`}
         </div>
       </div>
 
@@ -221,125 +330,60 @@ export function LiveMatchPage() {
               initial={{ scale: 1.3 }} animate={{ scale: 1 }}>{p2Score}</motion.div>
           </div>
         </div>
-        <div className="px-4 pb-3">
-          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden flex">
-            <motion.div className="h-full bg-[#E94560]" animate={{ width: `${(p1Score / battle.point_target) * 50}%` }} />
-            <div className="flex-1" />
-            <motion.div className="h-full bg-[#4361EE]" animate={{ width: `${(p2Score / battle.point_target) * 50}%` }} />
+        {battle.win_condition !== 'total_battle' && (
+          <div className="px-4 pb-3">
+            <div className="h-1.5 bg-white/5 rounded-full overflow-hidden flex">
+              <motion.div className="h-full bg-[#E94560]" animate={{ width: `${(p1Score / battle.point_target) * 50}%` }} />
+              <div className="flex-1" />
+              <motion.div className="h-full bg-[#4361EE]" animate={{ width: `${(p2Score / battle.point_target) * 50}%` }} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {isComplete && (
-        <motion.div className="mx-4 mb-6 p-6 rounded-[32px] text-center border-2"
-          style={{ background: 'linear-gradient(135deg, rgba(245,166,35,0.1), rgba(233,69,96,0.1))', borderColor: '#F5A623' }}
-          initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-          <Trophy size={40} className="text-[#F5A623] mx-auto mb-3 drop-shadow-glow" />
-          <div className="text-white text-2xl font-createfuture uppercase mb-1">
-            {battle.winner_side === 'p1' ? p1Name : p2Name} VINCE!
-          </div>
-          <div className="text-white/40 text-[10px] font-createfuture uppercase tracking-widest">
-            RISULTATO FINALE: {p1Score} - {p2Score}
-          </div>
-        </motion.div>
+        <div className="mx-4 mb-8">
+          <motion.div className="mb-4 p-6 rounded-[32px] text-center border-2"
+            style={{ background: 'linear-gradient(135deg, rgba(245,166,35,0.1), rgba(233,69,96,0.1))', borderColor: '#F5A623' }}
+            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+            <Trophy size={40} className="text-[#F5A623] mx-auto mb-3 drop-shadow-glow" />
+            <div className="text-white text-2xl font-createfuture uppercase mb-1">
+              {battle.winner_side === 'draw' ? 'PAREGGIO!' : (battle.winner_side === 'p1' ? p1Name : p2Name) + ' VINCE!'}
+            </div>
+            <div className="text-white/40 text-[10px] font-createfuture uppercase tracking-widest">
+              RISULTATO FINALE: {p1Score} - {p2Score}
+            </div>
+          </motion.div>
+
+          {isCreator ? (
+            <motion.button 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={handleEndMatch}
+              className="w-full py-5 rounded-[22px] bg-[#F5A623] text-white font-createfuture uppercase tracking-[0.2em] shadow-glow-accent"
+            >
+              Termina Incontro
+            </motion.button>
+          ) : (
+            <motion.button 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              onClick={() => {
+                if (battle.tournament_id) navigate(`/battle/tournament/${battle.tournament_id}`);
+                else navigate('/battle');
+              }}
+              className="w-full py-5 rounded-[22px] bg-white/5 border border-white/10 text-white/60 font-createfuture uppercase tracking-[0.2em]"
+            >
+              Torna alla Battle
+            </motion.button>
+          )}
+        </div>
       )}
 
-      {/* Finishing Button */}
-      {!isComplete && (p1Score >= battle.point_target || p2Score >= battle.point_target) && (
+      {/* Finishing Button (if reached target but not yet saved as complete) */}
+      {!isComplete && isTargetReached && (
         <div className="mx-4 mb-6">
            <button 
-             onClick={async () => {
-                const winnerSide = p1Score >= battle.point_target ? 'p1' : 'p2';
-                
-                // 1. Update the battle status
-                const { error: battleErr } = await supabase.from('battles').update({ 
-                  status: 'completed', 
-                  winner_side: winnerSide,
-                  points_p1: p1Score,
-                  points_p2: p2Score 
-                }).eq('id', battleId);
-
-                if (battleErr) {
-                  useToastStore.getState().error("Errore: " + battleErr.message);
-                  return;
-                }
-
-                // 2. If it's a tournament match, update the tournament structure
-                if (battle.tournament_id) {
-                  const { data: tourney } = await supabase.from('tournaments')
-                    .select('*')
-                    .eq('id', battle.tournament_id)
-                    .single();
-                  
-                  if (tourney) {
-                    const structure = typeof tourney.structure === 'string' ? JSON.parse(tourney.structure) : tourney.structure;
-                    let found = false;
-                    let rIdx = -1;
-                    let mIdx = -1;
-
-                    // Find the match in the structure
-                    structure.rounds.forEach((r, ri) => {
-                      r.matches.forEach((m, mi) => {
-                        if (m.battle_id === battleId) {
-                          rIdx = ri;
-                          mIdx = mi;
-                          m.winner = winnerSide;
-                          m.score = { p1: p1Score, p2: p2Score };
-                          found = true;
-                        }
-                      });
-                    });
-
-                    if (found) {
-                      const winner = winnerSide === 'p1' ? structure.rounds[rIdx].matches[mIdx].p1 : structure.rounds[rIdx].matches[mIdx].p2;
-                      let updatedStatus = tourney.status;
-                      let winnerUserId = tourney.winner_user_id;
-                      let winnerGuestName = tourney.winner_guest_name;
-
-                      if (tourney.format === 'bracket') {
-                        if (rIdx < structure.rounds.length - 1) {
-                          let currentR = rIdx;
-                          let currentM = mIdx;
-                          let currentWinner = winner;
-
-                          while (currentR < structure.rounds.length - 1) {
-                            const nextR = currentR + 1;
-                            const nextM = Math.floor(currentM / 2);
-                            
-                            if (currentM % 2 === 0) structure.rounds[nextR].matches[nextM].p1 = currentWinner;
-                            else structure.rounds[nextR].matches[nextM].p2 = currentWinner;
-
-                            const nextMatch = structure.rounds[nextR].matches[nextM];
-                            if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
-                              nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
-                              currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
-                              currentR = nextR;
-                              currentM = nextM;
-                            } else break;
-                          }
-                        } else {
-                          updatedStatus = 'completed';
-                          winnerUserId = winner.user_id;
-                          winnerGuestName = winner.username;
-                        }
-                      }
-
-                      // Update tournament in DB
-                      await supabase.from('tournaments').update({
-                        structure,
-                        status: updatedStatus,
-                        winner_user_id: winnerUserId,
-                        winner_guest_name: winnerGuestName,
-                        completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
-                      }).eq('id', tourney.id);
-                    }
-                  }
-                }
-
-                useToastStore.getState().success("Match concluso con successo!");
-                navigate('/battle');
-             }}
-             className="w-full py-4 rounded-2xl bg-[#F5A623] text-white font-createfuture uppercase tracking-widest shadow-glow-accent"
+             onClick={handleEndMatch}
+             className="w-full py-5 rounded-[22px] bg-[#F5A623] text-white font-createfuture uppercase tracking-[0.2em] shadow-glow-accent"
            >
              CONCLUDI MATCH
            </button>
@@ -347,7 +391,7 @@ export function LiveMatchPage() {
       )}
       
       {/* CONTROLS (Only for Creator/Admin) */}
-      {!isComplete && isCreator && (
+      {!isComplete && !isTargetReached && isCreator && (
         <div className="mx-4 mb-6">
           <div className="text-[10px] font-black text-white/50 tracking-[0.2em] mb-3 text-center uppercase">Bey per questo round</div>
           <div className="grid grid-cols-2 gap-3 mb-6">

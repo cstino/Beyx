@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, Swords, UserPlus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Trophy, Users, Swords, UserPlus, Trash2, CheckCircle2, Minus, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,6 +13,11 @@ export function TournamentSetup({ onConfirm }) {
   
   const [entryMode, setEntryMode] = useState('invitation'); // 'invitation' | 'open'
   const [maxParticipants, setMaxParticipants] = useState(8);
+  const [rrCycles, setRrCycles] = useState(1);
+  const [rrWinnerMode, setRrWinnerMode] = useState('points'); // 'points' | 'playoff'
+  const [playoffType, setPlayoffType] = useState('final'); // 'final' | 'semi' | 'play_in'
+  const [pointTarget, setPointTarget] = useState(4);
+  const [winCondition, setWinCondition] = useState('point_target');
   const [description, setDescription] = useState('');
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export function TournamentSetup({ onConfirm }) {
           className="w-full bg-transparent text-white font-createfuture text-xl text-center italic outline-none placeholder-white/10"
         />
       </div>
-
+      
       {/* Format & Battle Type */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -70,6 +75,119 @@ export function TournamentSetup({ onConfirm }) {
            </div>
         </div>
       </div>
+
+      {/* Win Condition Selection */}
+      <div className="space-y-3">
+         <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Condizione di Vittoria</label>
+         <div className="flex bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner">
+           <button 
+             onClick={() => setWinCondition('point_target')} 
+             className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${winCondition === 'point_target' ? 'bg-primary text-white shadow-glow-primary' : 'text-white/30'}`}
+           >
+             PUNTEGGIO
+           </button>
+           <button 
+             onClick={() => setWinCondition('total_battle')} 
+             className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${winCondition === 'total_battle' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}
+           >
+             TOTAL BATTLE
+           </button>
+         </div>
+      </div>
+
+      {/* Point Target UI - Only visible if Point Target mode is selected */}
+      <AnimatePresence>
+        {winCondition === 'point_target' ? (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="space-y-3 overflow-hidden"
+          >
+             <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Punteggio Target Incontro</label>
+             <div className="flex items-center gap-4 bg-[#12122A] rounded-[28px] p-2 border border-white/5">
+                <button 
+                  onClick={() => setPointTarget(Math.max(1, pointTarget - 1))}
+                  className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white active:scale-95 transition-transform"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="flex-1 text-center">
+                  <div className="text-2xl font-black text-white italic">{pointTarget}</div>
+                  <div className="text-[8px] font-black text-primary uppercase tracking-widest">PUNTI</div>
+                </div>
+                <button 
+                  onClick={() => setPointTarget(pointTarget + 1)}
+                  className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white active:scale-95 transition-transform"
+                >
+                  <Plus size={20} />
+                </button>
+             </div>
+             <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest text-center px-4">
+               Il primo blader che raggiunge {pointTarget} punti vince l'incontro.
+             </p>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="p-6 rounded-[32px] bg-[#4361EE]/5 border border-[#4361EE]/20 space-y-2 overflow-hidden"
+          >
+             <div className="text-[10px] font-black text-[#4361EE] tracking-widest uppercase italic text-center">Modalità Total Battle</div>
+             <p className="text-[9px] text-white/40 font-medium text-center leading-relaxed">
+               I blader dovranno utilizzare tutti i {battleType === '3v3' ? '3 ' : ''}Bey del loro deck.<br/>
+               Vince chi accumula più punti totali. In caso di parità, viene assegnato un punto ciascuno.
+             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Round Robin Customization */}
+      {format === 'round_robin' && (
+        <motion.div 
+          initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+          className="space-y-6 p-6 bg-white/5 rounded-[32px] border border-white/5"
+        >
+          <div className="space-y-3">
+             <label className="text-[9px] font-black text-primary tracking-[0.2em] uppercase px-1">Giri del Girone (A/R)</label>
+             <div className="flex items-center gap-4 bg-[#0A0A1A] rounded-2xl p-2 border border-white/5">
+                <button onClick={() => setRrCycles(Math.max(1, rrCycles - 1))} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white"><Minus size={16} /></button>
+                <div className="flex-1 text-center font-black text-xl text-white italic">{rrCycles} {rrCycles === 1 ? 'Giro' : 'Giri'}</div>
+                <button onClick={() => setRrCycles(rrCycles + 1)} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white"><Plus size={16} /></button>
+             </div>
+             <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest text-center">
+               {rrCycles === 1 ? "Ogni blader sfida gli altri una volta." : `Ogni blader sfida gli altri ${rrCycles} volte.`}
+             </p>
+          </div>
+
+          <div className="space-y-3">
+             <label className="text-[9px] font-black text-primary tracking-[0.2em] uppercase px-1">Modalità Vincitore</label>
+             <div className="flex bg-[#0A0A1A] rounded-2xl p-1 border border-white/5">
+               <button onClick={() => setRrWinnerMode('points')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${rrWinnerMode === 'points' ? 'bg-[#4361EE] text-white' : 'text-white/30'}`}>PUNTI</button>
+               <button onClick={() => setRrWinnerMode('playoff')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${rrWinnerMode === 'playoff' ? 'bg-[#4361EE] text-white' : 'text-white/30'}`}>PLAYOFF</button>
+             </div>
+          </div>
+
+          {rrWinnerMode === 'playoff' && (
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+               <label className="text-[9px] font-black text-[#4361EE] tracking-[0.2em] uppercase px-1">Tipo di Playoff</label>
+               <div className="grid grid-cols-1 gap-2">
+                 {[
+                   { id: 'final', label: 'FINALE (TOP 2)', desc: 'Il primo e il secondo si sfidano in finale.' },
+                   { id: 'semi', label: 'SEMIFINALI (TOP 4)', desc: '1° vs 4° e 2° vs 3°. I vincenti vanno in finale.' },
+                   { id: 'play_in', label: 'PLAY-IN (TOP 6)', desc: '1° e 2° aspettano. 3°vs6° e 4°vs5° per le semi.' }
+                 ].map(t => (
+                   <button 
+                    key={t.id} 
+                    onClick={() => setPlayoffType(t.id)}
+                    className={`p-3 rounded-2xl border text-left transition-all ${playoffType === t.id ? 'bg-[#4361EE]/10 border-[#4361EE]/40' : 'bg-[#0A0A1A] border-white/5'}`}
+                   >
+                     <div className={`text-[10px] font-black uppercase italic ${playoffType === t.id ? 'text-[#4361EE]' : 'text-white/40'}`}>{t.label}</div>
+                     <div className="text-[8px] font-bold text-white/20 uppercase mt-0.5">{t.desc}</div>
+                   </button>
+                 ))}
+               </div>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* Entry Mode Toggle */}
       <div className="space-y-3">
@@ -166,11 +284,14 @@ export function TournamentSetup({ onConfirm }) {
 
       <motion.button
         onClick={() => onConfirm({ 
-          name, format, battleType, participants, 
+          name, format, battleType, participants, pointTarget, winCondition,
           registrationOpen: true, // Always true now, but filtered by mode
           registrationMode: entryMode, 
           maxParticipants: entryMode === 'invitation' ? participants.length : maxParticipants,
-          description
+          description,
+          rrCycles: format === 'round_robin' ? rrCycles : 1,
+          rrWinnerMode: format === 'round_robin' ? rrWinnerMode : 'points',
+          playoffType: (format === 'round_robin' && rrWinnerMode === 'playoff') ? playoffType : null
         })}
         disabled={!canStart}
         whileTap={{ scale: 0.96 }}

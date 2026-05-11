@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check, Users } from 'lucide-react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
@@ -15,6 +15,7 @@ import { useToastStore } from '../../store/useToastStore';
 export default function NewTournamentPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { tournamentId } = useParams();
   const { user } = useAuthStore();
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
@@ -59,7 +60,7 @@ export default function NewTournamentPage() {
         return;
       }
       
-      const targetId = location.state?.tournamentId;
+      const targetId = tournamentId || location.state?.tournamentId;
       let query = supabase.from('tournaments').select('*');
       
       if (targetId) {
@@ -78,12 +79,30 @@ export default function NewTournamentPage() {
         const finalRound = rounds[rounds.length - 1];
         const finalMatch = finalRound?.matches[0];
         
-        if (finalMatch?.winner && data.status === 'active' && data.created_by === user.id) {
+        const isPlayoffFinal = finalRound?.isPlayoff && finalRound?.matches.length === 1;
+        const isBracketFinal = data.format === 'bracket' && finalMatch?.winner;
+        const isRRFinal = data.format === 'round_robin' && isPlayoffFinal && finalMatch?.winner;
+
+        if ((isBracketFinal || isRRFinal) && data.status === 'active' && data.created_by === user.id) {
           const winner = finalMatch.winner === 'p1' ? finalMatch.p1 : finalMatch.p2;
           const repaired = { ...data, structure, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name };
           setTournament(repaired);
           setStage('active'); 
           updateTournamentDB(repaired);
+        } else if (data.format === 'round_robin' && structure.settings?.rrWinnerMode === 'points' && data.status === 'active') {
+          // Check if all rounds are complete for points-based RR
+          const allComplete = structure.rounds.every(r => r.matches.every(m => m.winner));
+          if (allComplete) {
+            const standings = calculateStandings({ ...data, structure });
+            const winner = standings[0];
+            const repaired = { ...data, structure, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name || winner.username };
+            setTournament(repaired);
+            setStage('active');
+            updateTournamentDB(repaired);
+          } else {
+            setTournament({ ...data, structure });
+            if (targetId || (data.status === 'setup' && data.registration_open)) setStage('active');
+          }
         } else {
           setTournament({ ...data, structure });
           // Se siamo venuti qui per gestire o se è un torneo in fase di iscrizione, andiamo direttamente alla gestione
@@ -120,6 +139,122 @@ export default function NewTournamentPage() {
       return () => supabase.removeChannel(channel);
     }
   }, [user, location.state?.tournamentId]);
+
+  function calculateStandings(t) {
+    const participants = t.participants || [];
+    const rounds = t.structure.rounds || [];
+    
+    const stats = participants.filter(p => !p.isBye).map(p => ({
+      ...p,
+      played: 0,
+      won: 0,
+      lost: 0,
+      draws: 0,
+      koPoints: 0,
+      points: 0
+    }));
+
+    rounds.forEach(r => {
+      if (r.isPlayoff) return;
+      r.matches.forEach(m => {
+        if (m.winner) {
+          const p1Id = m.p1.user_id || m.p1.username;
+          const p2Id = m.p2.user_id || m.p2.username;
+          
+          const s1 = stats.find(s => (s.user_id || s.username) === p1Id);
+          const s2 = stats.find(s => (s.user_id || s.username) === p2Id);
+          
+          if (s1) {
+            s1.played++;
+            s1.koPoints += (m.score?.p1 || 0);
+          }
+          if (s2) {
+            s2.played++;
+            s2.koPoints += (m.score?.p2 || 0);
+          }
+          
+          if (m.winner === 'draw') {
+            if (s1) { s1.draws++; s1.points += 1; }
+            if (s2) { s2.draws++; s2.points += 1; }
+          } else if (m.winner === 'p1') {
+            if (s1) { s1.won++; s1.points += 3; }
+            if (s2) { s2.lost++; }
+          } else {
+            if (s2) { s2.won++; s2.points += 3; }
+            if (s1) { s1.lost++; }
+          }
+        }
+      });
+    });
+
+    return stats.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.koPoints !== a.koPoints) return b.koPoints - a.koPoints;
+      return b.won - a.won;
+    });
+  }
+
+  async function startPlayoffs() {
+    const standings = calculateStandings(tournament);
+    const type = tournament.structure.settings?.playoffType;
+    const newRounds = [...tournament.structure.rounds];
+    
+    if (type === 'final') {
+      newRounds.push({
+        isPlayoff: true,
+        title: 'Finale',
+        matches: [{ p1: standings[0], p2: standings[1], winner: null }]
+      });
+    } else if (type === 'semi') {
+      newRounds.push(
+        {
+          isPlayoff: true,
+          title: 'Semifinali',
+          matches: [
+            { p1: standings[0], p2: standings[3], winner: null },
+            { p1: standings[1], p2: standings[2], winner: null }
+          ]
+        },
+        {
+          isPlayoff: true,
+          title: 'Finale',
+          matches: [{ p1: null, p2: null, winner: null }]
+        }
+      );
+    } else if (type === 'play_in') {
+      newRounds.push(
+        {
+          isPlayoff: true,
+          title: 'Play-In',
+          matches: [
+            { p1: standings[2], p2: standings[5], winner: null },
+            { p1: standings[3], p2: standings[4], winner: null }
+          ]
+        },
+        {
+          isPlayoff: true,
+          title: 'Semifinali',
+          matches: [
+            { p1: standings[0], p2: null, winner: null },
+            { p1: standings[1], p2: null, winner: null }
+          ]
+        },
+        {
+          isPlayoff: true,
+          title: 'Finale',
+          matches: [{ p1: null, p2: null, winner: null }]
+        }
+      );
+    }
+
+    const updated = {
+      ...tournament,
+      structure: { ...tournament.structure, rounds: newRounds }
+    };
+    setTournament(updated);
+    await updateTournamentDB(updated);
+    useToastStore.getState().success("Playoff generati!");
+  }
 
   // Manage Global Header
   useEffect(() => {
@@ -179,26 +314,38 @@ export default function NewTournamentPage() {
     return { rounds };
   }
 
-  function generateRoundRobin(participants) {
+  function generateRoundRobin(participants, cycles = 1) {
     const list = [...participants];
     if (list.length % 2 !== 0) list.push({ username: 'FREE ROUND', isBye: true });
     
     const roundsCount = list.length - 1;
     const matchesPerRound = list.length / 2;
-    const rounds = [];
+    const allRounds = [];
 
-    for (let j = 0; j < roundsCount; j++) {
-      const matches = [];
-      for (let i = 0; i < matchesPerRound; i++) {
-        const p1 = list[i];
-        const p2 = list[list.length - 1 - i];
-        matches.push({ p1, p2, winner: null });
+    for (let c = 0; c < cycles; c++) {
+      const cycleList = [...list];
+      for (let j = 0; j < roundsCount; j++) {
+        const matches = [];
+        for (let i = 0; i < matchesPerRound; i++) {
+          const p1 = cycleList[i];
+          const p2 = cycleList[cycleList.length - 1 - i];
+          
+          let winner = null;
+          if (p1.isBye) winner = 'p2';
+          else if (p2.isBye) winner = 'p1';
+
+          if (c % 2 === 1) {
+            matches.push({ p1: p2, p2: p1, winner: winner === 'p1' ? 'p2' : (winner === 'p2' ? 'p1' : null) });
+          } else {
+            matches.push({ p1, p2, winner });
+          }
+        }
+        allRounds.push({ matches, cycle: c + 1, roundInCycle: j + 1 });
+        cycleList.splice(1, 0, cycleList.pop());
       }
-      rounds.push({ matches });
-      list.splice(1, 0, list.pop());
     }
 
-    return { rounds };
+    return { rounds: allRounds };
   }
 
   async function deleteTournament() {
@@ -231,7 +378,16 @@ export default function NewTournamentPage() {
       format: config.format,
       battle_type: config.battleType,
       participants: config.participants || [],
-      structure: { rounds: [] },
+      point_target: config.pointTarget || 4,
+      win_condition: config.winCondition || 'point_target',
+      structure: { 
+        rounds: [], 
+        settings: {
+          rrCycles: config.rrCycles || 1,
+          rrWinnerMode: config.rrWinnerMode || 'points',
+          playoffType: config.playoffType || null
+        }
+      },
       registration_open: true,
       registration_mode: (config.registrationMode === 'invitation' ? 'manual' : 'open'),
       max_participants: config.maxParticipants,
@@ -285,8 +441,10 @@ export default function NewTournamentPage() {
         player2_guest_name: match.p2.user_id ? null : match.p2.username,
         p1_deck_config: match.p1.deck,
         p2_deck_config: match.p2.deck,
+        battle_type: tournament.battle_type || '1v1',
         status: 'active',
-        point_target: tournament.format === 'bracket' ? 3 : 5, // Custom targets could be added later
+        point_target: tournament.point_target || 4,
+        win_condition: tournament.win_condition || 'point_target',
         created_by: user.id
       }).select().single();
 
@@ -310,6 +468,68 @@ export default function NewTournamentPage() {
     // Navigate to the live match page
     navigate(`/battle/live/${battleId}`);
   }
+
+  // Handle Playoff Advancement
+  useEffect(() => {
+    if (tournament?.status === 'active' && tournament.format === 'round_robin') {
+      const structure = tournament.structure;
+      const rounds = structure.rounds;
+      let changed = false;
+      const newRounds = JSON.parse(JSON.stringify(rounds));
+
+      for (let i = 0; i < newRounds.length - 1; i++) {
+        const currentRound = newRounds[i];
+        if (!currentRound.isPlayoff) continue;
+        
+        const nextRound = newRounds[i+1];
+        if (!nextRound || !nextRound.isPlayoff) continue;
+
+        currentRound.matches.forEach((m, mIdx) => {
+          if (m.winner) {
+            const winnerObj = m.winner === 'p1' ? m.p1 : m.p2;
+            
+            if (currentRound.title === 'Play-In') {
+              // In Play-In, Match 0 winner goes to Semi 0 P2, Match 1 winner goes to Semi 1 P2
+              if (nextRound.matches[mIdx] && (!nextRound.matches[mIdx].p2 || nextRound.matches[mIdx].p2.username !== winnerObj.username)) {
+                nextRound.matches[mIdx].p2 = winnerObj;
+                changed = true;
+              }
+            } else {
+              // Standard bracket advancement
+              const nextMIdx = Math.floor(mIdx / 2);
+              const isP1 = mIdx % 2 === 0;
+              
+              if (isP1 && (!nextRound.matches[nextMIdx].p1 || nextRound.matches[nextMIdx].p1.username !== winnerObj.username)) {
+                nextRound.matches[nextMIdx].p1 = winnerObj;
+                changed = true;
+              } else if (!isP1 && (!nextRound.matches[nextMIdx].p2 || nextRound.matches[nextMIdx].p2.username !== winnerObj.username)) {
+                nextRound.matches[nextMIdx].p2 = winnerObj;
+                changed = true;
+              }
+            }
+          }
+        });
+      }
+
+      // Special case for play-in to semi-final advancement if needed (more complex logic might be needed)
+      // For now semi and final are covered by the loop above.
+
+      if (changed) {
+        const updated = { ...tournament, structure: { ...structure, rounds: newRounds } };
+        setTournament(updated);
+        updateTournamentDB(updated);
+      }
+
+      // Check for completion of round_robin playoff final
+      const finalRound = newRounds[newRounds.length - 1];
+      if (finalRound?.isPlayoff && finalRound.matches[0].winner) {
+        const winner = finalRound.matches[0].winner === 'p1' ? finalRound.matches[0].p1 : finalRound.matches[0].p2;
+        const completed = { ...tournament, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name || winner.username };
+        setTournament(completed);
+        updateTournamentDB(completed);
+      }
+    }
+  }, [tournament?.structure?.rounds]);
 
   async function updateTournamentDB(t) {
     await supabase.from('tournaments')
@@ -428,7 +648,10 @@ export default function NewTournamentPage() {
     
     const structure = tournament.format === 'bracket' 
       ? generateBracket(finalParticipants) 
-      : generateRoundRobin(finalParticipants);
+      : generateRoundRobin(finalParticipants, tournament.structure.settings?.rrCycles || 1);
+    
+    // Preserve settings in structure
+    structure.settings = tournament.structure.settings;
 
     const updated = { 
        ...tournament, 
@@ -504,20 +727,42 @@ export default function NewTournamentPage() {
                 <p className="text-white/40 text-xs mt-2 font-medium">{tournament.description || 'Nessuna descrizione.'}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Posti Occupati</div>
-                    <div className="text-xl font-black text-white">{registrations.filter(r => r.status === 'approved').length} / {tournament.max_participants}</div>
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Blader</div>
+                    <div className="text-xl font-black text-white">
+                      {registrations.filter(r => r.status === 'approved').length + (tournament.participants?.filter(p => !p.user_id).length || 0)} / {tournament.max_participants}
+                    </div>
                  </div>
                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                     <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">In Attesa</div>
                     <div className="text-xl font-black text-primary">{registrations.filter(r => r.status === 'pending').length}</div>
                  </div>
+                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Target</div>
+                    <div className="text-xl font-black text-[#4361EE] uppercase">{tournament.win_condition === 'total_battle' ? 'TOTAL' : (tournament.point_target || 4)}</div>
+                 </div>
               </div>
 
               <div className="space-y-4">
-                 <h3 className="text-[11px] font-black text-white tracking-widest uppercase">Richieste ({registrations.length})</h3>
+                 <h3 className="text-[11px] font-black text-white tracking-widest uppercase">Partecipanti</h3>
                  <div className="space-y-3">
+                    {/* Show Guests First as they are already confirmed */}
+                    {tournament.participants?.filter(p => !p.user_id).map((guest, gi) => (
+                       <div key={`guest-${gi}`} className="p-5 bg-[#12122A] rounded-3xl border border-white/5 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                             <div className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/20">
+                                <Users size={16} />
+                             </div>
+                             <div className="text-sm font-black text-white uppercase italic">
+                               {guest.username} <span className="text-[8px] text-white/20 not-italic ml-1">(OSPITE)</span>
+                             </div>
+                          </div>
+                          <div className="px-2 py-1 rounded bg-green-500/10 text-green-500 text-[8px] font-black uppercase">
+                            Confermato
+                          </div>
+                       </div>
+                    ))}
                     {registrations.map(reg => (
                       <div key={reg.id} className="p-5 bg-[#12122A] rounded-3xl border border-white/5 space-y-4">
                         <div className="flex items-center justify-between">
@@ -576,7 +821,9 @@ export default function NewTournamentPage() {
                         )}
                       </div>
                     ))}
-                    {registrations.length === 0 && <div className="py-12 text-center text-white/10 text-[10px] font-black uppercase tracking-widest border-2 border-dashed border-white/5 rounded-3xl">Nessuna richiesta per ora</div>}
+                    {registrations.length === 0 && (tournament.participants?.filter(p => !p.user_id).length || 0) === 0 && (
+                      <div className="py-12 text-center text-white/10 text-[10px] font-black uppercase tracking-widest border-2 border-dashed border-white/5 rounded-3xl">Nessuna richiesta per ora</div>
+                    )}
                  </div>
               </div>
 
@@ -584,7 +831,7 @@ export default function NewTournamentPage() {
                 <>
                   <button 
                     onClick={startFromRegistrations}
-                    disabled={registrations.filter(r => r.status === 'approved').length < 2}
+                    disabled={(registrations.filter(r => r.status === 'approved').length + (tournament.participants?.filter(p => !p.user_id).length || 0)) < 2}
                     className="w-full py-5 bg-primary rounded-[22px] text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary disabled:opacity-20"
                   >
                     Genera Tabellone e Inizia
@@ -636,6 +883,19 @@ export default function NewTournamentPage() {
                   handleSelectMatch(rIndex, mIndex);
                 }}
               />
+              {tournament.format === 'round_robin' && 
+                tournament.structure.settings?.rrWinnerMode === 'playoff' && 
+                !tournament.structure.rounds.some(r => r.isPlayoff) && 
+                tournament.structure.rounds.every(r => r.matches.every(m => m.winner || m.p1?.isBye || m.p2?.isBye)) && (
+                  <div className="mt-8 px-6">
+                    <button 
+                      onClick={startPlayoffs}
+                      className="w-full py-5 bg-primary rounded-[22px] text-white font-black uppercase text-[11px] tracking-widest shadow-glow-primary"
+                    >
+                      Inizia Playoff
+                    </button>
+                  </div>
+              )}
             </div>
               {/* Bottone Elimina Torneo (Anche se attivo) */}
               {!isReadOnly && (
