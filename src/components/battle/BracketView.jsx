@@ -7,42 +7,168 @@ export function BracketView({ tournament, onSelectMatch }) {
   const rounds = structure.rounds || [];
 
   if (format === 'round_robin') {
+    const standings = calculateStandings(tournament);
+    const rrRounds = rounds.filter(r => !r.isPlayoff);
+    const playoffRounds = rounds.filter(r => r.isPlayoff);
+
     return (
       <div className="space-y-12 pb-32">
-        {rounds.map((round, rIndex) => (
-          <div key={rIndex} className="space-y-4">
+        {/* Standings Table */}
+        <div className="px-1">
+          <StandingsTable standings={standings} />
+        </div>
+
+        {/* Playoff Section if exists */}
+        {playoffRounds.length > 0 && (
+          <div className="space-y-8">
             <div className="flex items-center gap-3 px-1">
-              <div className="h-[1px] flex-1 bg-white/5" />
-              <div className="text-[10px] font-black text-[#F5A623] tracking-[0.3em] uppercase italic whitespace-nowrap">
-                Giornata {rIndex + 1}
+              <Trophy size={16} className="text-primary" />
+              <div className="text-xs font-black text-white tracking-[0.3em] uppercase italic whitespace-nowrap">
+                Fase Playoff
               </div>
-              <div className="h-[1px] flex-1 bg-white/5" />
+              <div className="h-[1px] flex-1 bg-white/10" />
             </div>
             
-            <div className="grid grid-cols-1 gap-3">
-              {round.matches.map((match, mIndex) => {
-                const active = !match.winner && !match.p1?.isBye && !match.p2?.isBye;
-                const completed = !!match.winner;
-                const isByeMatch = match.p1?.isBye || match.p2?.isBye;
-
-                if (isByeMatch) return null; // Skip bye matches in UI to save space
-
-                return (
-                  <MatchCard 
-                    key={mIndex}
-                    match={match}
-                    active={active}
-                    completed={completed}
-                    onClick={() => active && onSelectMatch(rIndex, mIndex)}
-                  />
-                );
-              })}
+            <div className="flex gap-8 overflow-x-auto no-scrollbar py-4">
+              {playoffRounds.map((round, rIndex) => (
+                <div key={rIndex} className="space-y-4 min-w-[240px]">
+                  <div className="text-[9px] font-black text-white/20 tracking-widest uppercase text-center">{round.title || `Playoff ${rIndex + 1}`}</div>
+                  <div className="space-y-3">
+                    {round.matches.map((match, mIndex) => {
+                      const active = !match.winner && match.p1 && match.p2;
+                      return (
+                        <MatchCard 
+                          key={mIndex}
+                          match={match}
+                          active={active}
+                          completed={!!match.winner}
+                          onClick={() => active && onSelectMatch(rounds.indexOf(round), mIndex)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
+        )}
+
+        {/* Group Rounds */}
+        <div className="space-y-8">
+          <div className="flex items-center gap-3 px-1">
+             <LayoutList size={16} className="text-[#F5A623]" />
+             <div className="text-xs font-black text-white tracking-[0.3em] uppercase italic whitespace-nowrap">
+               Gironi
+             </div>
+             <div className="h-[1px] flex-1 bg-white/10" />
+          </div>
+
+          {rrRounds.map((round, rIndex) => (
+            <div key={rIndex} className="space-y-4">
+              <div className="text-[10px] font-black text-[#F5A623]/60 tracking-[0.3em] uppercase italic px-1">
+                Giornata {rIndex + 1} {round.cycle > 1 ? `(Giro ${round.cycle})` : ''}
+              </div>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {round.matches.map((match, mIndex) => {
+                  const active = !match.winner && !match.p1?.isBye && !match.p2?.isBye;
+                  const completed = !!match.winner;
+                  const isByeMatch = match.p1?.isBye || match.p2?.isBye;
+
+                  if (isByeMatch) return null;
+
+                  return (
+                    <MatchCard 
+                      key={mIndex}
+                      match={match}
+                      active={active}
+                      completed={completed}
+                      onClick={() => active && onSelectMatch(rIndex, mIndex)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
+
+function StandingsTable({ standings }) {
+  return (
+    <div className="bg-[#12122A] rounded-[32px] border border-white/5 overflow-hidden shadow-xl">
+      <div className="bg-white/5 px-6 py-4 border-b border-white/5">
+        <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase italic">Classifica Girone</div>
+      </div>
+      <div className="overflow-x-auto no-scrollbar">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="text-[8px] font-black text-white/20 uppercase tracking-widest border-b border-white/5">
+              <th className="px-4 py-4 w-12 text-center">#</th>
+              <th className="px-4 py-4">Blader</th>
+              <th className="px-2 py-4 text-center">G</th>
+              <th className="px-2 py-4 text-center">V</th>
+              <th className="px-2 py-4 text-center">P</th>
+              <th className="px-4 py-4 text-right">PTS</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {standings.map((s, i) => (
+              <tr key={s.user_id || s.guest_name} className="text-[11px] font-black text-white uppercase italic">
+                <td className="px-4 py-4 text-center text-white/20 font-createfuture">{i + 1}</td>
+                <td className="px-4 py-4 truncate max-w-[100px]">{s.username}</td>
+                <td className="px-2 py-4 text-center text-white/40">{s.played}</td>
+                <td className="px-2 py-4 text-center text-green-500/60">{s.won}</td>
+                <td className="px-2 py-4 text-center text-red-500/60">{s.lost}</td>
+                <td className="px-4 py-4 text-right text-primary font-createfuture text-sm">{s.points}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function calculateStandings(tournament) {
+  const participants = tournament.participants || [];
+  const rounds = tournament.structure.rounds || [];
+  
+  const stats = participants.filter(p => !p.isBye).map(p => ({
+    ...p,
+    played: 0,
+    won: 0,
+    lost: 0,
+    points: 0
+  }));
+
+  rounds.forEach(r => {
+    if (r.isPlayoff) return; // Only count group stage for standings
+    r.matches.forEach(m => {
+      if (m.winner) {
+        const p1Id = m.p1.user_id || m.p1.username;
+        const p2Id = m.p2.user_id || m.p2.username;
+        
+        const s1 = stats.find(s => (s.user_id || s.username) === p1Id);
+        const s2 = stats.find(s => (s.user_id || s.username) === p2Id);
+        
+        if (s1) s1.played++;
+        if (s2) s2.played++;
+        
+        if (m.winner === 'p1') {
+          if (s1) { s1.won++; s1.points += 3; }
+          if (s2) { s2.lost++; }
+        } else {
+          if (s2) { s2.won++; s2.points += 3; }
+          if (s1) { s1.lost++; }
+        }
+      }
+    });
+  });
+
+  return stats.sort((a, b) => b.points - a.points || b.won - a.won);
+}
 
   // Classic Bracket View
   return (

@@ -40,7 +40,7 @@ export default function Auth() {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md glass-card p-8 relative overflow-hidden"
+        className="w-full max-w-sm glass-card p-10 relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 bg-primary/20 blur-3xl rounded-full" />
         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 bg-accent/20 blur-3xl rounded-full" />
