@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check, Users } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
@@ -15,6 +15,7 @@ import { useToastStore } from '../../store/useToastStore';
 export default function NewTournamentPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { tournamentId } = useParams();
   const { user } = useAuthStore();
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
@@ -59,7 +60,7 @@ export default function NewTournamentPage() {
         return;
       }
       
-      const targetId = location.state?.tournamentId;
+      const targetId = tournamentId || location.state?.tournamentId;
       let query = supabase.from('tournaments').select('*');
       
       if (targetId) {
@@ -354,6 +355,8 @@ export default function NewTournamentPage() {
       format: config.format,
       battle_type: config.battleType,
       participants: config.participants || [],
+      point_target: config.pointTarget || 4,
+      win_condition: config.winCondition || 'point_target',
       structure: { 
         rounds: [], 
         settings: {
@@ -416,7 +419,8 @@ export default function NewTournamentPage() {
         p1_deck_config: match.p1.deck,
         p2_deck_config: match.p2.deck,
         status: 'active',
-        point_target: tournament.format === 'bracket' ? 3 : 5, // Custom targets could be added later
+        point_target: tournament.point_target || 4,
+        win_condition: tournament.win_condition || 'point_target',
         created_by: user.id
       }).select().single();
 
@@ -699,9 +703,9 @@ export default function NewTournamentPage() {
                 <p className="text-white/40 text-xs mt-2 font-medium">{tournament.description || 'Nessuna descrizione.'}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Confermati</div>
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Blader</div>
                     <div className="text-xl font-black text-white">
                       {registrations.filter(r => r.status === 'approved').length + (tournament.participants?.filter(p => !p.user_id).length || 0)} / {tournament.max_participants}
                     </div>
@@ -709,6 +713,10 @@ export default function NewTournamentPage() {
                  <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                     <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">In Attesa</div>
                     <div className="text-xl font-black text-primary">{registrations.filter(r => r.status === 'pending').length}</div>
+                 </div>
+                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                    <div className="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Target</div>
+                    <div className="text-xl font-black text-[#4361EE]">{tournament.point_target || 4}</div>
                  </div>
               </div>
 

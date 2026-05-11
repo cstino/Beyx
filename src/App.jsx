@@ -99,6 +99,7 @@ function App() {
                   <Route path="/battle/new/1v1" element={<New1v1Page />} />
                   <Route path="/battle/new/3v3" element={<New3v3Page />} />
                   <Route path="/battle/new/tournament" element={<NewTournamentPage />} />
+                  <Route path="/battle/tournament/:tournamentId" element={<NewTournamentPage />} />
                   <Route path="/battle/tournament/:id/join" element={<TournamentJoinPage />} />
                   <Route path="/battle/new" element={<NewMatchPage />} />
                   <Route path="/battle/accept/:battleId" element={<AcceptChallengePage />} />

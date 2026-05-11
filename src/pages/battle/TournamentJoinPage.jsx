@@ -202,9 +202,13 @@ export default function TournamentJoinPage() {
   return (
     <div className="min-h-screen bg-[#0A0A1A] pb-32 pt-4">
       {/* Tournament Info Header */}
-      <div className="px-6 mb-6">
+      <div className="px-6 mb-4">
           <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1">Registrazione</div>
-          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none">{tournament?.name}</h1>
+          <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-4">{tournament?.name}</h1>
+          <div className="flex gap-2">
+             <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[9px] font-black text-primary uppercase tracking-widest">{tournament?.battle_type}</div>
+             <div className="px-3 py-1 bg-[#4361EE]/10 border border-[#4361EE]/20 rounded-full text-[9px] font-black text-[#4361EE] uppercase tracking-widest">Target: {tournament?.point_target || 4} Punti</div>
+          </div>
       </div>
 
       <div className="px-6 space-y-8">

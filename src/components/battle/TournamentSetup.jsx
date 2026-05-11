@@ -16,6 +16,8 @@ export function TournamentSetup({ onConfirm }) {
   const [rrCycles, setRrCycles] = useState(1);
   const [rrWinnerMode, setRrWinnerMode] = useState('points'); // 'points' | 'playoff'
   const [playoffType, setPlayoffType] = useState('final'); // 'final' | 'semi' | 'play_in'
+  const [pointTarget, setPointTarget] = useState(4);
+  const [winCondition, setWinCondition] = useState('point_target');
   const [description, setDescription] = useState('');
 
   useEffect(() => {
@@ -73,6 +75,69 @@ export function TournamentSetup({ onConfirm }) {
            </div>
         </div>
       </div>
+
+      {/* Win Condition Selection */}
+      <div className="space-y-3">
+         <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Condizione di Vittoria</label>
+         <div className="flex bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner">
+           <button 
+             onClick={() => setWinCondition('point_target')} 
+             className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${winCondition === 'point_target' ? 'bg-primary text-white shadow-glow-primary' : 'text-white/30'}`}
+           >
+             PUNTEGGIO
+           </button>
+           <button 
+             onClick={() => setWinCondition('total_battle')} 
+             className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${winCondition === 'total_battle' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}
+           >
+             TOTAL BATTLE
+           </button>
+         </div>
+      </div>
+
+      {/* Point Target UI - Only visible if Point Target mode is selected */}
+      <AnimatePresence>
+        {winCondition === 'point_target' ? (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="space-y-3 overflow-hidden"
+          >
+             <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Punteggio Target Incontro</label>
+             <div className="flex items-center gap-4 bg-[#12122A] rounded-[28px] p-2 border border-white/5">
+                <button 
+                  onClick={() => setPointTarget(Math.max(1, pointTarget - 1))}
+                  className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white active:scale-95 transition-transform"
+                >
+                  <Minus size={20} />
+                </button>
+                <div className="flex-1 text-center">
+                  <div className="text-2xl font-black text-white italic">{pointTarget}</div>
+                  <div className="text-[8px] font-black text-primary uppercase tracking-widest">PUNTI</div>
+                </div>
+                <button 
+                  onClick={() => setPointTarget(pointTarget + 1)}
+                  className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white active:scale-95 transition-transform"
+                >
+                  <Plus size={20} />
+                </button>
+             </div>
+             <p className="text-[8px] text-white/20 font-bold uppercase tracking-widest text-center px-4">
+               Il primo blader che raggiunge {pointTarget} punti vince l'incontro.
+             </p>
+          </motion.div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="p-6 rounded-[32px] bg-[#4361EE]/5 border border-[#4361EE]/20 space-y-2 overflow-hidden"
+          >
+             <div className="text-[10px] font-black text-[#4361EE] tracking-widest uppercase italic text-center">Modalità Total Battle</div>
+             <p className="text-[9px] text-white/40 font-medium text-center leading-relaxed">
+               I blader dovranno utilizzare tutti i {battleType === '3v3' ? '3 ' : ''}Bey del loro deck.<br/>
+               Vince chi accumula più punti totali. In caso di parità, viene assegnato un punto ciascuno.
+             </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Round Robin Customization */}
       {format === 'round_robin' && (
@@ -219,7 +284,7 @@ export function TournamentSetup({ onConfirm }) {
 
       <motion.button
         onClick={() => onConfirm({ 
-          name, format, battleType, participants, 
+          name, format, battleType, participants, pointTarget, winCondition,
           registrationOpen: true, // Always true now, but filtered by mode
           registrationMode: entryMode, 
           maxParticipants: entryMode === 'invitation' ? participants.length : maxParticipants,
