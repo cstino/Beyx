@@ -68,14 +68,22 @@ export function EloSection({ profile }) {
           {/* ─── UNRANKED / PLACEMENT STATE ─── */}
           {isPlacement && (
             <>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3 mb-4">
                 <RankBadge
                   elo={profile.elo}
                   placementDone={false}
                   size="lg"
-                  showName
-                  showElo
+                  showName={false}
+                  showElo={false}
                 />
+                <div>
+                  <div className="text-[10px] font-extrabold tracking-wider uppercase mb-0.5 text-white/60">
+                    {tier.name}
+                  </div>
+                  <div className="text-2xl font-black text-white tabular-nums leading-none tracking-tight">
+                    {profile.elo} <span className="text-xs font-bold text-white/40 tracking-widest uppercase ml-0.5">ELO</span>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white/5 rounded-xl p-4 border border-white/5">
@@ -104,20 +112,29 @@ export function EloSection({ profile }) {
           {!isPlacement && (
             <>
               <div className="flex items-center justify-between mb-6">
-                <RankBadge
-                  elo={profile.elo}
-                  placementDone={true}
-                  size="lg"
-                  showName
-                  showElo
-                  showDivision
-                />
+                <div className="flex items-center gap-3">
+                  <RankBadge
+                    elo={profile.elo}
+                    placementDone={true}
+                    size="lg"
+                    showName={false}
+                    showElo={false}
+                  />
+                  <div>
+                    <div className="text-[10px] font-extrabold tracking-wider uppercase mb-0.5" style={{ color: tier.color }}>
+                      {display}
+                    </div>
+                    <div className="text-2xl font-black text-white tabular-nums leading-none tracking-tight">
+                      {profile.elo} <span className="text-xs font-bold text-white/40 tracking-widest uppercase ml-0.5">ELO</span>
+                    </div>
+                  </div>
+                </div>
 
                 <div className="text-right">
-                  <div className="text-[10px] text-white/50 font-black tracking-wider uppercase">
+                  <div className="text-[9px] text-white/40 font-black tracking-wider uppercase mb-0.5">
                     Peak ELO
                   </div>
-                  <div className="text-white font-black text-xl tabular-nums">
+                  <div className="text-xs font-bold text-white/50 tabular-nums">
                     {profile.elo_peak}
                   </div>
                 </div>

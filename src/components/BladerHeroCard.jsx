@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar } from './Avatar';
-import { Zap, Sparkles, Shield, Target, TrendingUp, ChevronRight } from 'lucide-react';
+import { Zap, Sparkles, Shield, Target, TrendingUp, ChevronRight, Globe, Swords } from 'lucide-react';
 import { RankBadge, getRankFromElo, getNextThreshold, RANK_TIERS, RANK_RANGES } from './RankBadge';
 
 export function BladerHeroCard({ blader }) {
@@ -31,11 +31,10 @@ export function BladerHeroCard({ blader }) {
     return () => clearTimeout(timer);
   }, [targetElo]);
 
-  const xpBase = Math.pow(blader.level - 1, 2) * 50;
-  const xpNext = Math.pow(blader.level, 2) * 50;
-  const progress = ((blader.xp - xpBase) / (xpNext - xpBase)) * 100;
+
 
   const { display, tier } = getRankFromElo(targetElo);
+  const RankIcon = tier.icon;
   const { target: nextTarget } = getNextThreshold(targetElo);
   const currentAvatarId = blader.avatar_id || blader.avatar_url;
 
@@ -76,13 +75,23 @@ export function BladerHeroCard({ blader }) {
                   {blader.level}
                 </motion.div>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col justify-center">
                  <h2 className="text-2xl font-black text-white italic leading-tight font-createfuture tracking-[0.05em]">
                    {blader.username}
                  </h2>
-                <div className="flex items-center gap-1.5 py-0.5 px-2 rounded-full bg-white/5 border border-white/10 w-fit">
-                  <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: tier.color }} />
-                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">
+                <div 
+                  className="flex items-center gap-2 py-1 px-3 rounded-xl border mt-1.5 w-fit shadow-md transition-all"
+                  style={{ 
+                    background: `${tier.color}15`, 
+                    borderColor: `${tier.color}40`,
+                    boxShadow: `0 0 12px -2px ${tier.color}30`
+                  }}
+                >
+                  {RankIcon && <RankIcon size={13} style={{ color: tier.color }} strokeWidth={2.5} />}
+                  <span 
+                    className="text-[10px] font-black uppercase tracking-[0.15em] italic font-createfuture leading-none pt-0.5"
+                    style={{ color: tier.color }}
+                  >
                     {display}
                   </span>
                 </div>
@@ -91,9 +100,9 @@ export function BladerHeroCard({ blader }) {
           </div>
 
           {/* BENTO GRID STATS */}
-          <div className="grid grid-cols-12 gap-3">
-            {/* POWER CORE (ELO) */}
-            <div className="col-span-8 relative group/core">
+          <div className="flex flex-col gap-3">
+            {/* ROW 1: POWER CORE (ELO) - FULL WIDTH */}
+            <div className="relative group/core w-full">
                <div className="absolute inset-0 bg-white/[0.02] border border-white/10 rounded-3xl transition-all group-hover/core:border-white/20" />
                <div className="relative p-5 overflow-hidden">
                   <div className="flex items-center justify-between mb-4">
@@ -126,35 +135,27 @@ export function BladerHeroCard({ blader }) {
                </div>
             </div>
 
-            {/* SECONDARY INFO */}
-            <div className="col-span-4 flex flex-col gap-3">
-               <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
-                  <Zap size={16} className="text-primary mb-2" />
-                  <div className="text-[14px] font-black text-white italic font-createfuture leading-none">{blader.xp}</div>
+            {/* ROW 2: 3 CARDS SIDE-BY-SIDE */}
+            <div className="grid grid-cols-3 gap-3">
+               {/* CARD XP */}
+               <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-3.5 flex flex-col justify-center items-center text-center">
+                  <Zap size={14} className="text-primary mb-1.5" />
+                  <div className="text-sm font-black text-white italic font-createfuture leading-none">{blader.xp}</div>
                   <div className="text-[7px] font-black text-white/20 uppercase tracking-widest mt-1">Total XP</div>
                </div>
-               <div className="flex-1 bg-white/[0.02] border border-white/10 rounded-2xl p-4 flex flex-col justify-center items-center text-center">
-                  <div className="text-xs font-black text-white italic font-createfuture leading-none">#{blader.rank || '--'}</div>
+               {/* CARD GLOBAL RANK */}
+               <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-3.5 flex flex-col justify-center items-center text-center">
+                  <Globe size={14} className="text-[#4361EE] mb-1.5" />
+                  <div className="text-sm font-black text-white italic font-createfuture leading-none">{blader.rank || '--'}</div>
                   <div className="text-[7px] font-black text-white/20 uppercase tracking-widest mt-1">Global</div>
                </div>
-            </div>
-
-            {/* PROGRESS BAR (Integrated) */}
-            <div className="col-span-12 mt-2 bg-white/[0.02] border border-white/10 rounded-2xl p-4">
-               <div className="flex justify-between items-center mb-2">
-                 <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-sm bg-white/10" />
-                   <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Battle Proficiency</span>
-                 </div>
-                 <span className="text-[10px] font-black text-white italic">{Math.round(progress)}%</span>
-               </div>
-               <div className="h-2 bg-black/50 rounded-full p-0.5 border border-white/5 overflow-hidden">
-                 <motion.div 
-                   initial={{ width: 0 }}
-                   animate={{ width: `${progress}%` }}
-                   transition={{ duration: 1, ease: "easeOut" }}
-                   className="h-full rounded-full bg-gradient-to-r from-white/10 via-white/40 to-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-                 />
+               {/* CARD W/L */}
+               <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-3.5 flex flex-col justify-center items-center text-center overflow-hidden">
+                  <Swords size={14} className="text-[#10B981] mb-1.5" />
+                  <div className="text-xs font-black text-white italic font-createfuture leading-none tracking-tight whitespace-nowrap">
+                    {blader.wins || 0}W/{blader.losses || 0}L
+                  </div>
+                  <div className="text-[7px] font-black text-white/20 uppercase tracking-widest mt-1">Record</div>
                </div>
             </div>
           </div>

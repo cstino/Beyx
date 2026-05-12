@@ -852,7 +852,24 @@ export default function NewTournamentPage() {
           <button 
             onClick={() => {
               const displayUrl = `${window.location.origin}/battle/tournament/${tournament.id}/display`;
-              navigator.clipboard.writeText(displayUrl);
+              if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(displayUrl);
+              } else {
+                // Fallback per test su rete locale (IP non-HTTPS)
+                const textArea = document.createElement("textarea");
+                textArea.value = displayUrl;
+                textArea.style.position = "absolute";
+                textArea.style.left = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                  document.execCommand('copy');
+                } catch (err) {
+                  console.error('Fallback copy failed', err);
+                }
+                document.body.removeChild(textArea);
+              }
               useToastStore.getState().success("Link Display Copiato!");
             }}
             className="text-[9px] font-black text-primary uppercase tracking-widest hover:text-white transition-colors"

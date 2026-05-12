@@ -25,7 +25,7 @@ export function useHomeData(userId) {
         if (pError) throw pError;
 
         // 2. Poi prendiamo tutto il resto in parallelo, incluso il rank basato sull'ELO appena ottenuto
-        const [ownedParts, totalBlades, totalRatchets, totalBits, userCombos, leaderboard, rankQuery] =
+        const [ownedParts, totalBlades, totalRatchets, totalBits, userCombos, leaderboard, rankQuery, battleStats] =
           await Promise.all([
             supabase.from('user_collections').select('id', { count: 'exact', head: true }).eq('user_id', userId),
             supabase.from('blades').select('id', { count: 'exact', head: true }),
@@ -39,6 +39,7 @@ export function useHomeData(userId) {
             supabase.from('profiles')
               .select('id', { count: 'exact', head: true })
               .gt('elo', profileData?.elo ?? 1000),
+            supabase.rpc('get_user_battle_stats', { user_id: userId }),
           ]);
 
         const totalParts = (totalBlades.count ?? 0) + (totalRatchets.count ?? 0) + (totalBits.count ?? 0);
@@ -62,6 +63,9 @@ export function useHomeData(userId) {
             elo_matches: profileData?.elo_matches ?? 0,
             placement_done: profileData?.placement_done ?? false,
             rank: globalRank,
+            wins: battleStats.data?.wins ?? 0,
+            losses: battleStats.data?.losses ?? 0,
+            winRate: battleStats.data?.win_rate ?? 0,
           },
           parts: { owned: ownedParts.count ?? 0, total: totalParts },
           combos: { count: userCombos.count ?? 0 },

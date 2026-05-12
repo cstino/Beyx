@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { Avatar } from '../components/Avatar';
 import { StatGrid } from '../components/account/StatGrid';
 import { EloSection } from '../components/account/EloSection';
-import { RankBadge } from '../components/RankBadge';
+import { RankBadge, getRankFromElo } from '../components/RankBadge';
 import { AchievementsGrid } from '../components/account/AchievementsGrid';
 import { EditProfileModal } from '../components/account/EditProfileModal';
 import { PageContainer } from '../components/PageContainer';
@@ -81,6 +81,9 @@ export default function AccountPage() {
     </div>
   );
 
+  const { display, tier } = getRankFromElo(profile?.elo || 1000);
+  const RankIcon = tier?.icon;
+
   return (
     <PageContainer className="pt-6">
       {/* Hero Header */}
@@ -104,26 +107,35 @@ export default function AccountPage() {
             </motion.button>
           </div>
 
-          <div className="mt-6 text-center">
-            <div className="flex items-center justify-center gap-3 mb-2 opacity-80">
-              <div className="text-primary font-black text-[10px] tracking-[0.3em] uppercase drop-shadow-glow">
-                Lv.{getLevel(profile?.xp)}
-              </div>
-              <div className="w-[1px] h-2.5 bg-white/10" />
-              <RankBadge 
-                elo={profile?.elo || 1000} 
-                placementDone={profile?.placement_done} 
-                size="sm" 
-                showName={true} 
-                showElo={false} 
-              />
-            </div>
-            <h1 className="text-3xl font-black text-white italic uppercase tracking-tighter leading-none">
+          <div className="mt-5 text-center flex flex-col items-center">
+            <h1 className="text-3xl font-black text-white italic leading-none font-createfuture tracking-[0.05em]">
               {profile?.username || 'Guerriero'}
             </h1>
-            <p className="text-white/40 text-[10px] font-black tracking-[0.2em] uppercase mt-2">
-              {profile?.title || "Blader d'Elite"}
-            </p>
+            
+            <div className="flex items-center justify-center gap-2.5 mt-3">
+              {/* Level Indicator */}
+              <div className="text-primary font-black text-[11px] tracking-[0.2em] uppercase bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-xl">
+                Lv.{getLevel(profile?.xp)}
+              </div>
+              
+              {/* Premium Rank Pill matching Home */}
+              <div 
+                className="flex items-center gap-2 py-1 px-3 rounded-xl border shadow-md transition-all"
+                style={{ 
+                  background: `${tier?.color || '#FFFFFF'}15`, 
+                  borderColor: `${tier?.color || '#FFFFFF'}40`,
+                  boxShadow: `0 0 12px -2px ${tier?.color || '#FFFFFF'}30`
+                }}
+              >
+                {RankIcon && <RankIcon size={13} style={{ color: tier?.color || '#FFFFFF' }} strokeWidth={2.5} />}
+                <span 
+                  className="text-[10px] font-black uppercase tracking-[0.15em] italic font-createfuture leading-none pt-0.5"
+                  style={{ color: tier?.color || '#FFFFFF' }}
+                >
+                  {display}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 

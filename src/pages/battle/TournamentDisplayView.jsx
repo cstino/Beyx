@@ -416,24 +416,24 @@ export default function TournamentDisplayView() {
     const currentParticipant = currentParticipantId ? tournament.participants.find(p => p.id === currentParticipantId || p.user_id === currentParticipantId || p.username === currentParticipantId) : null;
 
     return (
-      <div className="min-h-screen bg-[#0A0A1A] p-8 flex flex-col">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-4">
+      <div className="min-h-screen bg-[#0A0A1A] p-4 md:p-8 flex flex-col justify-between overflow-y-auto">
+        <div className="text-center mb-6 md:mb-8 shrink-0">
+          <h1 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-3">
             {tournament.name} - Fase di Draft
           </h1>
           {currentParticipant ? (
-            <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-8 py-4 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
-              <span className="text-xl text-white/70 font-bold uppercase mr-4 tracking-[0.05em]">Turno di:</span>
-              <span className="text-4xl text-white font-black italic uppercase tracking-[0.05em]">{currentParticipant.username}</span>
+            <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-6 py-2.5 md:px-8 md:py-4 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
+              <span className="text-base md:text-xl text-white/70 font-bold uppercase mr-3 tracking-[0.05em]">Turno di:</span>
+              <span className="text-2xl md:text-4xl text-white font-black italic uppercase tracking-[0.05em]">{currentParticipant.username}</span>
             </div>
           ) : (
-            <div className="text-2xl text-green-400 font-black italic uppercase animate-pulse">
+            <div className="text-xl md:text-2xl text-green-400 font-black italic uppercase animate-pulse">
               Draft Completato! In attesa della generazione del tabellone...
             </div>
           )}
         </div>
 
-        <div className="flex-1 flex flex-wrap justify-center items-center gap-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 flex flex-wrap justify-center items-center max-w-7xl mx-auto w-full content-center my-auto" style={{ gap: draft.availablePacks.length > 24 ? '10px' : draft.availablePacks.length > 16 ? '12px' : draft.availablePacks.length > 12 ? '16px' : '24px' }}>
           {draft.availablePacks.map((pack, index) => {
             const isOpened = pack.isOpened;
             const owner = isOpened ? tournament.participants.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
@@ -446,19 +446,63 @@ export default function TournamentDisplayView() {
             let displayType = pack.type;
             if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
 
+            // Dynamic size mapping based on pack count
+            const totalPacks = draft.availablePacks.length;
+            let cardDims = {
+              width: "190px",
+              height: "254px",
+              logoSize: "w-20 h-20", // The user requested a bigger logo!
+              iconSize: 48,
+              typeSize: "text-sm",
+              numSize: "text-xl"
+            };
+
+            if (totalPacks > 24) {
+              cardDims = {
+                width: "105px",
+                height: "140px",
+                logoSize: "w-10 h-10",
+                iconSize: 22,
+                typeSize: "text-[8px]",
+                numSize: "text-xs"
+              };
+            } else if (totalPacks > 16) {
+              cardDims = {
+                width: "125px",
+                height: "167px",
+                logoSize: "w-12 h-12",
+                iconSize: 28,
+                typeSize: "text-[9px]",
+                numSize: "text-xs"
+              };
+            } else if (totalPacks > 12) {
+              cardDims = {
+                width: "150px",
+                height: "200px",
+                logoSize: "w-16 h-16",
+                iconSize: 36,
+                typeSize: "text-xs",
+                numSize: "text-sm"
+              };
+            }
+
             return (
               <div 
                 key={pack.id} 
-                className={`draft-card is-display w-[190px] h-[254px] shrink-0 ${isOpened ? 'is-opened' : ''} transition-all duration-500`}
-                style={{ '--glow-color': glowColor }}
+                className={`draft-card is-display shrink-0 ${isOpened ? 'is-opened' : ''} transition-all duration-500`}
+                style={{ 
+                  '--glow-color': glowColor,
+                  width: cardDims.width,
+                  height: cardDims.height
+                }}
               >
                 <div className="draft-card-content">
                   <div className="draft-card-back">
                     <div className="draft-card-back-content font-createfuture tracking-[0.05em]">
-                      <img src="/beyx.svg" alt="BeyX Logo" className="w-14 h-14 mb-4 opacity-50 drop-shadow-md" />
-                      <div className="mb-4 opacity-80" style={{ color: glowColor }}><Icon size={48} /></div>
-                      <div className="text-sm font-black uppercase opacity-80 mb-2 text-center" style={{ color: glowColor }}>{displayType}</div>
-                      <div className="text-xl font-black opacity-40">{index + 1}</div>
+                      <img src="/beyx.svg" alt="BeyX Logo" className={`${cardDims.logoSize} mb-2 opacity-60 drop-shadow-md transition-all`} />
+                      <div className="mb-2 opacity-80" style={{ color: glowColor }}><Icon size={cardDims.iconSize} /></div>
+                      <div className={`${cardDims.typeSize} font-black uppercase opacity-80 mb-1 text-center`} style={{ color: glowColor }}>{displayType}</div>
+                      <div className={`${cardDims.numSize} font-black opacity-40 leading-none`}>{index + 1}</div>
                     </div>
                   </div>
                   <div className="draft-card-front">
@@ -468,10 +512,10 @@ export default function TournamentDisplayView() {
                       <div className="draft-card-description font-createfuture tracking-[0.05em]">
                          {isOpened ? (
                            <>
-                             <div className="text-3xl mb-2">❌</div>
+                             <div className={`${totalPacks > 16 ? 'text-lg mb-0.5' : 'text-3xl mb-2'}`}>❌</div>
                              <div className="flex flex-col items-center justify-center w-full">
-                               <span className="text-[10px] font-black text-white text-center uppercase tracking-[0.05em]">SELEZIONATO</span>
-                               <span className="text-[8px] text-white/70 text-center uppercase mt-1 tracking-[0.05em]">{owner?.username}</span>
+                               <span className={`${totalPacks > 16 ? 'text-[8px]' : 'text-[10px]'} font-black text-white text-center uppercase tracking-[0.05em]`}>SELEZIONATO</span>
+                               <span className={`${totalPacks > 16 ? 'text-[7px]' : 'text-[8px]'} text-white/70 text-center uppercase mt-0.5 tracking-[0.05em] truncate max-w-[90%]`}>{owner?.username}</span>
                              </div>
                            </>
                          ) : null}
