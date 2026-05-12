@@ -12,8 +12,29 @@ const PHASES = [
 
 export function SplashScreen({ onComplete }) {
   const [phaseIndex, setPhaseIndex] = useState(0);
+  const [isReady, setIsReady] = useState(false);
 
+  // 1. Sblocca l'avvio dei timer solo quando la PWA iOS passa effettivamente in primo piano visibile
   useEffect(() => {
+    const handleReady = () => {
+      if (document.visibilityState === 'visible') {
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(() => setIsReady(true));
+        } else {
+          setIsReady(true);
+        }
+      }
+    };
+
+    handleReady();
+    document.addEventListener('visibilitychange', handleReady);
+    return () => document.removeEventListener('visibilitychange', handleReady);
+  }, []);
+
+  // 2. Avanzamento fasi innescato esclusivamente quando l'app è sbloccata
+  useEffect(() => {
+    if (!isReady) return;
+
     if (phaseIndex >= PHASES.length) {
       onComplete();
       return;
@@ -24,7 +45,7 @@ export function SplashScreen({ onComplete }) {
     }, PHASES[phaseIndex].duration);
 
     return () => clearTimeout(timer);
-  }, [phaseIndex, onComplete]);
+  }, [isReady, phaseIndex, onComplete]);
 
   const currentPhase = PHASES[phaseIndex]?.key;
 

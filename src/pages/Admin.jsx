@@ -192,6 +192,10 @@ function PartForm({ type, initialData, onSave, onCancel }) {
     stock_ratchet: '',
     stock_bit: '',
     variants: [],
+    type: type === 'blades' || type === 'bits' ? 'Attack' : undefined,
+    weight: type === 'blades' ? 30 : undefined,
+    sides: type === 'ratchets' ? 4 : undefined,
+    height: type === 'ratchets' ? 60 : undefined,
     ...initialData
   });
 
