@@ -272,12 +272,13 @@ export default function TournamentDisplayView() {
                     <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
                     <div className="circle" id="right-circle"></div>
                     <div className="draft-card-front-content">
-                      <div className="draft-card-description">
+                      <div className="draft-card-description font-createfuture tracking-[0.05em]">
                          {isOpened ? (
                            <>
                              <div className="text-3xl mb-2">❌</div>
-                             <div className="text-sm font-black text-white text-center px-2 uppercase">
-                               Scelto da<br/>{owner?.username}
+                             <div className="flex flex-col items-center justify-center w-full">
+                               <span className="text-[10px] font-black text-white text-center uppercase tracking-[0.05em]">SELEZIONATO</span>
+                               <span className="text-[8px] text-white/70 text-center uppercase mt-1 tracking-[0.05em]">{owner?.username}</span>
                              </div>
                            </>
                          ) : null}

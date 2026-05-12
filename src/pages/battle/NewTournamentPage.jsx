@@ -1050,7 +1050,11 @@ export default function NewTournamentPage() {
               <BracketView 
                 tournament={tournament} 
                 onSelectMatch={(rIndex, mIndex) => {
-                  if (isReadOnly) return;
+                  const match = tournament.structure.rounds[rIndex].matches[mIndex];
+                  if (isReadOnly && !match.battle_id) {
+                    useToastStore.getState().error("In attesa che l'organizzatore avvii il match!");
+                    return;
+                  }
                   handleSelectMatch(rIndex, mIndex);
                 }}
               />

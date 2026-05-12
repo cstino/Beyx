@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Sword, Wind, X } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -8,6 +8,17 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
   const { user } = useAuthStore();
   const [selectedDeckCombo, setSelectedDeckCombo] = useState(null);
   const draft = tournament?.structure?.draft;
+  
+  const [delayedDecks, setDelayedDecks] = useState(draft?.playerDecks || {});
+
+  useEffect(() => {
+    if (draft?.playerDecks) {
+      const timer = setTimeout(() => {
+        setDelayedDecks(draft.playerDecks);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [draft?.playerDecks]);
   
   if (!draft) return null;
 
@@ -29,9 +40,10 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
 
     const newDecks = { ...draft.playerDecks };
     if (!newDecks[currentTurnParticipantId]) {
-      newDecks[currentTurnParticipantId] = [];
+      newDecks[currentTurnParticipantId] = [pack.combo_id];
+    } else {
+      newDecks[currentTurnParticipantId] = [...newDecks[currentTurnParticipantId], pack.combo_id];
     }
-    newDecks[currentTurnParticipantId].push(pack.combo_id);
 
     const newIndex = draft.currentTurnIndex + 1;
     const isDraftComplete = newIndex >= draft.turnOrder.length;
@@ -120,6 +132,8 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
           let displayType = pack.type;
           if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
 
+          const owner = pack.isOpened ? tournament.participants.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
+
           return (
             <div
               key={pack.id}
@@ -140,11 +154,14 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
                   <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
                   <div className="circle" id="right-circle"></div>
                   <div className="draft-card-front-content">
-                    <div className="draft-card-description">
+                    <div className="draft-card-description font-createfuture tracking-[0.05em]">
                       {pack.isOpened ? (
                         <>
                           <div className="text-xl mb-1">❌</div>
-                          <div className="text-[10px] font-black text-white text-center uppercase">Aperto</div>
+                          <div className="flex flex-col items-center justify-center w-full">
+                            <span className="text-[8px] md:text-[9px] font-black text-white text-center uppercase tracking-[0.05em]">SELEZIONATO</span>
+                            <span className="text-[6px] md:text-[7px] text-white/70 text-center uppercase mt-1 tracking-[0.05em]">{owner?.username}</span>
+                          </div>
                         </>
                       ) : (
                         <div className="text-[10px] font-black text-white text-center uppercase">Scegli</div>
@@ -173,7 +190,7 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
 
           return sortedParticipants.map(participant => {
             const pId = participant.id || participant.user_id || participant.username;
-            const myDeckComboIds = draft.playerDecks?.[pId] || [];
+            const myDeckComboIds = delayedDecks?.[pId] || [];
             
             return (
               <div key={pId} className="bg-[#12122A]/80 p-4 rounded-3xl border border-white/5 shadow-lg">

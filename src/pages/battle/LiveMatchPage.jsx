@@ -38,6 +38,7 @@ export function LiveMatchPage() {
   const [selectedP2Combo, setSelectedP2Combo] = useState(null);
   const [selectedWinner, setSelectedWinner] = useState(null);
   const [selectedFinish, setSelectedFinish] = useState(null);
+  const [eloResult, setEloResult] = useState(null);
 
   useEffect(() => {
     setHeader('BATTLE ARENA', '/battle');
@@ -97,12 +98,11 @@ export function LiveMatchPage() {
       setParts(partsData);
 
       // Load combos from config
-      if (data.p1_deck_config?.beys) {
-        setP1Combos(data.p1_deck_config.beys.map((b, i) => ({ ...b, localId: `p1-${i}` })));
-      }
-      if (data.p2_deck_config?.beys) {
-        setP2Combos(data.p2_deck_config.beys.map((b, i) => ({ ...b, localId: `p2-${i}` })));
-      }
+      const p1Deck = Array.isArray(data.p1_deck_config) ? data.p1_deck_config : data.p1_deck_config?.beys || [];
+      setP1Combos(p1Deck.map((b, i) => ({ ...b, localId: `p1-${i}` })));
+
+      const p2Deck = Array.isArray(data.p2_deck_config) ? data.p2_deck_config : data.p2_deck_config?.beys || [];
+      setP2Combos(p2Deck.map((b, i) => ({ ...b, localId: `p2-${i}` })));
       
       loadRounds();
     }
@@ -335,7 +335,6 @@ export function LiveMatchPage() {
     }
   }
 
-  const [eloResult, setEloResult] = useState(null);
 
   if (eloResult) {
     return <EloSummary result={eloResult} battle={battle} onDone={() => navigate('/battle')} />;
