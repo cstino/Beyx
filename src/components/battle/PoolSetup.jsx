@@ -40,10 +40,6 @@ export function PoolSetup({ tournament, onComplete }) {
     if (newSet.has(comboId)) {
       newSet.delete(comboId);
     } else {
-      if (newSet.size >= targetCount) {
-        useToastStore.getState().error(`Hai già selezionato i ${targetCount} Bey necessari!`);
-        return;
-      }
       newSet.add(comboId);
     }
     setSelectedIds(newSet);
@@ -51,7 +47,7 @@ export function PoolSetup({ tournament, onComplete }) {
 
   const handleConfirm = () => {
     if (selectedIds.size < targetCount) {
-      useToastStore.getState().error(`Devi selezionare esattamente ${targetCount} Beyblade.`);
+      useToastStore.getState().error(`Devi selezionare almeno ${targetCount} Beyblade.`);
       return;
     }
     const poolCombos = combos.filter(c => selectedIds.has(c.id));
@@ -71,14 +67,14 @@ export function PoolSetup({ tournament, onComplete }) {
 
   if (loading) return <div className="text-center text-white/50 py-10 font-bold uppercase text-[10px]">Caricamento Collezione...</div>;
 
-  const isReady = selectedIds.size === targetCount;
+  const isReady = selectedIds.size >= targetCount;
 
   return (
     <div className="space-y-6">
       <div className="bg-[#12122A] p-6 rounded-[32px] border border-[#4361EE]/30 shadow-[0_0_20px_rgba(67,97,238,0.1)]">
         <h3 className="text-xl font-black text-white italic uppercase tracking-tighter mb-2">Componi la Pool</h3>
         <p className="text-xs text-white/50 font-medium mb-6">
-          Seleziona {targetCount} Beyblade dalla tua collezione per metterli in palio.
+          Seleziona almeno {targetCount} Beyblade dalla tua collezione per metterli in palio nella pool.
           (Modalità: {tournament.assignment_mode?.toUpperCase()})
         </p>
 
@@ -87,7 +83,7 @@ export function PoolSetup({ tournament, onComplete }) {
           <div className="p-3 bg-white/5 rounded-2xl flex flex-col items-center justify-center border border-white/10">
             <div className="text-[10px] font-black text-white/30 uppercase tracking-widest mb-1">Totale</div>
             <div className={`text-xl font-black ${isReady ? 'text-green-400' : 'text-primary'}`}>
-              {selectedIds.size} <span className="text-sm text-white/30">/ {targetCount}</span>
+              {selectedIds.size} <span className="text-sm text-white/30">/ min {targetCount}</span>
             </div>
           </div>
           <div className="p-3 bg-red-500/10 rounded-2xl flex flex-col items-center justify-center border border-red-500/20">
@@ -113,7 +109,7 @@ export function PoolSetup({ tournament, onComplete }) {
               : 'bg-white/5 text-white/20'
           }`}
         >
-          {isReady ? 'Conferma Pool' : `Seleziona ancora ${targetCount - selectedIds.size} Bey`}
+          {isReady ? `Conferma Pool (${selectedIds.size} Bey)` : `Seleziona almeno ${targetCount - selectedIds.size} Bey`}
         </button>
       </div>
 
