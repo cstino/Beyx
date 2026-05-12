@@ -86,7 +86,15 @@ export function LiveMatchPage() {
       .single();
 
     if (data) {
-      setBattle(data);
+      let finalWinCondition = data.win_condition;
+      if (data.tournament_id) {
+        const { data: tData } = await supabase.from('tournaments').select('win_condition, structure').eq('id', data.tournament_id).single();
+        if (tData) {
+          const struct = typeof tData.structure === 'string' ? JSON.parse(tData.structure) : tData.structure;
+          finalWinCondition = tData.win_condition || struct?.settings?.winCondition || data.win_condition || 'point_target';
+        }
+      }
+      setBattle({ ...data, win_condition: finalWinCondition });
       
       // Fetch parts to resolve names from configs
       const [b, r, t] = await Promise.all([

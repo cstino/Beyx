@@ -455,7 +455,8 @@ export default function NewTournamentPage() {
         settings: {
           rrCycles: config.rrCycles || 1,
           rrWinnerMode: config.rrWinnerMode || 'points',
-          playoffType: config.playoffType || null
+          playoffType: config.playoffType || null,
+          winCondition: config.winCondition || 'point_target'
         }
       },
       registration_open: true,
@@ -526,7 +527,7 @@ export default function NewTournamentPage() {
         battle_type: tournament.battle_type || '1v1',
         status: 'active',
         point_target: tournament.point_target || 4,
-        win_condition: tournament.win_condition || 'point_target',
+        win_condition: tournament.win_condition || tournament.structure?.settings?.winCondition || 'point_target',
         created_by: user.id
       }).select().single();
 
@@ -551,20 +552,23 @@ export default function NewTournamentPage() {
     navigate(`/battle/live/${battleId}`);
   }
 
-  // Handle Playoff Advancement
+  // Handle Advancement and Completion
   useEffect(() => {
-    if (tournament?.status === 'active' && tournament.format === 'round_robin') {
+    if (tournament?.status === 'active' && tournament.structure?.rounds) {
       const structure = tournament.structure;
       const rounds = structure.rounds;
       let changed = false;
       const newRounds = JSON.parse(JSON.stringify(rounds));
 
+      // 1. Bracket Advancement (applies to pure 'bracket' format OR 'round_robin' playoff rounds)
       for (let i = 0; i < newRounds.length - 1; i++) {
         const currentRound = newRounds[i];
-        if (!currentRound.isPlayoff) continue;
+        // If it's round_robin format, only advance matches within playoff rounds
+        if (tournament.format === 'round_robin' && !currentRound.isPlayoff) continue;
         
         const nextRound = newRounds[i+1];
-        if (!nextRound || !nextRound.isPlayoff) continue;
+        if (tournament.format === 'round_robin' && (!nextRound || !nextRound.isPlayoff)) continue;
+        if (!nextRound) continue;
 
         currentRound.matches.forEach((m, mIdx) => {
           if (m.winner) {
@@ -581,20 +585,19 @@ export default function NewTournamentPage() {
               const nextMIdx = Math.floor(mIdx / 2);
               const isP1 = mIdx % 2 === 0;
               
-              if (isP1 && (!nextRound.matches[nextMIdx].p1 || nextRound.matches[nextMIdx].p1.username !== winnerObj.username)) {
-                nextRound.matches[nextMIdx].p1 = winnerObj;
-                changed = true;
-              } else if (!isP1 && (!nextRound.matches[nextMIdx].p2 || nextRound.matches[nextMIdx].p2.username !== winnerObj.username)) {
-                nextRound.matches[nextMIdx].p2 = winnerObj;
-                changed = true;
+              if (nextRound.matches[nextMIdx]) {
+                if (isP1 && (!nextRound.matches[nextMIdx].p1 || nextRound.matches[nextMIdx].p1.username !== winnerObj.username)) {
+                  nextRound.matches[nextMIdx].p1 = winnerObj;
+                  changed = true;
+                } else if (!isP1 && (!nextRound.matches[nextMIdx].p2 || nextRound.matches[nextMIdx].p2.username !== winnerObj.username)) {
+                  nextRound.matches[nextMIdx].p2 = winnerObj;
+                  changed = true;
+                }
               }
             }
           }
         });
       }
-
-      // Special case for play-in to semi-final advancement if needed (more complex logic might be needed)
-      // For now semi and final are covered by the loop above.
 
       if (changed) {
         const updated = { ...tournament, structure: { ...structure, rounds: newRounds } };
@@ -602,13 +605,26 @@ export default function NewTournamentPage() {
         updateTournamentDB(updated);
       }
 
-      // Check for completion of round_robin playoff final
+      // 2. Check for Tournament Completion
       const finalRound = newRounds[newRounds.length - 1];
-      if (finalRound?.isPlayoff && finalRound.matches[0].winner) {
+      const isBracketOrPlayoffFinal = (tournament.format === 'bracket' || finalRound?.isPlayoff) && finalRound?.matches?.[0]?.winner;
+      
+      if (isBracketOrPlayoffFinal) {
         const winner = finalRound.matches[0].winner === 'p1' ? finalRound.matches[0].p1 : finalRound.matches[0].p2;
         const completed = { ...tournament, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name || winner.username };
         setTournament(completed);
         updateTournamentDB(completed);
+      } else if (tournament.format === 'round_robin' && structure.settings?.rrWinnerMode === 'points') {
+        const allComplete = newRounds.every(r => r.matches.every(m => m.winner || m.p1?.isBye || m.p2?.isBye));
+        if (allComplete) {
+          const standings = calculateStandings({ ...tournament, structure: { ...structure, rounds: newRounds } });
+          const winner = standings[0];
+          if (winner) {
+            const completed = { ...tournament, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name || winner.username };
+            setTournament(completed);
+            updateTournamentDB(completed);
+          }
+        }
       }
     }
   }, [tournament?.structure?.rounds]);
@@ -715,6 +731,7 @@ export default function NewTournamentPage() {
     const approved = registrations.filter(r => r.status === 'approved').map(r => ({
       user_id: r.user_id,
       username: r.profiles?.username || 'Sconosciuto',
+      avatar_id: r.profiles?.avatar_id || null,
       seed: 0,
       deck: r.deck_config
     }));
@@ -827,11 +844,11 @@ export default function NewTournamentPage() {
 
   return (
     <div className="min-h-screen pb-32 flex flex-col pt-6">
-      <div className="px-6 flex items-center justify-between mb-4">
-        <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
-          Torneo ID: <span className="text-white/40">{tournament?.id}</span>
-        </div>
-        {tournament && (
+      {!isReadOnly && stage !== 'active' && tournament && (
+        <div className="px-6 flex items-center justify-between mb-4 shrink-0">
+          <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
+            Torneo ID: <span className="text-white/40">{tournament.id}</span>
+          </div>
           <button 
             onClick={() => {
               const displayUrl = `${window.location.origin}/battle/tournament/${tournament.id}/display`;
@@ -842,8 +859,8 @@ export default function NewTournamentPage() {
           >
             Copia Link Display
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <div className="px-6 flex-1">
          {stage === 'setup' ? (
            <>
@@ -1046,7 +1063,7 @@ export default function NewTournamentPage() {
            </motion.div>
          ) : (
            <>
-            <div className="p-8 pb-32 overflow-y-auto no-scrollbar">
+            <div className="px-3 py-6 pb-32 overflow-y-auto no-scrollbar">
               <BracketView 
                 tournament={tournament} 
                 onSelectMatch={(rIndex, mIndex) => {
