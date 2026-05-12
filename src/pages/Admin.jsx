@@ -520,9 +520,15 @@ function PartForm({ type, initialData, onSave, onCancel }) {
           onClick={() => {
             // Cleanup data before save
             const finalData = { ...formData };
-            if (type === 'blades') { delete finalData.sides; delete finalData.height; delete finalData.tip_shape; }
-            if (type === 'ratchets') { delete finalData.weight; delete finalData.type; delete finalData.stats; delete finalData.tip_shape; }
-            if (type === 'bits') { delete finalData.weight; delete finalData.sides; delete finalData.height; delete finalData.stats; }
+            if (type === 'blades') { 
+              delete finalData.sides; delete finalData.height; delete finalData.tip_shape; 
+            }
+            if (type === 'ratchets') { 
+              delete finalData.weight; delete finalData.type; delete finalData.stats; delete finalData.tip_shape; delete finalData.stock_ratchet; delete finalData.stock_bit; 
+            }
+            if (type === 'bits') { 
+              delete finalData.weight; delete finalData.sides; delete finalData.height; delete finalData.stats; delete finalData.stock_ratchet; delete finalData.stock_bit; 
+            }
             onSave(finalData);
           }}
           className="w-full py-5 rounded-[22px] bg-[#F5A623] text-[#0A0A1A] font-black text-xs tracking-[0.2em] uppercase shadow-lg shadow-[#F5A623]/20 flex items-center justify-center gap-3"
