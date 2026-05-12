@@ -851,7 +851,10 @@ export default function NewTournamentPage() {
           </div>
           <button 
             onClick={() => {
-              const displayUrl = `${window.location.origin}/battle/tournament/${tournament.id}/display`;
+              const baseUrl = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')
+                ? 'https://beyxapp.com'
+                : window.location.origin;
+              const displayUrl = `${baseUrl}/battle/tournament/${tournament.id}/display`;
               if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(displayUrl);
               } else {
