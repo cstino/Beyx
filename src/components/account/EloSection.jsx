@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { RankBadge, getRankFromElo, getNextThreshold } from '../RankBadge';
 
@@ -23,15 +23,13 @@ export function EloSection({ profile }) {
     }
   }, [profile?.id]);
 
-  const isPlacement = !profile.placement_done;
-  const placementProgress = Math.min(profile.elo_matches || 0, 5);
-
-  const { rank, display, tier } = getRankFromElo(profile.elo, profile.placement_done);
+  // Pass placementDone = true unconditionally to support immediate ELO rankings
+  const { rank, display, tier } = getRankFromElo(profile.elo, true);
   const isUnranked = rank === 'unranked';
   const isGrandmaster = rank === 'grandmaster';
 
   // Progress to next division/rank
-  const { target: nextTarget, label: nextLabel } = getNextThreshold(profile.elo, profile.placement_done);
+  const { target: nextTarget, label: nextLabel } = getNextThreshold(profile.elo, true);
 
   // Compute progress % within current division toward next
   let progressPct = 0;
@@ -65,109 +63,62 @@ export function EloSection({ profile }) {
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="p-5">
-          {/* ─── UNRANKED / PLACEMENT STATE ─── */}
-          {isPlacement && (
-            <>
-              <div className="flex items-center gap-3 mb-4">
-                <RankBadge
-                  elo={profile.elo}
-                  placementDone={false}
-                  size="lg"
-                  showName={false}
-                  showElo={false}
+          {/* ─── RANKED STATE (Direct Access) ─── */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <RankBadge
+                elo={profile.elo}
+                placementDone={true}
+                size="lg"
+                showName={false}
+                showElo={false}
+              />
+              <div>
+                <div className="text-[10px] font-extrabold tracking-wider uppercase mb-0.5" style={{ color: tier.color }}>
+                  {display}
+                </div>
+                <div className="text-2xl font-black text-white tabular-nums leading-none tracking-tight">
+                  {profile.elo} <span className="text-xs font-bold text-white/40 tracking-widest uppercase ml-0.5">ELO</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right">
+              <div className="text-[9px] text-white/40 font-black tracking-wider uppercase mb-0.5">
+                Peak ELO
+              </div>
+              <div className="text-xs font-bold text-white/50 tabular-nums">
+                {profile.elo_peak}
+              </div>
+            </div>
+          </div>
+
+          {/* Progress Bar */}
+          {nextTarget && nextLabel ? (
+            <div>
+              <div className="flex justify-between text-[10px] font-black tracking-[0.1em] mb-2 uppercase">
+                <span className="text-white/50">Progresso verso {nextLabel}</span>
+                <span className="text-white tabular-nums">
+                  {profile.elo} / {nextTarget}
+                </span>
+              </div>
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]"
+                  style={{ background: tier.color }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPct}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
                 />
-                <div>
-                  <div className="text-[10px] font-extrabold tracking-wider uppercase mb-0.5 text-white/60">
-                    {tier.name}
-                  </div>
-                  <div className="text-2xl font-black text-white tabular-nums leading-none tracking-tight">
-                    {profile.elo} <span className="text-xs font-bold text-white/40 tracking-widest uppercase ml-0.5">ELO</span>
-                  </div>
-                </div>
               </div>
-
-              <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                <div className="flex justify-between text-[10px] font-black tracking-[0.1em] mb-2 uppercase">
-                  <span className="text-yellow-500 flex items-center gap-1.5">
-                    <Info size={12} /> Placement Match
-                  </span>
-                  <span className="text-white tabular-nums">{placementProgress} / 5</span>
-                </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.3)]"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(placementProgress / 5) * 100}%` }}
-                    transition={{ duration: 0.8 }}
-                  />
-                </div>
-                <p className="text-[9px] text-white/40 mt-3 leading-tight font-medium">
-                  Completa {5 - placementProgress} match ufficiali per sbloccare il tuo primo Rank.
-                </p>
+            </div>
+          ) : isGrandmaster ? (
+            <div className="text-center py-2 bg-primary/5 rounded-xl border border-primary/20">
+              <div className="text-[10px] font-black text-primary tracking-[0.15em] uppercase">
+                ⭐ Massimo Rank Raggiunto
               </div>
-            </>
-          )}
-
-          {/* ─── RANKED STATE ─── */}
-          {!isPlacement && (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <RankBadge
-                    elo={profile.elo}
-                    placementDone={true}
-                    size="lg"
-                    showName={false}
-                    showElo={false}
-                  />
-                  <div>
-                    <div className="text-[10px] font-extrabold tracking-wider uppercase mb-0.5" style={{ color: tier.color }}>
-                      {display}
-                    </div>
-                    <div className="text-2xl font-black text-white tabular-nums leading-none tracking-tight">
-                      {profile.elo} <span className="text-xs font-bold text-white/40 tracking-widest uppercase ml-0.5">ELO</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-[9px] text-white/40 font-black tracking-wider uppercase mb-0.5">
-                    Peak ELO
-                  </div>
-                  <div className="text-xs font-bold text-white/50 tabular-nums">
-                    {profile.elo_peak}
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              {nextTarget && nextLabel ? (
-                <div>
-                  <div className="flex justify-between text-[10px] font-black tracking-[0.1em] mb-2 uppercase">
-                    <span className="text-white/50">Progresso verso {nextLabel}</span>
-                    <span className="text-white tabular-nums">
-                      {profile.elo} / {nextTarget}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]"
-                      style={{ background: tier.color }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${progressPct}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-              ) : isGrandmaster ? (
-                <div className="text-center py-2 bg-primary/5 rounded-xl border border-primary/20">
-                  <div className="text-[10px] font-black text-primary tracking-[0.15em] uppercase">
-                    ⭐ Massimo Rank Raggiunto
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
+            </div>
+          ) : null}
 
           {/* Trend stats - Shared */}
           {!loading && history.length > 0 && (
