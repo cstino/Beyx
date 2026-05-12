@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { Sword, Shield, Wind } from 'lucide-react';
+import '../../components/battle/DraftCard.css';
 
 export default function TournamentDisplayView() {
   const { id } = useParams();
@@ -107,6 +108,16 @@ export default function TournamentDisplayView() {
       const isRevealed = !!revealedCombo;
       const combo = isRevealed ? revealedCombo.combo : null;
       
+      const pack = revealingPack.pack;
+      const packIndex = draft.availablePacks.findIndex(p => p.id === pack.id);
+      let glowColor = '#22c55e';
+      let Icon = Wind;
+      if (pack.type === 'attack') { glowColor = '#ef4444'; Icon = Sword; }
+      if (pack.type === 'defense') { glowColor = '#3b82f6'; Icon = Shield; }
+      
+      let displayType = pack.type;
+      if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
+      
       let blade, ratchet, bit;
       if (combo) {
         blade = parts.blades.find(b => b.id === combo.blade_id);
@@ -122,7 +133,7 @@ export default function TournamentDisplayView() {
         <div className="min-h-screen bg-[#0A0A1A] flex flex-col items-center justify-center p-8 relative overflow-hidden perspective-1000">
           <div className="absolute inset-0 bg-gradient-to-b from-[#4361EE]/10 to-transparent"></div>
           
-          <h2 className="text-4xl md:text-6xl font-black italic text-white uppercase tracking-tighter mb-12 drop-shadow-[0_0_15px_rgba(67,97,238,0.8)] animate-pulse z-10">
+          <h2 className="text-4xl md:text-6xl font-black italic text-white uppercase tracking-[0.05em] mb-12 drop-shadow-[0_0_15px_rgba(67,97,238,0.8)] animate-pulse z-10">
             {revealingPack.participant.username} ha scelto!
           </h2>
 
@@ -133,9 +144,14 @@ export default function TournamentDisplayView() {
           >
             
             {/* Front of Card (The Pack) */}
-            <div className="absolute inset-0 backface-hidden rounded-3xl border-4 border-[#4361EE] bg-gradient-to-b from-[#4361EE]/40 to-[#4361EE]/10 flex flex-col items-center justify-center shadow-[0_0_50px_rgba(67,97,238,0.5)]">
-              <div className="text-8xl mb-6">📦</div>
-              <div className="text-4xl font-black text-white uppercase tracking-widest drop-shadow-lg">PACK</div>
+            <div className="absolute inset-0 backface-hidden rounded-3xl overflow-hidden flex items-center justify-center bg-[#151515]" style={{ boxShadow: `0 0 50px ${glowColor}66` }}>
+              <div className="absolute w-[150%] h-[150%] animate-[rotation_481_5000ms_infinite_linear]" style={{ background: `linear-gradient(90deg, transparent, ${glowColor}, ${glowColor}, ${glowColor}, ${glowColor}, transparent)` }}></div>
+              <div className="absolute w-[calc(100%-8px)] h-[calc(100%-8px)] bg-[#151515] rounded-[20px] flex flex-col items-center justify-center font-createfuture tracking-[0.05em] text-white">
+                <img src="/beyx.svg" alt="BeyX Logo" className="w-24 h-24 mb-8 opacity-50 drop-shadow-md" />
+                <div className="mb-8 opacity-80" style={{ color: glowColor }}><Icon size={96} /></div>
+                <div className="text-3xl font-black uppercase opacity-80 mb-4 text-center" style={{ color: glowColor }}>{displayType}</div>
+                <div className="text-5xl font-black opacity-40">{packIndex + 1}</div>
+              </div>
             </div>
 
             {/* Back of Card (The Revealed Beyblade) */}
@@ -170,7 +186,7 @@ export default function TournamentDisplayView() {
                     )}
                   </div>
                   
-                  <h1 className="text-4xl md:text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F5A623] to-white uppercase tracking-tighter text-center z-10 drop-shadow-md leading-tight">
+                  <h1 className="text-4xl md:text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-white via-[#F5A623] to-white uppercase tracking-[0.05em] text-center z-10 drop-shadow-md leading-tight">
                     {blade.name}
                   </h1>
                   <span className="text-lg md:text-xl font-bold text-white/60 mt-2 z-10 uppercase tracking-widest text-center">
@@ -202,19 +218,20 @@ export default function TournamentDisplayView() {
     }
 
     // GRID VIEW
-    const currentParticipantId = draft.turnOrder[draft.currentTurnIndex];
-    const currentParticipant = tournament.participants.find(p => p.id === currentParticipantId || p.user_id === currentParticipantId || p.username === currentParticipantId);
+    const isDraftComplete = tournament.status === 'draft_complete' || draft.availablePacks.every(p => p.isOpened);
+    const currentParticipantId = isDraftComplete ? null : draft.turnOrder[draft.currentTurnIndex];
+    const currentParticipant = currentParticipantId ? tournament.participants.find(p => p.id === currentParticipantId || p.user_id === currentParticipantId || p.username === currentParticipantId) : null;
 
     return (
       <div className="min-h-screen bg-[#0A0A1A] p-8 flex flex-col">
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-black italic uppercase text-white tracking-tighter mb-4">
+          <h1 className="text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-4">
             {tournament.name} - Fase di Draft
           </h1>
           {currentParticipant ? (
             <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-8 py-4 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
-              <span className="text-xl text-white/70 font-bold uppercase mr-4">Turno di:</span>
-              <span className="text-4xl text-white font-black italic uppercase">{currentParticipant.username}</span>
+              <span className="text-xl text-white/70 font-bold uppercase mr-4 tracking-[0.05em]">Turno di:</span>
+              <span className="text-4xl text-white font-black italic uppercase tracking-[0.05em]">{currentParticipant.username}</span>
             </div>
           ) : (
             <div className="text-2xl text-green-400 font-black italic uppercase animate-pulse">
@@ -223,38 +240,51 @@ export default function TournamentDisplayView() {
           )}
         </div>
 
-        <div className="flex-1 grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 flex flex-wrap justify-center items-center gap-6 max-w-7xl mx-auto w-full">
           {draft.availablePacks.map((pack, index) => {
             const isOpened = pack.isOpened;
             const owner = isOpened ? tournament.participants.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
             
-            let color = 'border-white/20 from-white/5 to-transparent text-white/50';
+            let glowColor = '#22c55e';
             let Icon = Wind;
-            if (pack.type === 'attack') { color = 'border-red-500/50 from-red-500/20 to-transparent text-red-500'; Icon = Sword; }
-            if (pack.type === 'defense') { color = 'border-blue-500/50 from-blue-500/20 to-transparent text-blue-500'; Icon = Shield; }
+            if (pack.type === 'attack') { glowColor = '#ef4444'; Icon = Sword; }
+            if (pack.type === 'defense') { glowColor = '#3b82f6'; Icon = Shield; }
             
+            let displayType = pack.type;
+            if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
+
             return (
               <div 
                 key={pack.id} 
-                className={`aspect-[3/4] rounded-2xl border-2 bg-gradient-to-b flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500
-                  ${isOpened ? 'border-white/10 opacity-40 grayscale' : color}
-                  ${!isOpened ? 'shadow-[0_0_20px_rgba(255,255,255,0.05)]' : ''}
-                `}
+                className={`draft-card is-display w-[190px] h-[254px] shrink-0 ${isOpened ? 'is-opened' : ''} transition-all duration-500`}
+                style={{ '--glow-color': glowColor }}
               >
-                {!isOpened ? (
-                  <>
-                    <div className="text-xl font-black opacity-40 mb-4">#{index + 1}</div>
-                    <Icon size={48} className="opacity-80 mb-4" />
-                    <div className="text-sm font-black uppercase tracking-widest opacity-80">{pack.type}</div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-3xl mb-2">❌</div>
-                    <div className="text-sm font-black text-white text-center px-2 uppercase">
-                      Scelto da<br/>{owner?.username}
+                <div className="draft-card-content">
+                  <div className="draft-card-back">
+                    <div className="draft-card-back-content font-createfuture tracking-[0.05em]">
+                      <img src="/beyx.svg" alt="BeyX Logo" className="w-14 h-14 mb-4 opacity-50 drop-shadow-md" />
+                      <div className="mb-4 opacity-80" style={{ color: glowColor }}><Icon size={48} /></div>
+                      <div className="text-sm font-black uppercase opacity-80 mb-2 text-center" style={{ color: glowColor }}>{displayType}</div>
+                      <div className="text-xl font-black opacity-40">{index + 1}</div>
                     </div>
-                  </>
-                )}
+                  </div>
+                  <div className="draft-card-front">
+                    <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
+                    <div className="circle" id="right-circle"></div>
+                    <div className="draft-card-front-content">
+                      <div className="draft-card-description">
+                         {isOpened ? (
+                           <>
+                             <div className="text-3xl mb-2">❌</div>
+                             <div className="text-sm font-black text-white text-center px-2 uppercase">
+                               Scelto da<br/>{owner?.username}
+                             </div>
+                           </>
+                         ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             );
           })}

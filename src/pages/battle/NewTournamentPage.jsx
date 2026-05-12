@@ -887,7 +887,8 @@ export default function NewTournamentPage() {
               setTournament={setTournament} 
               updateTournamentDB={updateTournamentDB} 
               onDraftComplete={() => generateRoundRobinOrBracket(tournament.participants)}
-               onDelete={deleteTournament}
+              onDelete={deleteTournament}
+              parts={{ blades, ratchets, bits }}
             />
          ) : tournament?.status === 'setup' && tournament?.registration_open ? (
            <div className="space-y-8">

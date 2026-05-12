@@ -1,0 +1,137 @@
+.draft-card {
+  overflow: visible;
+  width: 100%;
+  height: 100%;
+  perspective: 1000px;
+}
+
+.draft-card-content {
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0px 0px 10px 1px #000000ee;
+  border-radius: 12px;
+}
+
+/* Removed hover effect to avoid touch screen confusion
+.draft-card:hover:not(.is-opened):not(.is-display) .draft-card-content {
+  transform: rotateY(180deg);
+}
+*/
+
+.draft-card.is-opened .draft-card-content {
+  transform: rotateY(180deg);
+}
+
+.draft-card-back, .draft-card-front {
+  background-color: #151515;
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* BACK is actually the default un-flipped side in the user's CSS logic */
+.draft-card-back {
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.draft-card-back::before {
+  position: absolute;
+  content: ' ';
+  display: block;
+  width: 150%;
+  height: 150%;
+  background: linear-gradient(90deg, transparent, var(--glow-color, #ff9966), var(--glow-color, #ff9966), var(--glow-color, #ff9966), var(--glow-color, #ff9966), transparent);
+  animation: rotation_481 5000ms infinite linear;
+}
+
+.draft-card-back-content {
+  position: absolute;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  background-color: #151515;
+  border-radius: 10px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+@keyframes rotation_481 {
+  0% { transform: rotateZ(0deg); }
+  100% { transform: rotateZ(360deg); }
+}
+
+/* FRONT is the flipped side */
+.draft-card-front {
+  transform: rotateY(180deg);
+  color: white;
+}
+
+.draft-card-front-content {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.draft-card-front .circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background-color: #ffbb66;
+  position: absolute;
+  filter: blur(15px);
+  animation: floating 2600ms infinite linear;
+}
+
+.draft-card-front #bottom-circle {
+  background-color: var(--glow-color, #ff8866);
+  left: 10%;
+  top: 10%;
+  width: 120px;
+  height: 120px;
+  animation-delay: -800ms;
+}
+
+.draft-card-front #right-circle {
+  background-color: #ff2233;
+  right: -20px;
+  bottom: 0px;
+  width: 50px;
+  height: 50px;
+  animation-delay: -1800ms;
+}
+
+@keyframes floating {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(10px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Description styling for the flipped state */
+.draft-card-description {
+  box-shadow: 0px 0px 10px 5px #00000088;
+  width: 90%;
+  padding: 10px;
+  background-color: #00000099;
+  backdrop-filter: blur(5px);
+  border-radius: 5px;
+  text-align: center;
+}
