@@ -7,6 +7,10 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useToastStore } from '../../store/useToastStore';
 import { PageContainer } from '../../components/PageContainer';
+import { RankBadge, getRankFromElo, getNextThreshold, RANK_RANGES } from '../../components/RankBadge';
+import { Avatar } from '../../components/Avatar';
+import { Info, AlertCircle, ChevronRight, Share2, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 const FINISH_TYPES = [
   { id: 'burst',       name: 'Burst',   points: 2, icon: Zap,       color: '#E94560' },
@@ -34,6 +38,7 @@ export function LiveMatchPage() {
   const [selectedP2Combo, setSelectedP2Combo] = useState(null);
   const [selectedWinner, setSelectedWinner] = useState(null);
   const [selectedFinish, setSelectedFinish] = useState(null);
+  const [eloResult, setEloResult] = useState(null);
 
   useEffect(() => {
     setHeader('BATTLE ARENA', '/battle');
@@ -81,7 +86,15 @@ export function LiveMatchPage() {
       .single();
 
     if (data) {
-      setBattle(data);
+      let finalWinCondition = data.win_condition;
+      if (data.tournament_id) {
+        const { data: tData } = await supabase.from('tournaments').select('win_condition, structure').eq('id', data.tournament_id).single();
+        if (tData) {
+          const struct = typeof tData.structure === 'string' ? JSON.parse(tData.structure) : tData.structure;
+          finalWinCondition = tData.win_condition || struct?.settings?.winCondition || data.win_condition || 'point_target';
+        }
+      }
+      setBattle({ ...data, win_condition: finalWinCondition });
       
       // Fetch parts to resolve names from configs
       const [b, r, t] = await Promise.all([
@@ -93,12 +106,11 @@ export function LiveMatchPage() {
       setParts(partsData);
 
       // Load combos from config
-      if (data.p1_deck_config?.beys) {
-        setP1Combos(data.p1_deck_config.beys.map((b, i) => ({ ...b, localId: `p1-${i}` })));
-      }
-      if (data.p2_deck_config?.beys) {
-        setP2Combos(data.p2_deck_config.beys.map((b, i) => ({ ...b, localId: `p2-${i}` })));
-      }
+      const p1Deck = Array.isArray(data.p1_deck_config) ? data.p1_deck_config : data.p1_deck_config?.beys || [];
+      setP1Combos(p1Deck.map((b, i) => ({ ...b, localId: `p1-${i}` })));
+
+      const p2Deck = Array.isArray(data.p2_deck_config) ? data.p2_deck_config : data.p2_deck_config?.beys || [];
+      setP2Combos(p2Deck.map((b, i) => ({ ...b, localId: `p2-${i}` })));
       
       loadRounds();
     }
@@ -280,23 +292,60 @@ export function LiveMatchPage() {
           }
 
           // Update tournament in DB
-          await supabase.from('tournaments').update({
+          const { error: tourneyUpdateError } = await supabase.from('tournaments').update({
             structure,
             status: updatedStatus,
             winner_user_id: winnerUserId,
             winner_guest_name: winnerGuestName,
             completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
           }).eq('id', tourney.id);
+
+          if (tourneyUpdateError) {
+            console.error("Error updating tournament:", tourneyUpdateError);
+            useToastStore.getState().error("Errore aggiornamento torneo: " + tourneyUpdateError.message);
+          }
         }
       }
     }
 
     useToastStore.getState().success("Match concluso!");
-    if (battle.tournament_id) {
-      navigate(`/battle/tournament/${battle.tournament_id}`);
+    
+    if (battle.is_official) {
+      // Fetch ELO changes from history
+      setTimeout(async () => {
+        const { data: history } = await supabase
+          .from('user_elo_history')
+          .select('*')
+          .eq('battle_id', battleId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (history) {
+          setEloResult(history);
+          if (history.delta > 0) {
+            confetti({
+              particleCount: 150,
+              spread: 70,
+              origin: { y: 0.6 },
+              colors: ['#4361EE', '#E94560', '#F5A623']
+            });
+          }
+        } else {
+           navigate(battle.tournament_id ? `/battle/tournament/${battle.tournament_id}` : '/battle');
+        }
+      }, 1000);
     } else {
-      navigate('/battle');
+      if (battle.tournament_id) {
+        navigate(`/battle/tournament/${battle.tournament_id}`);
+      } else {
+        navigate('/battle');
+      }
     }
+  }
+
+
+  if (eloResult) {
+    return <EloSummary result={eloResult} battle={battle} onDone={() => navigate('/battle')} />;
   }
 
   return (
@@ -581,6 +630,109 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
           </>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function EloSummary({ result, battle, onDone }) {
+  const { elo_before, elo_after, delta, opponent_id } = result;
+  const isWin = delta > 0;
+  
+  const { display, tier, rank } = getRankFromElo(elo_after, true);
+  const { target: nextTarget } = getNextThreshold(elo_after, true);
+
+  let eloProgress = 0;
+  if (nextTarget) {
+    const currentRange = RANK_RANGES.find(r => elo_after >= r.minElo);
+    const floor = currentRange ? currentRange.minElo : 0;
+    const range = nextTarget - floor;
+    eloProgress = ((elo_after - floor) / range) * 100;
+    eloProgress = Math.max(5, Math.min(100, eloProgress));
+  } else {
+    eloProgress = 100;
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#0A0A1A] flex flex-col items-center justify-center px-6 py-12 overflow-hidden">
+      {/* Glows */}
+      <div className={`absolute top-0 inset-x-0 h-96 opacity-20 blur-[100px] pointer-events-none
+        ${isWin ? 'bg-primary' : 'bg-[#E94560]'}`} />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-sm z-10"
+      >
+        <div className="text-center mb-10">
+          <motion.div 
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border mb-4 font-black text-[10px] uppercase tracking-[0.2em]
+            ${isWin ? 'bg-primary/10 border-primary/20 text-primary shadow-glow-primary-sm' : 'bg-[#E94560]/10 border-[#E94560]/20 text-[#E94560]'}`}>
+            {isWin ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+            {isWin ? 'Vittoria Classificata' : 'Sconfitta Classificata'}
+          </motion.div>
+          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">
+            {isWin ? 'GRANDE VITTORIA!' : 'NON MOLLARE!'}
+          </h2>
+        </div>
+
+        {/* ELO Card */}
+        <div className="bg-[#12122A] border border-white/5 rounded-[40px] p-8 shadow-2xl relative overflow-hidden mb-12">
+           <div className="flex flex-col items-center">
+              <div className="mb-6 relative">
+                <RankBadge elo={elo_after} size="lg" showName={false} />
+                <div className="absolute -bottom-2 -right-2 bg-white/10 backdrop-blur-md rounded-lg px-2 py-1 border border-white/5 text-[8px] font-black text-white/40 uppercase tracking-widest">
+                  RANK UP?
+                </div>
+              </div>
+              
+              <div className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em] mb-2">Nuovo Ranking</div>
+              <div className="text-6xl font-black text-white italic tracking-tighter mb-6 flex items-baseline gap-3">
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  {elo_after}
+                </motion.span>
+                <motion.span 
+                  initial={{ y: 10, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.8 }}
+                  className={`text-2xl font-black ${isWin ? 'text-primary' : 'text-[#E94560]'}`}
+                >
+                  {isWin ? '+' : ''}{delta}
+                </motion.span>
+              </div>
+
+              {/* Next Rank Info */}
+              <div className="w-full mt-4 p-4 rounded-2xl bg-white/5 border border-white/5">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Prossimo Obiettivo</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: tier.color }}>{display}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-white italic font-createfuture">
+                    {nextTarget ? nextTarget - elo_after : 'MAX'}
+                  </span>
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-widest">Punti rimanenti per il prossimo Rank</span>
+                </div>
+              </div>
+           </div>
+           
+           {/* Background Icon */}
+           <Sparkles size={120} className="absolute -bottom-10 -right-10 text-white/[0.03] rotate-12" />
+        </div>
+
+        <button
+          onClick={onDone}
+          className="w-full py-5 bg-white text-[#0A0A1A] rounded-[24px] font-black uppercase text-xs tracking-[0.2em] shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3"
+        >
+          <span>Prosegui nell'Arena</span>
+          <ChevronRight size={18} />
+        </button>
+      </motion.div>
     </div>
   );
 }

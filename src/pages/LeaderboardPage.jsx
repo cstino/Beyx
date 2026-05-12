@@ -50,19 +50,27 @@ export default function LeaderboardPage() {
 
     switch (activeTab) {
       case 'elo':
-        result = await supabase.rpc('leaderboard_top_players', { 
-          p_since: since, 
-          p_sort_by: 'elo' 
-        });
-        setData((result.data ?? []).map(u => ({
-          label: u.username,
-          sublabel: `${u.wins}W / ${u.total_matches - u.wins}L`,
-          value: u.elo,
-          avatarId: u.avatar_id,
-          userId: u.user_id,
-          elo: u.elo,
-          placementDone: u.placement_done,
-        })));
+        // Per l'ELO interroghiamo direttamente i profili usando le colonne esistenti
+        const { data: profiles, error: pError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_id, elo, placement_done, elo_matches')
+          .order('elo', { ascending: false })
+          .limit(50);
+
+        if (pError) {
+          console.error('Error fetching ELO leaderboard:', pError);
+          setData([]);
+        } else {
+          setData(profiles.map(u => ({
+            label: u.username,
+            sublabel: `${u.elo_matches || 0} Match disputati`,
+            value: u.elo,
+            avatarId: u.avatar_id,
+            userId: u.id,
+            elo: u.elo,
+            placementDone: u.placement_done,
+          })));
+        }
         break;
 
       case 'wins':

@@ -1,111 +1,235 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Swords, Trophy, ChevronRight, LayoutList } from 'lucide-react';
+import { Swords, Trophy, ChevronRight, LayoutList, ChevronDown, Clock, CheckCircle2 } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export function BracketView({ tournament, onSelectMatch }) {
   const { structure, participants, format } = tournament;
   const rounds = structure.rounds || [];
+  const { user } = useAuthStore();
+
+  const [isStandingsOpen, setIsStandingsOpen] = React.useState(false);
+  const [isUpcomingOpen, setIsUpcomingOpen] = React.useState(false);
+  const [isPastOpen, setIsPastOpen] = React.useState(false);
 
   if (format === 'round_robin') {
     const standings = calculateStandings(tournament);
-    const rrRounds = rounds.filter(r => !r.isPlayoff);
-    const playoffRounds = rounds.filter(r => r.isPlayoff);
+    
+    // Find the next/active match globally
+    let nextMatchData = null;
+    const upcomingList = [];
+    const pastList = [];
+
+    // Traverse all rounds to classify matches
+    rounds.forEach((r, absoluteRIndex) => {
+      const isPlayoff = r.isPlayoff;
+      const roundTitle = r.title || (isPlayoff ? `Playoff` : `Turno ${absoluteRIndex + 1} ${r.cycle > 1 ? `(Giro ${r.cycle})` : ''}`);
+      
+      r.matches?.forEach((m, mIndex) => {
+        if (m.p1?.isBye || m.p2?.isBye) return;
+
+        // Determine if this match is the active/next one
+        if (!m.winner) {
+          if (!nextMatchData && m.p1 && m.p2) {
+            // Check if all prior round-robin / non-bye matches are completed
+            let priorCompleted = true;
+            for (let prIdx = 0; prIdx <= absoluteRIndex; prIdx++) {
+              const pr = rounds[prIdx];
+              for (let pmIdx = 0; pmIdx < pr.matches.length; pmIdx++) {
+                const pm = pr.matches[pmIdx];
+                if (pm.p1?.isBye || pm.p2?.isBye) continue;
+                if (prIdx === absoluteRIndex && pmIdx === mIndex) break;
+                if (!pm.winner) {
+                  priorCompleted = false;
+                  break;
+                }
+              }
+              if (!priorCompleted) break;
+            }
+            if (priorCompleted) {
+              nextMatchData = { match: m, rIndex: absoluteRIndex, mIndex, roundTitle };
+            }
+          }
+
+          upcomingList.push({ match: m, rIndex: absoluteRIndex, mIndex, roundTitle });
+        } else {
+          pastList.push({ match: m, rIndex: absoluteRIndex, mIndex, roundTitle });
+        }
+      });
+    });
+
+    // Remove the active nextMatchData from upcomingList
+    const filteredUpcomingList = nextMatchData 
+      ? upcomingList.filter(u => !(u.rIndex === nextMatchData.rIndex && u.mIndex === nextMatchData.mIndex)) 
+      : upcomingList;
+
+    // Reverse pastList so newest completed match is at the top
+    pastList.reverse();
+
+    // Check if user is involved in nextMatchData
+    const isUserInvolved = nextMatchData && user && (
+      (nextMatchData.match.p1?.user_id || nextMatchData.match.p1?.username) === (user.id || user.user_metadata?.username || user.username) ||
+      (nextMatchData.match.p2?.user_id || nextMatchData.match.p2?.username) === (user.id || user.user_metadata?.username || user.username)
+    );
 
     return (
-      <div className="space-y-12 pb-32">
-        {/* Standings Table */}
-        <div className="px-1">
-          <StandingsTable standings={standings} />
-        </div>
-
-        {/* Playoff Section if exists */}
-        {playoffRounds.length > 0 && (
-          <div className="space-y-8">
-            <div className="flex items-center gap-3 px-1">
-              <Trophy size={16} className="text-primary" />
-              <div className="text-xs font-black text-white tracking-[0.3em] uppercase italic whitespace-nowrap">
-                Fase Playoff
+      <div className="space-y-6 pb-32 w-full max-w-xl mx-auto px-1">
+        {/* TOP SECTION: NEXT ACTIVE MATCH */}
+        {nextMatchData ? (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <div className="text-[10px] font-createfuture text-white/40 tracking-[0.2em] uppercase italic">
+                Prossimo Match Globale
               </div>
-              <div className="h-[1px] flex-1 bg-white/10" />
+              <div className="text-[9px] font-createfuture text-primary tracking-widest uppercase bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
+                {nextMatchData.roundTitle}
+              </div>
             </div>
-            
-            <div className="flex gap-8 overflow-x-auto no-scrollbar py-4">
-              {playoffRounds.map((round, rIndex) => (
-                <div key={rIndex} className="space-y-4 min-w-[240px]">
-                  <div className="text-[9px] font-black text-white/20 tracking-widest uppercase text-center">{round.title || `Playoff ${rIndex + 1}`}</div>
-                  <div className="space-y-3">
-                    {round.matches.map((match, mIndex) => {
-                      const active = !match.winner && match.p1 && match.p2;
-                      return (
-                        <MatchCard 
-                          key={mIndex}
-                          match={match}
-                          active={active}
-                          completed={!!match.winner}
-                          onClick={() => active && onSelectMatch(rounds.indexOf(round), mIndex)}
-                        />
-                      );
-                    })}
-                  </div>
+
+            <div className={`relative rounded-3xl p-1 transition-all duration-500 ${
+              isUserInvolved 
+                ? 'bg-gradient-to-r from-primary via-[#E94560] to-primary p-[2px] shadow-[0_0_25px_rgba(233,69,96,0.3)] animate-pulse' 
+                : 'bg-white/5 border border-white/10'
+            }`}>
+              {isUserInvolved && (
+                <div className="absolute -top-3 right-4 bg-[#E94560] text-white font-createfuture text-[9px] font-black tracking-widest px-3 py-0.5 rounded-full uppercase shadow-lg z-20 animate-bounce">
+                  TOCCA A TE
                 </div>
-              ))}
+              )}
+
+              <div className="bg-[#0A0A1A] rounded-[22px] overflow-hidden">
+                <MatchCard 
+                  match={nextMatchData.match}
+                  active={true}
+                  completed={false}
+                  onClick={() => onSelectMatch(nextMatchData.rIndex, nextMatchData.mIndex)}
+                  className="w-full border-0 shadow-none"
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-center">
+            <div className="text-xs font-createfuture text-white/40 uppercase tracking-widest">
+              Nessun match in attesa
             </div>
           </div>
         )}
 
-        {/* Group Rounds */}
-        <div className="space-y-8">
-          <div className="flex items-center gap-3 px-1">
-             <LayoutList size={16} className="text-[#F5A623]" />
-             <div className="text-xs font-createfuture text-white tracking-[0.3em] uppercase italic whitespace-nowrap">
-               Fase a Turni
-             </div>
-             <div className="h-[1px] flex-1 bg-white/10" />
-          </div>
-
-          {rrRounds.map((round, rIndex) => (
-            <div key={rIndex} className="space-y-4">
-              <div className="text-[10px] font-createfuture text-[#F5A623]/60 tracking-[0.3em] uppercase italic px-1">
-                Turno {rIndex + 1} {round.cycle > 1 ? `(Giro ${round.cycle})` : ''}
-              </div>
-              
-              <div className="grid grid-cols-1 gap-3">
-                {round.matches.map((match, mIndex) => {
-                  const completed = !!match.winner;
-                  const isByeMatch = match.p1?.isBye || match.p2?.isBye;
-                  if (isByeMatch) return null;
-
-                  // Locking logic: find all previous matches and check if they are completed
-                  let previousMatchesCompleted = true;
-                  for (let i = 0; i <= rIndex; i++) {
-                    const r = rrRounds[i];
-                    for (let j = 0; j < r.matches.length; j++) {
-                      const m = r.matches[j];
-                      if (m.p1?.isBye || m.p2?.isBye) continue;
-                      if (i === rIndex && j === mIndex) break; // Reached current match
-                      if (!m.winner) {
-                        previousMatchesCompleted = false;
-                        break;
-                      }
-                    }
-                    if (!previousMatchesCompleted) break;
-                  }
-
-                  const active = !completed && previousMatchesCompleted;
-
-                  return (
-                    <MatchCard 
-                      key={mIndex}
-                      match={match}
-                      active={active}
-                      completed={completed}
-                      onClick={() => active && onSelectMatch(rIndex, mIndex)}
-                    />
-                  );
-                })}
-              </div>
+        {/* ACCORDION CARDS */}
+        
+        {/* 1. Classifica Card */}
+        <div className="bg-[#12122A] rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+          <button 
+            onClick={() => setIsStandingsOpen(!isStandingsOpen)}
+            className="w-full px-5 py-4 flex items-center justify-between bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Trophy size={16} className="text-[#F5A623]" />
+              <span className="font-createfuture text-xs font-black text-white uppercase tracking-widest">
+                Classifica Girone
+              </span>
             </div>
-          ))}
+            <div className={`text-white/40 transition-transform duration-300 ${isStandingsOpen ? 'rotate-180' : ''}`}>
+              <ChevronDown size={16} />
+            </div>
+          </button>
+          
+          {isStandingsOpen && (
+            <div className="border-t border-white/5 bg-[#0A0A1A]/40 animate-fade-in">
+              <StandingsTable standings={standings} />
+            </div>
+          )}
+        </div>
+
+        {/* 2. Prossimi Match Card */}
+        <div className="bg-[#12122A] rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+          <button 
+            onClick={() => setIsUpcomingOpen(!isUpcomingOpen)}
+            className="w-full px-5 py-4 flex items-center justify-between bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
+          >
+            <div className="flex items-center gap-3">
+              <Clock size={16} className="text-primary" />
+              <span className="font-createfuture text-xs font-black text-white uppercase tracking-widest">
+                Prossimi Match ({filteredUpcomingList.length})
+              </span>
+            </div>
+            <div className={`text-white/40 transition-transform duration-300 ${isUpcomingOpen ? 'rotate-180' : ''}`}>
+              <ChevronDown size={16} />
+            </div>
+          </button>
+
+          {isUpcomingOpen && (
+            <div className="border-t border-white/5 p-3 space-y-2 bg-[#0A0A1A]/40 animate-fade-in max-h-96 overflow-y-auto no-scrollbar">
+              {filteredUpcomingList.length > 0 ? filteredUpcomingList.map((item, idx) => (
+                <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col gap-1">
+                  <div className="text-[8px] font-createfuture text-white/30 uppercase tracking-widest">
+                    {item.roundTitle}
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-createfuture uppercase">
+                    <span className="text-white/80 truncate flex-1 text-left pr-2">
+                      {item.match.p1?.username || 'TBD'}
+                    </span>
+                    <span className="text-[8px] text-white/20 px-2 shrink-0">VS</span>
+                    <span className="text-white/80 truncate flex-1 text-right pl-2">
+                      {item.match.p2?.username || 'TBD'}
+                    </span>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center py-4 text-[10px] font-createfuture text-white/20 uppercase tracking-widest">
+                  Nessun altro match in programma
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Match Passati Card */}
+        <div className="bg-[#12122A] rounded-2xl border border-white/5 overflow-hidden transition-all duration-300">
+          <button 
+            onClick={() => setIsPastOpen(!isPastOpen)}
+            className="w-full px-5 py-4 flex items-center justify-between bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
+          >
+            <div className="flex items-center gap-3">
+              <CheckCircle2 size={16} className="text-[#E94560]" />
+              <span className="font-createfuture text-xs font-black text-white uppercase tracking-widest">
+                Match Passati ({pastList.length})
+              </span>
+            </div>
+            <div className={`text-white/40 transition-transform duration-300 ${isPastOpen ? 'rotate-180' : ''}`}>
+              <ChevronDown size={16} />
+            </div>
+          </button>
+
+          {isPastOpen && (
+            <div className="border-t border-white/5 p-3 space-y-2 bg-[#0A0A1A]/40 animate-fade-in max-h-96 overflow-y-auto no-scrollbar">
+              {pastList.length > 0 ? pastList.map((item, idx) => (
+                <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 flex flex-col gap-1.5">
+                  <div className="text-[8px] font-createfuture text-white/30 uppercase tracking-widest">
+                    {item.roundTitle}
+                  </div>
+                  <div className="flex items-center justify-between font-createfuture uppercase text-xs">
+                    <span className={`truncate flex-1 text-left pr-2 ${item.match.winner === 'p1' ? 'text-primary' : 'text-white/60'}`}>
+                      {item.match.p1?.username}
+                    </span>
+                    
+                    <div className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] text-white shrink-0">
+                      {item.match.score?.p1 ?? 0} - {item.match.score?.p2 ?? 0}
+                    </div>
+
+                    <span className={`truncate flex-1 text-right pl-2 ${item.match.winner === 'p2' ? 'text-primary' : 'text-white/60'}`}>
+                      {item.match.p2?.username}
+                    </span>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-center py-4 text-[10px] font-createfuture text-white/20 uppercase tracking-widest">
+                  Nessun match completato
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -113,33 +237,30 @@ export function BracketView({ tournament, onSelectMatch }) {
 
 function StandingsTable({ standings }) {
   return (
-    <div className="bg-[#12122A] rounded-[32px] border border-white/5 overflow-hidden shadow-xl">
-      <div className="bg-white/5 px-6 py-4 border-b border-white/5">
-        <div className="text-[10px] font-createfuture text-primary tracking-[0.2em] uppercase italic">Classifica Girone</div>
-      </div>
+    <div className="overflow-hidden">
       <div className="overflow-x-auto no-scrollbar">
         <table className="w-full text-left">
           <thead>
             <tr className="text-[8px] font-black text-white/20 uppercase tracking-widest border-b border-white/5">
-              <th className="px-4 py-4 w-12 text-center">#</th>
-              <th className="px-4 py-4">Blader</th>
-              <th className="px-2 py-4 text-center">G</th>
-              <th className="px-2 py-4 text-center">V</th>
-              <th className="px-2 py-4 text-center">P</th>
-              <th className="px-2 py-4 text-center">KO</th>
-              <th className="px-4 py-4 text-right">PTS</th>
+              <th className="px-3 py-3 w-8 text-center">#</th>
+              <th className="px-3 py-3">Blader</th>
+              <th className="px-1.5 py-3 text-center">W</th>
+              <th className="px-1.5 py-3 text-center">L</th>
+              <th className="px-1.5 py-3 text-center">D</th>
+              <th className="px-1.5 py-3 text-center">KO</th>
+              <th className="px-3 py-3 text-right">PTS</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
             {standings.map((s, i) => (
-              <tr key={s.user_id || s.guest_name} className="text-[11px] font-black text-white uppercase">
-                <td className="px-4 py-4 text-center text-white/20 font-createfuture">{i + 1}</td>
-                <td className="px-4 py-4 truncate max-w-[100px] font-createfuture">{s.username}</td>
-                <td className="px-2 py-4 text-center text-white/40">{s.played}</td>
-                <td className="px-2 py-4 text-center text-green-500/60">{s.won}</td>
-                <td className="px-2 py-4 text-center text-red-500/60">{s.lost}</td>
-                <td className="px-2 py-4 text-center text-white/60 font-createfuture">{s.koPoints}</td>
-                <td className="px-4 py-4 text-right text-primary font-createfuture text-sm">{s.points}</td>
+              <tr key={s.user_id || s.guest_name || s.username} className="text-[11px] font-black text-white uppercase">
+                <td className="px-3 py-3 text-center text-white/20 font-createfuture">{i + 1}</td>
+                <td className="px-3 py-3 font-createfuture pr-2 whitespace-nowrap overflow-visible">{s.username}</td>
+                <td className="px-1.5 py-3 text-center text-white/70">{s.won}</td>
+                <td className="px-1.5 py-3 text-center text-white/30">{s.lost}</td>
+                <td className="px-1.5 py-3 text-center text-white/40">{s.draws || 0}</td>
+                <td className="px-1.5 py-3 text-center text-[#E94560]/80 font-createfuture">{s.koPoints}</td>
+                <td className="px-3 py-3 text-right text-primary font-createfuture text-sm">{s.points}</td>
               </tr>
             ))}
           </tbody>
@@ -158,6 +279,7 @@ function calculateStandings(tournament) {
     played: 0,
     won: 0,
     lost: 0,
+    draws: 0,
     koPoints: 0,
     points: 0
   }));
@@ -187,8 +309,8 @@ function calculateStandings(tournament) {
           if (s2) { s2.won++; s2.points += 3; }
           if (s1) { s1.lost++; }
         } else if (m.winner === 'draw') {
-          if (s1) { s1.points += 1; }
-          if (s2) { s2.points += 1; }
+          if (s1) { s1.draws++; s1.points += 1; }
+          if (s2) { s2.draws++; s2.points += 1; }
         }
       }
     });

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabaseClient';
 
+let profileSubscription = null;
+
 export const useAuthStore = create((set) => ({
   user: null,
   profile: null,
@@ -8,14 +10,30 @@ export const useAuthStore = create((set) => ({
   
   setUser: (user) => set({ user }),
   
-  fetchProfile: async (user) => {
-    if (!user?.id) return;
+  fetchProfile: async (userOrId) => {
+    const userId = typeof userOrId === 'string' ? userOrId : userOrId?.id;
+    if (!userId) return;
     
+    // Setup real-time listener for the user's profile updates globally
+    if (!profileSubscription) {
+      profileSubscription = supabase
+        .channel('global-profile-sync')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`
+        }, (payload) => {
+          set({ profile: payload.new });
+        })
+        .subscribe();
+    }
+
     // 1. Tenta di recuperare il profilo esistente
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle();
       
     if (data) {
@@ -26,11 +44,12 @@ export const useAuthStore = create((set) => ({
     // 2. Se il profilo manca, tentiamo di crearlo (Auto-Repair)
     // Questo succede se il trigger DB fallisce o se l'utente è "vecchio"
     console.log("Profile missing for user, attempting auto-repair...");
+    const userObj = typeof userOrId === 'object' ? userOrId : null;
     
     const newProfile = {
-      id: user.id,
-      username: user.user_metadata?.username || user.email?.split('@')[0] || 'Blader_' + user.id.slice(0, 5),
-      avatar_id: user.user_metadata?.avatar_id || 'avatar-1',
+      id: userId,
+      username: userObj?.user_metadata?.username || userObj?.email?.split('@')[0] || 'Blader_' + userId.slice(0, 5),
+      avatar_id: userObj?.user_metadata?.avatar_id || 'avatar-1',
       xp: 0,
       level: 1,
       title: 'Blader Novizio',
@@ -55,6 +74,10 @@ export const useAuthStore = create((set) => ({
   setLoading: (loading) => set({ loading }),
   
   signOut: async () => {
+    if (profileSubscription) {
+      supabase.removeChannel(profileSubscription);
+      profileSubscription = null;
+    }
     await supabase.auth.signOut();
     set({ user: null, profile: null });
   }

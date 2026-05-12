@@ -90,7 +90,7 @@ export function BladerProfileStep({ formData, onChange, onComplete, onBack, load
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <label className="text-[10px] font-black text-[#E94560] tracking-[0.2em] mb-3 block uppercase">
+          <label className="text-[10px] font-black text-[#E94560] tracking-[0.2em] mb-3 block uppercase font-createfuture">
             Nome Blader
           </label>
           <div className="flex items-center gap-4 p-4 rounded-2xl border transition-colors
@@ -103,7 +103,7 @@ export function BladerProfileStep({ formData, onChange, onComplete, onBack, load
               value={formData.bladerName}
               onChange={e => onChange({ bladerName: e.target.value.toUpperCase() })}
               className="flex-1 bg-transparent text-white text-sm font-black outline-none
-                placeholder-white/20 tracking-wider"
+                placeholder-white/20 tracking-wider font-createfuture"
             />
             <span className="text-[10px] text-white/20 font-mono tabular-nums flex-shrink-0">
               {formData.bladerName.length}/16

@@ -96,7 +96,7 @@ export default function Dashboard() {
           <div className="mx-4 mb-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-[3px] h-3.5 bg-primary" />
-              <h2 className="text-[11px] font-extrabold text-white tracking-[0.15em] uppercase">Sfide in arrivo</h2>
+              <h2 className="text-[11px] font-black text-white tracking-[0.15em] uppercase font-createfuture">Sfide in arrivo</h2>
             </div>
             <div className="space-y-3">
               {pendingInvitations.map(inv => (
@@ -109,7 +109,7 @@ export default function Dashboard() {
                     <Avatar avatarId={inv.p1?.avatar_id} size={40} />
                     <div>
                       <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Ti ha sfidato</div>
-                      <div className="text-sm font-black text-white uppercase italic">{inv.p1?.username}</div>
+                      <div className="text-sm font-black text-white uppercase italic font-createfuture tracking-[0.05em]">{inv.p1?.username}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ export default function Dashboard() {
                           <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#E94560]" />
                        </div>
                     </div>
-                    <div className="text-2xl font-black text-white uppercase italic tracking-tighter leading-tight mt-1 truncate pr-12">{t.name}</div>
+                    <div className="text-2xl font-black text-white uppercase italic tracking-tighter leading-tight mt-1 truncate pr-12 font-createfuture">{t.name}</div>
                     <p className="text-[10px] text-white/30 font-medium mt-1 line-clamp-1">{t.description || 'Nessuna restrizione, unisciti alla battaglia.'}</p>
                   </div>
                   
@@ -199,11 +199,11 @@ export default function Dashboard() {
                            <Trophy size={20} className="text-primary" />
                         </div>
                         <div>
-                           <div className="text-[8px] font-black text-white/20 uppercase tracking-widest">Formato</div>
-                           <div className="text-[10px] font-black text-white uppercase tracking-wider">{t.format}</div>
+                           <div className="text-[8px] font-black text-white/20 uppercase tracking-widest font-createfuture">Formato</div>
+                           <div className="text-[10px] font-black text-white uppercase tracking-wider font-createfuture">{t.format}</div>
                         </div>
                      </div>
-                     <button className="px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary">PARTECIPA ORA</button>
+                     <button className="px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary font-createfuture">PARTECIPA ORA</button>
                   </div>
                   
                   {/* Decorative background trophy */}

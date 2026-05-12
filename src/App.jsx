@@ -15,6 +15,7 @@ import BattleHistoryPage from './pages/battle/BattleHistoryPage';
 import New3v3Page from './pages/battle/New3v3Page';
 import NewTournamentPage from './pages/battle/NewTournamentPage';
 import TournamentJoinPage from './pages/battle/TournamentJoinPage';
+import TournamentDisplayView from './pages/battle/TournamentDisplayView';
 import Account from './pages/Account';
 import Admin from './pages/Admin';
 import ComboDetailPage from './pages/ComboDetailPage';
@@ -90,6 +91,7 @@ function App() {
             ) : (
               <>
                 {/* App normale — tutte le route esistenti */}
+                <Route path="/battle/tournament/:id/display" element={<TournamentDisplayView />} />
                 <Route element={<Layout />}>
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/collection" element={<Collection />} />
