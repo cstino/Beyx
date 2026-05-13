@@ -45,6 +45,14 @@ export function PoolSetup({ tournament, onComplete }) {
     setSelectedIds(newSet);
   };
 
+  const handleSelectAll = () => {
+    if (selectedIds.size === combos.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(combos.map(c => c.id)));
+    }
+  };
+
   const handleConfirm = () => {
     if (selectedIds.size < targetCount) {
       useToastStore.getState().error(`Devi selezionare almeno ${targetCount} Beyblade.`);
@@ -114,22 +122,32 @@ export function PoolSetup({ tournament, onComplete }) {
       </div>
 
       <div className="space-y-3">
-        <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest pl-2">La tua Collezione ({combos.length})</h4>
-        <div className="max-h-[500px] overflow-y-auto no-scrollbar space-y-2 pr-2">
+        <div className="flex items-center justify-between px-2">
+          <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest">La tua Collezione ({combos.length})</h4>
+          {combos.length > 0 && (
+            <button
+              onClick={handleSelectAll}
+              className="text-[10px] font-black text-[#4361EE] hover:text-[#324fcf] uppercase tracking-widest transition-colors py-1"
+            >
+              {selectedIds.size === combos.length ? 'Deseleziona Tutto' : 'Seleziona Tutto'}
+            </button>
+          )}
+        </div>
+        <div className="max-h-[500px] overflow-y-auto no-scrollbar grid grid-cols-2 gap-2.5 pr-1">
           {combos.map(c => {
             const isSelected = selectedIds.has(c.id);
             return (
               <div 
                 key={c.id} 
                 onClick={() => toggleSelection(c.id)}
-                className="relative cursor-pointer transition-all active:scale-95"
+                className="relative cursor-pointer transition-all active:scale-95 h-full"
               >
-                <div className={isSelected ? 'ring-2 ring-[#4361EE] rounded-[32px] scale-[0.98]' : 'opacity-70 hover:opacity-100'}>
-                  <SavedComboCard combo={c} onClick={() => {}} hideActions />
+                <div className={`h-full transition-all ${isSelected ? 'ring-2 ring-[#4361EE] rounded-[24px] scale-[0.98]' : 'opacity-70 hover:opacity-100'}`}>
+                  <SavedComboCard combo={c} onClick={() => {}} hideActions compactLayout />
                 </div>
                 {isSelected && (
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-[#4361EE] rounded-full flex items-center justify-center shadow-lg border-2 border-[#0A0A1A]">
-                    <Check size={16} className="text-white" />
+                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-[#4361EE] rounded-full flex items-center justify-center shadow-lg border-2 border-[#0A0A1A] z-20">
+                    <Check size={12} className="text-white" />
                   </div>
                 )}
               </div>

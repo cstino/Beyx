@@ -28,24 +28,85 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   useEffect(() => {
     setActivePart(initialPart);
   }, [initialPart]);
 
+  // 1. Fetch Variants List (Stable order)
   useEffect(() => {
-    if (!activePart) return;
+    if (!initialPart) return;
 
-    async function fetchData() {
+    async function fetchVariants() {
+      const tableName = initialPart.kind === 'ratchet' ? 'ratchets' : initialPart.kind === 'bit' ? 'bits' : 'blades';
+      const { data: siblings } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('name', initialPart.name);
+
+      const all = [initialPart, ...(siblings || [])];
+      const unique = [];
+      const keys = new Set();
+      
+      all.forEach(p => {
+        // Main part entry
+        const key = `${p.release_code}-${p.image_url}`;
+        if (!keys.has(key)) {
+          unique.push(p);
+          keys.add(key);
+        }
+        // Sub-variants from JSON blob if any
+        (p.variants || []).forEach((v, i) => {
+           const subKey = `${v.release_code}-${v.image_url}`;
+           if (!keys.has(subKey)) {
+             unique.push({ 
+               ...p, 
+               id: `${p.id}_v${i}`, 
+               release_code: v.release_code, 
+               image_url: v.image_url, 
+               is_consolidated: true 
+             });
+             keys.add(subKey);
+           }
+        });
+      });
+      
+      // SORT BY RELEASE CODE TO ENSURE FIXED POSITIONS
+      unique.sort((a, b) => {
+        const codeA = a.release_code || '';
+        const codeB = b.release_code || '';
+        if (codeA !== codeB) return codeA.localeCompare(codeB);
+        return (a.id || '').toString().localeCompare((b.id || '').toString());
+      });
+      
+      setVariants(unique);
+    }
+    fetchVariants();
+  }, [initialPart]);
+
+  // 2. Fetch Ownership & Wishlist for the unified base model
+  useEffect(() => {
+    if (!activePart || !initialPart) return;
+
+    async function fetchActiveData() {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       setUserId(user.id);
       
-      // Check ownership/wishlist of active variant
+      const basePartId = initialPart.id;
       const { data: ownership } = await supabase
         .from('user_collections')
         .select('id, is_wishlist')
         .eq('user_id', user.id)
-        .eq('part_id', activePart.id)
+        .eq('part_id', basePartId)
         .maybeSingle();
       
       if (ownership) {
@@ -60,66 +121,40 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
          setOwned(false);
          setWishlisted(false);
       }
-
-      // Fetch other variants (consolidated + siblings)
-      const tableName = activePart.kind === 'ratchet' ? 'ratchets' : activePart.kind === 'bit' ? 'bits' : 'blades';
-      const { data: siblings } = await supabase
-        .from(tableName)
-        .select('*')
-        .eq('name', activePart.name);
-
-      // Merge and unique-ify
-      const consolidated = (activePart.variants || []).map((v, i) => ({
-        ...activePart,
-        id: `${activePart.id}_v${i}`,
-        release_code: v.release_code,
-        image_url: v.image_url,
-        is_consolidated: true
-      }));
-
-      const all = [activePart, ...consolidated, ...(siblings || [])];
-      const unique = [];
-      const keys = new Set();
-      all.forEach(v => {
-        const key = `${v.release_code}-${v.image_url}`;
-        if (!keys.has(key)) {
-          unique.push(v);
-          keys.add(key);
-        }
-      });
-      
-      setVariants(unique);
     }
-    fetchData();
-  }, [activePart]);
+    fetchActiveData();
+  }, [activePart, initialPart]);
 
   const handleToggle = async (isWishlistToggle = false) => {
-    if (!userId || loading) return;
+    if (!userId || loading || !initialPart) return;
     setLoading(true);
 
     try {
+      const basePartId = initialPart.id;
       // Safe wipe first to circumvent missing unique constraint on (user_id, part_id)
-      await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', activePart.id);
+      await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', basePartId);
 
       if (isWishlistToggle) {
          if (wishlisted) {
             setWishlisted(false);
          } else {
             await supabase.from('user_collections').insert({ 
-                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: true 
+                user_id: userId, part_id: basePartId, part_type: initialPart.kind || 'blade', is_wishlist: true 
             });
             setWishlisted(true);
             setOwned(false);
+            setToast({ message: 'Aggiunto alla wishlist!', type: 'wishlist' });
          }
       } else {
          if (owned) {
             setOwned(false);
          } else {
             await supabase.from('user_collections').insert({ 
-                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: false 
+                user_id: userId, part_id: basePartId, part_type: initialPart.kind || 'blade', is_wishlist: false 
             });
             setOwned(true);
             setWishlisted(false);
+            setToast({ message: 'Aggiunto alla collezione!', type: 'owned' });
          }
       }
       
@@ -180,22 +215,87 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
             className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
           />
 
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 z-[101] bg-surface rounded-t-[2.5rem] border-t border-white/10 overflow-hidden max-h-[95vh] flex flex-col"
-          >
-            <div className="w-full flex justify-center py-4 relative">
-              <div className="w-12 h-1.5 bg-white/10 rounded-full" />
-              <button 
-                onClick={onClose} 
-                className="absolute right-6 top-3 p-2 bg-white/5 rounded-full text-slate-400"
-              >
-                <X size={20} />
-              </button>
-            </div>
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed bottom-0 left-0 right-0 z-[101] bg-surface rounded-t-[2.5rem] border-t border-white/10 overflow-hidden max-h-[95vh] flex flex-col"
+            >
+              {/* Toast Notification */}
+              <AnimatePresence>
+                {toast && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20, x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, x: '-50%' }}
+                    exit={{ opacity: 0, y: -20, x: '-50%' }}
+                    className="absolute top-20 left-1/2 z-[110] pointer-events-none"
+                  >
+                    <div className={`px-6 py-2.5 rounded-full border shadow-2xl backdrop-blur-xl flex items-center gap-3 ${
+                      toast.type === 'owned' 
+                        ? 'bg-green-500/90 border-green-400 text-white shadow-green-500/40' 
+                        : 'bg-[#4361EE]/90 border-[#4361EE] text-white shadow-[#4361EE]/40'
+                    }`}>
+                      {toast.type === 'owned' ? <Check size={14} strokeWidth={4} /> : <Heart size={14} className="fill-white" />}
+                      <span className="text-[10px] font-black uppercase tracking-widest">{toast.message}</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="w-full flex justify-between items-start py-4 px-6 relative">
+                {/* Left Action Stack */}
+                <div className="flex flex-col gap-3">
+                  {/* Collection Toggle */}
+                  <button 
+                    onClick={() => handleToggle(false)}
+                    disabled={loading}
+                    className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center relative ${
+                      owned 
+                        ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
+                        : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 active:scale-90'
+                    }`}
+                  >
+                    {loading && !wishlisted ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : owned ? (
+                      <Check size={22} strokeWidth={4} />
+                    ) : (
+                      <Plus size={22} />
+                    )}
+                  </button>
+
+                  {/* Wishlist Toggle */}
+                  {!owned && (
+                    <button 
+                      onClick={() => handleToggle(true)}
+                      disabled={loading}
+                      className={`w-11 h-11 rounded-full border transition-all flex items-center justify-center active:scale-90 ${
+                        wishlisted 
+                          ? 'bg-[#4361EE]/10 border-[#4361EE]/50 text-[#4361EE] drop-shadow-[0_0_12px_rgba(67,97,238,0.4)]' 
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {loading && wishlisted ? (
+                        <div className="w-5 h-5 border-2 border-[#4361EE] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Heart size={22} className={wishlisted ? 'fill-[#4361EE]' : ''} />
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Drag Handle */}
+                <div className="w-12 h-1.5 bg-white/10 rounded-full mt-2" />
+
+                {/* Close Button (Top Right) */}
+                <button 
+                  onClick={onClose} 
+                  className="w-11 h-11 bg-white/5 rounded-full flex items-center justify-center text-slate-400 hover:bg-white/10 active:scale-90 transition-all"
+                >
+                  <X size={22} />
+                </button>
+              </div>
 
             <div className="flex-1 overflow-y-auto px-6 pb-24">
               {/* Central Header */}
@@ -259,7 +359,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
               {variants.length > 1 && (
                 <div className="mb-10">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 px-2">Color Variants / Special Editions</p>
-                  <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide px-1">
+                  <div className="flex gap-3 overflow-x-auto pt-2 pb-4 scrollbar-hide px-2">
                     {variants.map((v) => (
                       <button
                         key={v.id}
@@ -267,7 +367,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                         className="flex flex-col items-center gap-2 group"
                       >
                         <div className={`w-16 h-16 rounded-2xl border-2 flex-shrink-0 transition-all p-1 bg-white/5 ${
-                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-110' : 'border-white/5 opacity-40 group-hover:opacity-100'
+                          activePart.id === v.id ? 'border-primary ring-4 ring-primary/20 scale-105' : 'border-white/5 opacity-40 group-hover:opacity-100'
                         }`}>
                           <PartImage src={v.image_url} name={v.name} type={activePart.kind} />
                         </div>
@@ -391,41 +491,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
                 </p>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                  <button
-                    onClick={() => handleToggle(false)}
-                    disabled={loading}
-                    className={`flex-1 py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${
-                      owned 
-                        ? 'bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500/20' 
-                        : 'text-white shadow-glow-primary hover:scale-[1.02]'
-                    }`}
-                    style={!owned ? { backgroundColor: accentColor } : {}}
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : owned ? (
-                      <><Trash2 size={18} /> Rimuovi</>
-                    ) : (
-                      <><Check size={18} strokeWidth={3} /> Lo Possiedo</>
-                    )}
-                  </button>
-                  
-                  {!owned && (
-                      <button
-                        onClick={() => handleToggle(true)}
-                        disabled={loading}
-                        className={`w-16 flex-shrink-0 flex items-center justify-center rounded-2xl border transition-all ${
-                            wishlisted 
-                            ? 'bg-[#4361EE]/10 border-[#4361EE]/50 text-[#4361EE]'
-                            : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
-                        }`}
-                      >
-                         <Heart size={22} className={wishlisted ? 'fill-[#4361EE] text-[#4361EE]' : ''} />
-                      </button>
-                  )}
-              </div>
+              {/* No more action buttons at the bottom */}
             </div>
           </motion.div>
         </>
