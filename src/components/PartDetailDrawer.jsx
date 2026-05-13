@@ -92,20 +92,21 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
     fetchVariants();
   }, [initialPart]);
 
-  // 2. Fetch Ownership & Wishlist for the current active variant
+  // 2. Fetch Ownership & Wishlist for the unified base model
   useEffect(() => {
-    if (!activePart) return;
+    if (!activePart || !initialPart) return;
 
     async function fetchActiveData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setUserId(user.id);
       
+      const basePartId = initialPart.id;
       const { data: ownership } = await supabase
         .from('user_collections')
         .select('id, is_wishlist')
         .eq('user_id', user.id)
-        .eq('part_id', activePart.id)
+        .eq('part_id', basePartId)
         .maybeSingle();
       
       if (ownership) {
@@ -122,22 +123,23 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
       }
     }
     fetchActiveData();
-  }, [activePart]);
+  }, [activePart, initialPart]);
 
   const handleToggle = async (isWishlistToggle = false) => {
-    if (!userId || loading) return;
+    if (!userId || loading || !initialPart) return;
     setLoading(true);
 
     try {
+      const basePartId = initialPart.id;
       // Safe wipe first to circumvent missing unique constraint on (user_id, part_id)
-      await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', activePart.id);
+      await supabase.from('user_collections').delete().eq('user_id', userId).eq('part_id', basePartId);
 
       if (isWishlistToggle) {
          if (wishlisted) {
             setWishlisted(false);
          } else {
             await supabase.from('user_collections').insert({ 
-                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: true 
+                user_id: userId, part_id: basePartId, part_type: initialPart.kind || 'blade', is_wishlist: true 
             });
             setWishlisted(true);
             setOwned(false);
@@ -148,7 +150,7 @@ export default function PartDetailDrawer({ part: initialPart, onClose, onUpdate,
             setOwned(false);
          } else {
             await supabase.from('user_collections').insert({ 
-                user_id: userId, part_id: activePart.id, part_type: activePart.kind || 'blade', is_wishlist: false 
+                user_id: userId, part_id: basePartId, part_type: initialPart.kind || 'blade', is_wishlist: false 
             });
             setOwned(true);
             setWishlisted(false);
