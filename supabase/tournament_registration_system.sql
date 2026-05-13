@@ -38,7 +38,14 @@ DROP POLICY IF EXISTS "registrations_update_policy" ON tournament_registrations;
 DROP POLICY IF EXISTS "tournaments_delete_policy" ON tournaments;
 
 CREATE POLICY "registrations_select_policy" ON tournament_registrations FOR SELECT USING (true);
-CREATE POLICY "registrations_insert_policy" ON tournament_registrations FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "registrations_insert_policy" ON tournament_registrations FOR INSERT WITH CHECK (
+  auth.uid() = user_id OR 
+  EXISTS (
+    SELECT 1 FROM tournaments 
+    WHERE tournaments.id = tournament_registrations.tournament_id 
+    AND tournaments.created_by = auth.uid()
+  )
+);
 CREATE POLICY "registrations_update_policy" ON tournament_registrations FOR UPDATE USING (
   EXISTS (
     SELECT 1 FROM tournaments 

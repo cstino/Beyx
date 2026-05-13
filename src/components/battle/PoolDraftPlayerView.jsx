@@ -133,6 +133,9 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
           if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
 
           const owner = pack.isOpened ? tournament.participants.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
+          const isVisibleDraft = tournament.assignment_mode === 'draft';
+          const poolCombo = isVisibleDraft ? tournament.structure?.pool?.find(c => c.id === pack.combo_id) : null;
+          const blade = poolCombo ? parts?.blades?.find(b => b.id === poolCombo.blade_id) : null;
 
           return (
             <div
@@ -144,9 +147,19 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
               <div className="draft-card-content">
                 <div className="draft-card-back">
                   <div className="draft-card-back-content font-createfuture tracking-[0.05em]">
-                    <img src="/beyx.svg" alt="BeyX Logo" className="w-8 h-8 md:w-12 md:h-12 mb-2 opacity-50 drop-shadow-md" />
-                    <div className="mb-2 opacity-80" style={{ color: glowColor }}>{icon}</div>
-                    <div className="text-[8px] md:text-[10px] font-black uppercase opacity-80 mb-1 text-center px-1" style={{ color: glowColor }}>{displayType}</div>
+                    {isVisibleDraft && blade ? (
+                      <>
+                        <img src={blade.image_url} alt={blade.name} className="w-10 h-10 md:w-16 md:h-16 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] mb-1" />
+                        <div className="text-[8px] md:text-[10px] font-black uppercase text-center px-1 truncate w-full max-w-[120px] mb-0.5 text-white">{blade.name}</div>
+                        <div className="text-[7px] md:text-[8px] font-bold uppercase opacity-80 mb-1 text-center px-1 border rounded-md py-0.5" style={{ color: glowColor, borderColor: `${glowColor}44` }}>{displayType}</div>
+                      </>
+                    ) : (
+                      <>
+                        <img src="/beyx.svg" alt="BeyX Logo" className="w-8 h-8 md:w-12 md:h-12 mb-2 opacity-50 drop-shadow-md" />
+                        <div className="mb-2 opacity-80" style={{ color: glowColor }}>{icon}</div>
+                        <div className="text-[8px] md:text-[10px] font-black uppercase opacity-80 mb-1 text-center px-1" style={{ color: glowColor }}>{displayType}</div>
+                      </>
+                    )}
                     <div className="text-xs md:text-sm font-black opacity-40">{index + 1}</div>
                   </div>
                 </div>

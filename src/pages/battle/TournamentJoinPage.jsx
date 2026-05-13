@@ -66,6 +66,12 @@ export default function TournamentJoinPage() {
 
   async function fetchTournament() {
     const { data } = await supabase.from('tournaments').select('*').eq('id', id).single();
+    if (data) {
+      const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
+      data.structure = structure || {};
+      data.assignment_mode = data.assignment_mode || data.structure?.assignment_mode;
+      data.beyblade_mode = data.beyblade_mode || data.structure?.beyblade_mode;
+    }
     setTournament(data);
     if (data) {
       const count = (data.starter_beys_count || (data.battle_type === '3v3' ? 3 : 1)) + (data.reserve_beys_count || 0);

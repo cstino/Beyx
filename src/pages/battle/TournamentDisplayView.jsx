@@ -20,7 +20,13 @@ export default function TournamentDisplayView() {
     let currentTournament = null;
 
     const enrichParticipants = async (tourneyData) => {
-      if (!tourneyData?.participants) return tourneyData;
+      if (!tourneyData) return tourneyData;
+      const structure = typeof tourneyData.structure === 'string' ? JSON.parse(tourneyData.structure) : tourneyData.structure;
+      tourneyData.structure = structure || {};
+      tourneyData.assignment_mode = tourneyData.assignment_mode || tourneyData.structure?.assignment_mode;
+      tourneyData.beyblade_mode = tourneyData.beyblade_mode || tourneyData.structure?.beyblade_mode;
+
+      if (!tourneyData.participants) return tourneyData;
       const userIds = tourneyData.participants.map(p => p.user_id).filter(Boolean);
       if (userIds.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, username, avatar_id').in('id', userIds);
@@ -291,6 +297,18 @@ export default function TournamentDisplayView() {
 
   if (!tournament) {
     return <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center text-white font-black italic text-3xl">Caricamento Display...</div>;
+  }
+
+  const isAuctionTourney = tournament.assignment_mode === 'asta' || tournament.structure?.assignment_mode === 'asta' || tournament.structure?.auction;
+
+  // Garantiamo l'innesco dell'Asta se configurata per l'asta ed è nelle fasi di attesa/svolgimento, oppure se l'oggetto auction esiste e il tabellone/girone finale non è ancora stato generato con i match giocabili
+  const isAuctionPhase = isAuctionTourney && (
+    ['setup', 'drafting', 'draft_complete', 'auctioning'].includes(tournament.status) || 
+    (tournament.structure?.auction && !tournament.structure?.rounds?.length)
+  );
+
+  if (isAuctionPhase) {
+    return <AuctionDisplaySubView tournament={tournament} parts={parts} />;
   }
 
   const draft = tournament.structure?.draft;
@@ -973,6 +991,243 @@ export default function TournamentDisplayView() {
           animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+    </div>
+  );
+}
+
+function AuctionDisplaySubView({ tournament, parts }) {
+  const auction = tournament.structure?.auction;
+  const [timeLeft, setTimeLeft] = React.useState(10);
+
+  React.useEffect(() => {
+    if (!auction?.currentAuction) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((auction.currentAuction.timerExpiresAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+    }, 200);
+    return () => clearInterval(interval);
+  }, [auction?.currentAuction]);
+
+  if (!auction) {
+    return (
+      <div className="min-h-screen bg-[#0A0A1A] p-8 flex flex-col items-center justify-center text-center select-none font-createfuture">
+        <div className="w-24 h-24 bg-gradient-to-br from-[#F5A623] to-[#FF7E5F] rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(245,166,35,0.4)] animate-pulse">
+          <span className="text-5xl">🪙</span>
+        </div>
+        <div className="text-xs font-black text-[#F5A623] tracking-[0.3em] uppercase mb-3">Modalità Asta</div>
+        <h1 className="text-4xl md:text-6xl font-black italic uppercase text-white tracking-wide mb-4">
+          {tournament.name}
+        </h1>
+        <p className="text-white/40 text-sm font-bold uppercase tracking-widest max-w-lg mb-12">
+          Iscrizioni in corso... L'organizzatore avvierà l'asta a breve. Preparate i vostri crediti!
+        </p>
+        <div className="flex gap-4">
+          <div className="bg-[#12122A] border border-white/5 px-8 py-4 rounded-3xl">
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-1">Blader Iscritti</div>
+            <div className="text-3xl font-black text-white">{tournament.participants?.length || 0}</div>
+          </div>
+          <div className="bg-[#12122A] border border-white/5 px-8 py-4 rounded-3xl">
+            <div className="text-[9px] font-black text-white/30 uppercase tracking-widest mb-1">Modalità</div>
+            <div className="text-3xl font-black text-[#F5A623]">ASTA</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const getGlowColor = (type) => {
+    if (type === 'attack') return '#ef4444';
+    if (type === 'defense') return '#3b82f6';
+    return '#22c55e';
+  };
+
+  const getPackIcon = (type) => {
+    // Return simple strings or reuse imported Lucide icons if available, let's use rich HTML strings/emojis as robust proiettore fallbacks
+    if (type === 'attack') return '⚔️';
+    if (type === 'defense') return '🛡️';
+    return '💨';
+  };
+
+  const isAuctionComplete = tournament.status === 'draft_complete';
+  const currentParticipantId = isAuctionComplete ? null : auction.turnOrder[auction.currentTurnIndex];
+  const currentParticipant = currentParticipantId ? tournament.participants?.find(p => p.id === currentParticipantId || p.user_id === currentParticipantId || p.username === currentParticipantId) : null;
+
+  const activeAuctionPack = auction.currentAuction 
+    ? auction.availablePacks.find(p => p.id === auction.currentAuction.packId) 
+    : null;
+    
+  const activeAuctionCombo = activeAuctionPack 
+    ? tournament.structure?.pool?.find(c => c.id === activeAuctionPack.combo_id)
+    : null;
+    
+  const activeAuctionBlade = activeAuctionCombo 
+    ? parts?.blades?.find(b => b.id === activeAuctionCombo.blade_id) 
+    : null;
+
+  const highestBidderObj = auction.currentAuction 
+    ? tournament.participants?.find(p => p.id === auction.currentAuction.highestBidder || p.user_id === auction.currentAuction.highestBidder || p.username === auction.currentAuction.highestBidder)
+    : null;
+
+  return (
+    <div className="min-h-screen bg-[#0A0A1A] p-4 md:p-8 flex flex-col justify-between overflow-y-auto select-none font-sans">
+      {/* Intestazione */}
+      <div className="text-center mb-6 shrink-0">
+        <h1 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-3">
+          {tournament.name} - Modalità Asta
+        </h1>
+        {isAuctionComplete ? (
+          <div className="text-xl md:text-2xl text-green-400 font-black italic uppercase animate-pulse">
+            Asta Completata! In attesa della generazione del tabellone...
+          </div>
+        ) : auction.currentAuction && activeAuctionPack ? (
+          <div className="inline-flex items-center gap-6 bg-[#F5A623]/20 border-2 border-[#F5A623] px-8 py-3 rounded-full shadow-[0_0_40px_rgba(245,166,35,0.3)] animate-pulse">
+            <span className="text-xl text-[#F5A623] font-black uppercase tracking-widest">ASTA IN CORSO</span>
+            <span className="text-3xl font-black text-white">⏱️ {timeLeft}s</span>
+          </div>
+        ) : currentParticipant ? (
+          <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-8 py-3 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
+            <span className="text-xl text-white/70 font-bold uppercase mr-3 tracking-[0.05em]">Turno di Nomina:</span>
+            <span className="text-3xl text-white font-black italic uppercase tracking-[0.05em]">{currentParticipant.username}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Area Principale: Bidding Feature o Griglia Pacchetti */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto my-auto py-4">
+        {auction.currentAuction && activeAuctionPack ? (
+          <div className="flex flex-col md:flex-row items-center justify-center gap-12 bg-gradient-to-b from-[#151525] to-[#0D0D1A] border-2 border-[#F5A623] rounded-[48px] p-8 md:p-12 w-full max-w-5xl shadow-[0_0_80px_rgba(245,166,35,0.2)]">
+            {/* Immagine Gigante del Beyblade */}
+            <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center shrink-0">
+              <div className="absolute inset-0 bg-[#F5A623]/20 blur-[60px] rounded-full"></div>
+              {activeAuctionBlade ? (
+                <img src={activeAuctionBlade.image_url} alt={activeAuctionBlade.name} className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,255,255,0.4)] animate-[float_3s_ease-in-out_infinite]" />
+              ) : (
+                <span className="text-white/20 font-black text-6xl">?</span>
+              )}
+            </div>
+
+            {/* Dettagli dell'Offerta Corrente */}
+            <div className="flex flex-col items-center md:items-start text-center md:text-left space-y-6 flex-1">
+              <div>
+                <span className="text-xs font-black uppercase px-4 py-1 rounded-full border tracking-widest" style={{ borderColor: getGlowColor(activeAuctionPack.type), color: getGlowColor(activeAuctionPack.type) }}>
+                  {activeAuctionPack.type}
+                </span>
+                <h2 className="text-4xl md:text-6xl font-black italic uppercase text-white tracking-wide mt-3 leading-tight font-createfuture">
+                  {activeAuctionBlade?.name || 'Combo Sconosciuta'}
+                </h2>
+              </div>
+
+              <div className="bg-black/50 border border-white/10 rounded-3xl p-6 w-full flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">Miglior Offerente</div>
+                  <div className="text-2xl md:text-3xl font-black text-white italic uppercase font-createfuture">
+                    {highestBidderObj?.username || 'Offerta Base'}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-black text-white/40 uppercase tracking-widest mb-1">Offerta</div>
+                  <div className="text-4xl md:text-5xl font-black text-[#F5A623] font-createfuture">
+                    🪙 {auction.currentAuction.currentBid}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Griglia di tutti i pack disponibili */
+          <div className="flex flex-wrap justify-center items-center gap-4 w-full content-center">
+            {auction.availablePacks.map((pack, index) => {
+              const glowColor = getGlowColor(pack.type);
+              const icon = getPackIcon(pack.type);
+              let displayType = pack.type;
+              if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
+
+              const poolCombo = tournament.structure?.pool?.find(c => c.id === pack.combo_id);
+              const blade = poolCombo ? parts?.blades?.find(b => b.id === poolCombo.blade_id) : null;
+              const owner = pack.isOpened ? tournament.participants?.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
+
+              return (
+                <div 
+                  key={pack.id} 
+                  className={`draft-card is-display shrink-0 ${pack.isOpened ? 'is-opened opacity-50' : ''} transition-all duration-500`}
+                  style={{ 
+                    '--glow-color': glowColor,
+                    width: '130px',
+                    height: '180px'
+                  }}
+                >
+                  <div className="draft-card-content">
+                    <div className="draft-card-back">
+                      <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-2 flex flex-col items-center justify-between h-full">
+                        {blade ? (
+                          <>
+                            <img src={blade.image_url} alt={blade.name} className="w-12 h-12 object-contain drop-shadow-md mb-1" />
+                            <div className="text-[10px] font-black uppercase text-center truncate w-full text-white">{blade.name}</div>
+                            <div className="text-[8px] font-bold uppercase opacity-80" style={{ color: glowColor }}>{displayType}</div>
+                          </>
+                        ) : (
+                          <>
+                            <img src="/beyx.svg" alt="BeyX Logo" className="w-10 h-10 mb-1 opacity-50 drop-shadow-md" />
+                            <div className="opacity-80 text-xl" style={{ color: glowColor }}>{icon}</div>
+                            <div className="text-[8px] font-black uppercase opacity-80 text-center" style={{ color: glowColor }}>{displayType}</div>
+                          </>
+                        )}
+                        <div className="text-xs font-black opacity-40 leading-none">{index + 1}</div>
+                      </div>
+                    </div>
+                    <div className="draft-card-front">
+                      <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
+                      <div className="circle" id="right-circle"></div>
+                      <div className="draft-card-front-content">
+                        <div className="draft-card-description font-createfuture tracking-[0.05em]">
+                           {pack.isOpened ? (
+                             <>
+                               <div className="text-xl mb-1">❌</div>
+                               <div className="flex flex-col items-center justify-center w-full">
+                                 <span className="text-[8px] font-black text-white text-center uppercase tracking-[0.05em]">AGGIUDICATO</span>
+                                 <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 tracking-[0.05em] truncate max-w-[90%]">{owner?.username}</span>
+                                 <span className="text-[6px] font-black text-[#F5A623] mt-0.5">{pack.price} CRD</span>
+                               </div>
+                             </>
+                           ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Griglia Inferiore: Fondi Rimasti e Status Deck */}
+      <div className="mt-6 pt-6 border-t border-white/10 w-full shrink-0 font-createfuture">
+        <div className="flex flex-wrap justify-center gap-4 max-w-7xl mx-auto">
+          {tournament.participants?.map(participant => {
+            const pId = participant.id || participant.user_id || participant.username;
+            const remainingCredits = auction.playerCredits[pId] || 0;
+            const acquiredDeck = auction.playerDecks[pId] || [];
+            const isFull = acquiredDeck.length >= auction.deckSize;
+
+            return (
+              <div key={pId} className={`flex-1 min-w-[180px] p-4 rounded-3xl border transition-all ${isFull ? 'bg-green-500/10 border-green-500/30' : 'bg-white/5 border-white/5'}`}>
+                <div className="text-xs font-black uppercase text-white/60 tracking-wider truncate mb-2 text-center">
+                  {participant.username}
+                </div>
+                <div className="flex justify-between items-center px-2">
+                  <div className="text-lg font-black text-[#F5A623]">
+                    🪙 {remainingCredits}
+                  </div>
+                  <div className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? 'bg-green-500 text-white' : 'bg-white/10 text-white/60'}`}>
+                    {acquiredDeck.length} / {auction.deckSize}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

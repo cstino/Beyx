@@ -320,7 +320,7 @@ export function TournamentSetup({ onConfirm }) {
                   <p className="text-[8px] text-white/40 font-medium leading-relaxed text-center uppercase tracking-wider">
                     {assignmentMode === 'random' && "I Beyblade verranno assegnati ai partecipanti in modo completamente casuale."}
                     {assignmentMode === 'draft' && "I partecipanti sceglieranno i Beyblade seguendo un ordine a serpentina."}
-                    {assignmentMode === 'asta' && "100 crediti a testa. Max 98 per Bey. Devi poterne acquistare 3!"}
+                    {assignmentMode === 'asta' && "Ogni giocatore riceve 50 crediti per Bey da acquistare. Base d'asta: 1 credito."}
                   </p>
                 </div>
               </div>

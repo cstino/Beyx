@@ -145,7 +145,8 @@ export function LiveMatchPage() {
 
   if (!battle) return null;
 
-  const isCreator = userId === battle.created_by || userId === battle.player1_user_id;
+  const isAdmin = useAuthStore(s => s.profile?.is_admin);
+  const isCreator = isAdmin || userId === battle.created_by || userId === battle.player1_user_id;
   const mySide = userId === battle.player1_user_id ? 'p1' : 'p2';
 
   // Points are counted immediately now (implied confirmation) unless explicitly contested
@@ -161,7 +162,7 @@ export function LiveMatchPage() {
     if (!selectedWinner || !selectedFinish) return;
     const finishData = FINISH_TYPES.find(f => f.id === selectedFinish);
 
-    const { error } = await supabase.from('rounds').insert({
+    const insertPayload = {
       battle_id:      battleId,
       round_number:   currentRound,
       p1_combo_label: getBeyName(selectedP1Combo),
@@ -173,8 +174,17 @@ export function LiveMatchPage() {
       winner_side:    selectedWinner,
       finish_type:    selectedFinish,
       points_awarded: finishData?.points ?? 0,
-      [`confirmed_by_${mySide}`]: true,
-    });
+    };
+
+    if (isAdmin) {
+      insertPayload.confirmed_by_p1 = true;
+      insertPayload.confirmed_by_p2 = true;
+      insertPayload.status = 'confirmed';
+    } else {
+      insertPayload[`confirmed_by_${mySide}`] = true;
+    }
+
+    const { error } = await supabase.from('rounds').insert(insertPayload);
 
     if (!error) {
       loadRounds(); // Optimistic load
@@ -188,12 +198,14 @@ export function LiveMatchPage() {
   }
 
   async function confirmRound(roundId, status = 'confirmed') {
-    const { error } = await supabase.from('rounds')
-      .update({ 
-        [`confirmed_by_${mySide}`]: true,
-        status: status 
-      })
-      .eq('id', roundId);
+    const updatePayload = { status };
+    if (isAdmin) {
+      updatePayload.confirmed_by_p1 = true;
+      updatePayload.confirmed_by_p2 = true;
+    } else {
+      updatePayload[`confirmed_by_${mySide}`] = true;
+    }
+    const { error } = await supabase.from('rounds').update(updatePayload).eq('id', roundId);
     
     if (!error) loadRounds();
   }

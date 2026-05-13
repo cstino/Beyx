@@ -7,6 +7,7 @@ import { BracketView } from '../../components/battle/BracketView';
 import { OutcomePicker } from '../../components/battle/OutcomePicker';
 import { PoolSetup } from '../../components/battle/PoolSetup';
 import { PoolDraftPlayerView } from '../../components/battle/PoolDraftPlayerView';
+import { PoolAstaPlayerView } from '../../components/battle/PoolAstaPlayerView';
 import { determineComboType } from '../../utils/comboUtils';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -78,7 +79,11 @@ export default function NewTournamentPage() {
       if (data) {
         setIsReadOnly(data.created_by !== user.id);
         const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
-        const rounds = structure.rounds || [];
+        data.structure = structure || {};
+        data.assignment_mode = data.assignment_mode || data.structure?.assignment_mode;
+        data.beyblade_mode = data.beyblade_mode || data.structure?.beyblade_mode;
+        
+        const rounds = data.structure.rounds || [];
         const finalRound = rounds[rounds.length - 1];
         const finalMatch = finalRound?.matches[0];
         
@@ -111,9 +116,11 @@ export default function NewTournamentPage() {
           
           // Determine stage based on status
           if (data.status === 'drafting') {
-            setStage('drafting');
+            setStage(data.assignment_mode === 'asta' ? 'auctioning' : 'drafting');
+          } else if (data.status === 'auctioning') {
+            setStage('auctioning');
           } else if (data.status === 'draft_complete') {
-            setStage('drafting'); // Show the drafting view but in complete state
+            setStage(data.assignment_mode === 'asta' ? 'auctioning' : 'drafting');
           } else if (data.status === 'setup') {
             if (data.beyblade_mode === 'pool' && (!structure.pool || structure.pool.length === 0) && data.created_by === user.id) {
               setStage('pool_setup');
@@ -144,14 +151,17 @@ export default function NewTournamentPage() {
         }, (payload) => {
           const updated = payload.new;
           const structure = typeof updated.structure === 'string' ? JSON.parse(updated.structure) : updated.structure;
+          updated.structure = structure || {};
+          updated.assignment_mode = updated.assignment_mode || updated.structure?.assignment_mode;
+          updated.beyblade_mode = updated.beyblade_mode || updated.structure?.beyblade_mode;
           
           // Only update state if the status or structure actually changed to avoid race conditions
           setTournament(prev => {
-            if (!prev) return { ...updated, structure };
+            if (!prev) return updated;
             const prevStr = JSON.stringify(prev.structure);
-            const nextStr = JSON.stringify(structure);
+            const nextStr = JSON.stringify(updated.structure);
             if (prevStr === nextStr && prev.status === updated.status) return prev;
-            return { ...updated, structure };
+            return updated;
           });
         })
         .subscribe();
@@ -284,13 +294,13 @@ export default function NewTournamentPage() {
   }, [stage, tournament, setHeader, clearHeader, loadingTournament]);
 
   function generateRoundRobinOrBracket(participants) {
-    const draft = tournament.structure.draft;
+    const sourceState = tournament.structure.draft || tournament.structure.auction;
     const pool = tournament.structure.pool || [];
     
     // Create final participants list with assigned beys from draft
     const finalParticipants = participants.map(p => {
       const pId = p.id || p.user_id || p.username;
-      const assignedComboIds = draft.playerDecks[pId] || [];
+      const assignedComboIds = sourceState?.playerDecks?.[pId] || [];
       
       // Map combo IDs to full combo objects from pool
       const assignedDecks = assignedComboIds.map(cid => {
@@ -318,7 +328,10 @@ export default function NewTournamentPage() {
     // Preserve settings
     structure.settings = tournament.structure.settings;
     structure.pool = tournament.structure.pool;
-    structure.draft = draft; // Keep draft history
+    structure.draft = tournament.structure.draft; // Keep draft history
+    structure.auction = tournament.structure.auction; // Keep auction history
+    structure.assignment_mode = tournament.structure.assignment_mode;
+    structure.beyblade_mode = tournament.structure.beyblade_mode;
 
     const updated = {
       ...tournament,
@@ -454,6 +467,8 @@ export default function NewTournamentPage() {
       win_condition: config.winCondition || 'point_target',
       structure: { 
         rounds: [], 
+        assignment_mode: config.assignmentMode,
+        beyblade_mode: config.beybladeMode || 'personali',
         settings: {
           rrCycles: config.rrCycles || 1,
           rrWinnerMode: config.rrWinnerMode || 'points',
@@ -477,6 +492,14 @@ export default function NewTournamentPage() {
       return;
     }
 
+    // Reconstruct fields that might be missing if columns are not present in DB schema
+    if (data) {
+      const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
+      data.structure = structure || {};
+      data.assignment_mode = data.assignment_mode || data.structure?.assignment_mode;
+      data.beyblade_mode = data.beyblade_mode || data.structure?.beyblade_mode;
+    }
+
     // If invitation mode, pre-register the invited users (not guests) as pending
     if (config.registrationMode === 'invitation' && config.participants?.length > 0) {
       const userInvites = config.participants
@@ -488,7 +511,10 @@ export default function NewTournamentPage() {
         }));
       
       if (userInvites.length > 0) {
-        await supabase.from('tournament_registrations').insert(userInvites);
+        const { error: regError } = await supabase.from('tournament_registrations').insert(userInvites);
+        if (regError) {
+          console.warn("Pre-registrazione inviti fallita (RLS policy necessita aggiornamento):", regError.message);
+        }
       }
     }
 
@@ -638,6 +664,8 @@ export default function NewTournamentPage() {
       .update({ 
         structure: t.structure, 
         status: t.status, 
+        assignment_mode: t.assignment_mode || t.structure?.assignment_mode,
+        beyblade_mode: t.beyblade_mode || t.structure?.beyblade_mode,
         winner_user_id: t.winner_user_id, 
         winner_guest_name: t.winner_guest_name,
         completed_at: t.status === 'completed' ? new Date().toISOString() : null
@@ -672,7 +700,7 @@ export default function NewTournamentPage() {
   async function fetchRegistrations() {
     const { data } = await supabase
       .from('tournament_registrations')
-      .select('*, profiles(id, username, avatar_id, avatar_color)')
+      .select('*, profiles(id, username, avatar_id, avatar_color, elo)')
       .eq('tournament_id', tournament.id);
     
     if (data) {
@@ -736,6 +764,7 @@ export default function NewTournamentPage() {
       user_id: r.user_id,
       username: r.profiles?.username || 'Sconosciuto',
       avatar_id: r.profiles?.avatar_id || null,
+      elo: r.profiles?.elo !== undefined ? r.profiles.elo : 1000,
       seed: 0,
       deck: r.deck_config
     }));
@@ -743,6 +772,7 @@ export default function NewTournamentPage() {
     // Add guests from the original participants list (they don't have registrations)
     const guests = (tournament.participants || []).filter(p => !p.user_id).map(p => ({
       ...p,
+      elo: p.elo !== undefined ? p.elo : 1000,
       seed: 0,
       deck: null // Creator will handle guest beys during match
     }));
@@ -754,24 +784,48 @@ export default function NewTournamentPage() {
       return;
     }
 
-    if (tournament.beyblade_mode === 'pool') {
-      if (tournament.assignment_mode === 'random' || tournament.assignment_mode === 'draft') {
+    const beybladeMode = tournament.beyblade_mode || tournament.structure?.beyblade_mode;
+    const assignmentMode = tournament.assignment_mode || tournament.structure?.assignment_mode;
+
+    if (beybladeMode === 'pool') {
+      if (assignmentMode === 'random' || assignmentMode === 'draft') {
         const deckSize = (tournament.starter_beys_count || (tournament.battle_type === '3v3' ? 3 : 1)) + (tournament.reserve_beys_count || 0);
         
-        // Shuffle participants
-        const shuffledParticipants = [...finalParticipants].sort(() => 0.5 - Math.random());
-        
         const order = [];
-        for (let i = 0; i < deckSize; i++) {
-          if (i % 2 === 0) {
-            order.push(...shuffledParticipants.map(p => p.id || p.user_id || p.username));
-          } else {
-            order.push(...[...shuffledParticipants].reverse().map(p => p.id || p.user_id || p.username));
+        if (assignmentMode === 'draft') {
+          // Ordinamento ELO crescente per il Draft a scelta esplicita
+          // A parità di ELO, ordinamento casuale
+          const sortedParticipants = [...finalParticipants]
+            .map(p => ({ ...p, _rand: Math.random() }))
+            .sort((a, b) => {
+              if (a.elo !== b.elo) return a.elo - b.elo;
+              return a._rand - b._rand;
+            });
+            
+          const forwardRound = sortedParticipants.map(p => p.id || p.user_id || p.username);
+          const reverseRound = [...forwardRound].reverse();
+          
+          for (let i = 0; i < deckSize; i++) {
+            if (i % 2 === 0) {
+              order.push(...forwardRound);
+            } else {
+              order.push(...reverseRound);
+            }
+          }
+        } else {
+          // Shuffle participants per assegnazione Random
+          const shuffledParticipants = [...finalParticipants].sort(() => 0.5 - Math.random());
+          for (let i = 0; i < deckSize; i++) {
+            if (i % 2 === 0) {
+              order.push(...shuffledParticipants.map(p => p.id || p.user_id || p.username));
+            } else {
+              order.push(...[...shuffledParticipants].reverse().map(p => p.id || p.user_id || p.username));
+            }
           }
         }
         
         // Shuffle pool combos
-        const shuffledCombos = [...(tournament.structure.pool || [])].sort(() => 0.5 - Math.random());
+        const shuffledCombos = [...(tournament.structure?.pool || [])].sort(() => 0.5 - Math.random());
         
         const availablePacks = shuffledCombos.map((combo, index) => ({
           id: `pack_${index}`,
@@ -785,6 +839,8 @@ export default function NewTournamentPage() {
   
         const updatedStructure = {
           ...tournament.structure,
+          beyblade_mode: 'pool',
+          assignment_mode: assignmentMode,
           draft: {
             turnOrder: order,
             currentTurnIndex: 0,
@@ -796,6 +852,8 @@ export default function NewTournamentPage() {
   
         const updated = {
           ...tournament,
+          beyblade_mode: 'pool',
+          assignment_mode: assignmentMode,
           participants: finalParticipants,
           registration_open: false,
           status: 'drafting',
@@ -806,6 +864,71 @@ export default function NewTournamentPage() {
         await updateTournamentDB(updated);
         setStage('drafting');
         useToastStore.getState().success("Inizia il Draft!");
+        return;
+      } else if (assignmentMode === 'asta') {
+        const deckSize = (tournament.starter_beys_count || (tournament.battle_type === '3v3' ? 3 : 1)) + (tournament.reserve_beys_count || 0);
+        
+        // Ordine di nomina: partendo da quello con meno ELO, crescente. A parità, random.
+        const sortedParticipants = [...finalParticipants]
+          .map(p => ({ ...p, _rand: Math.random() }))
+          .sort((a, b) => {
+            if (a.elo !== b.elo) return a.elo - b.elo;
+            return a._rand - b._rand;
+          });
+          
+        const nominationOrder = sortedParticipants.map(p => p.id || p.user_id || p.username);
+        
+        // Crediti: 50 per ogni bey da acquistare
+        const initialCredits = deckSize * 50;
+        const playerCredits = {};
+        const playerDecks = {};
+        finalParticipants.forEach(p => {
+          const pId = p.id || p.user_id || p.username;
+          playerCredits[pId] = initialCredits;
+          playerDecks[pId] = [];
+        });
+
+        // Shuffle pool combos per creare i pack
+        const shuffledCombos = [...(tournament.structure?.pool || [])].sort(() => 0.5 - Math.random());
+        const availablePacks = shuffledCombos.map((combo, index) => ({
+          id: `pack_${index}`,
+          combo_id: combo.id,
+          type: determineComboType(combo.user_stats, combo.combo_type),
+          isOpened: false,
+          owner: null,
+          price: 0
+        }));
+        availablePacks.sort(() => 0.5 - Math.random());
+
+        const updatedStructure = {
+          ...tournament.structure,
+          beyblade_mode: 'pool',
+          assignment_mode: 'asta',
+          auction: {
+            turnOrder: nominationOrder,
+            currentTurnIndex: 0,
+            availablePacks,
+            playerCredits,
+            playerDecks,
+            currentAuction: null,
+            deckSize
+          }
+        };
+
+        const updated = {
+          ...tournament,
+          beyblade_mode: 'pool',
+          assignment_mode: 'asta',
+          participants: finalParticipants,
+          registration_open: false,
+          status: 'drafting',
+          structure: updatedStructure
+        };
+
+        setTournament(updated);
+        await updateTournamentDB(updated);
+        setStage('auctioning');
+        useToastStore.getState().success("Inizia l'Asta!");
         return;
       }
     }
@@ -846,7 +969,7 @@ export default function NewTournamentPage() {
 
   return (
     <div className="min-h-screen pb-32 flex flex-col pt-6">
-      {!isReadOnly && stage !== 'active' && tournament && (
+      {!isReadOnly && tournament && (
         <div className="px-6 flex items-center justify-between mb-4 shrink-0">
           <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">
             Torneo ID: <span className="text-white/40">{tournament.id}</span>
@@ -926,6 +1049,15 @@ export default function NewTournamentPage() {
               setTournament={setTournament} 
               updateTournamentDB={updateTournamentDB} 
               onDraftComplete={() => generateRoundRobinOrBracket(tournament.participants)}
+              onDelete={deleteTournament}
+              parts={{ blades, ratchets, bits }}
+            />
+         ) : stage === 'auctioning' ? (
+           <PoolAstaPlayerView 
+              tournament={tournament} 
+              setTournament={setTournament} 
+              updateTournamentDB={updateTournamentDB} 
+              onAuctionComplete={() => generateRoundRobinOrBracket(tournament.participants)}
               onDelete={deleteTournament}
               parts={{ blades, ratchets, bits }}
             />

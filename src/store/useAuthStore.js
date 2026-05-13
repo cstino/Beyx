@@ -12,8 +12,28 @@ export const useAuthStore = create((set) => ({
   
   fetchProfile: async (userOrId) => {
     const userId = typeof userOrId === 'string' ? userOrId : userOrId?.id;
+    const userObj = typeof userOrId === 'object' ? userOrId : null;
     if (!userId) return;
     
+    // Gestione speciale per account Arbitro iPad (nessun record nel DB per non renderlo un giocatore giocabile)
+    if (userObj?.email === 'hcskso96@gmail.com') {
+      set({
+        profile: {
+          id: userId,
+          username: 'Arbitro iPad',
+          avatar_id: 'avatar-1',
+          xp: 0,
+          level: 99,
+          title: 'Arbitro Ufficiale',
+          onboarding_done: true,
+          is_admin: true,
+          elo: 1000,
+          elo_peak: 1000
+        }
+      });
+      return;
+    }
+
     // Setup real-time listener for the user's profile updates globally
     if (!profileSubscription) {
       profileSubscription = supabase
@@ -44,7 +64,6 @@ export const useAuthStore = create((set) => ({
     // 2. Se il profilo manca, tentiamo di crearlo (Auto-Repair)
     // Questo succede se il trigger DB fallisce o se l'utente è "vecchio"
     console.log("Profile missing for user, attempting auto-repair...");
-    const userObj = typeof userOrId === 'object' ? userOrId : null;
     
     const newProfile = {
       id: userId,
