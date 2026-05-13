@@ -68,7 +68,7 @@ export default function TournamentJoinPage() {
     const { data } = await supabase.from('tournaments').select('*').eq('id', id).single();
     setTournament(data);
     if (data) {
-      const count = data.battle_type === '3v3' ? 3 : 1;
+      const count = (data.starter_beys_count || (data.battle_type === '3v3' ? 3 : 1)) + (data.reserve_beys_count || 0);
       setDeck(Array(count).fill({ blade_id: '', is_stock: true, ratchet_id: '', bit_id: '' }));
     }
     setLoading(false);
@@ -121,7 +121,7 @@ export default function TournamentJoinPage() {
     if (savedDeck.combo3) newDeck.push({ blade_id: savedDeck.combo3.blade_id, is_stock: savedDeck.combo3.is_stock ?? false, ratchet_id: savedDeck.combo3.ratchet_id || '', bit_id: savedDeck.combo3.bit_id || '' });
     
     // Fill remaining if needed
-    const targetCount = tournament?.battle_type === '3v3' ? 3 : 1;
+    const targetCount = (tournament?.starter_beys_count || (tournament?.battle_type === '3v3' ? 3 : 1)) + (tournament?.reserve_beys_count || 0);
     while (newDeck.length < targetCount) {
       newDeck.push({ blade_id: '', is_stock: true, ratchet_id: '', bit_id: '' });
     }
@@ -217,7 +217,9 @@ export default function TournamentJoinPage() {
           <div className="text-[10px] font-black text-primary tracking-[0.2em] uppercase mb-1">Registrazione</div>
           <h1 className="text-2xl font-black text-white italic uppercase tracking-tighter leading-none mb-4">{tournament?.name}</h1>
           <div className="flex gap-2">
-             <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[9px] font-black text-primary uppercase tracking-widest">{tournament?.battle_type}</div>
+             <div className="px-3 py-1 bg-primary/10 border border-primary/20 rounded-full text-[9px] font-black text-primary uppercase tracking-widest">
+               {tournament?.reserve_beys_count > 0 ? `${tournament?.starter_beys_count}v${tournament?.starter_beys_count} (+${tournament?.reserve_beys_count})` : `${tournament?.starter_beys_count || 1}v${tournament?.starter_beys_count || 1}`}
+             </div>
              <div className="px-3 py-1 bg-[#4361EE]/10 border border-[#4361EE]/20 rounded-full text-[9px] font-black text-[#4361EE] uppercase tracking-widest">
                {tournament?.win_condition === 'total_battle' ? 'TOTAL BATTLE' : `Target: ${tournament?.point_target || 4} Punti`}
              </div>
@@ -236,12 +238,24 @@ export default function TournamentJoinPage() {
 
         {tournament?.beyblade_mode !== 'pool' && (
           <div className="space-y-6">
-             <h3 className="text-[11px] font-black text-white/40 tracking-widest uppercase pl-1">Il Tuo Deck ({tournament?.battle_type})</h3>
+             <h3 className="text-[11px] font-black text-white/40 tracking-widest uppercase pl-1">
+               Il Tuo Roster ({tournament?.reserve_beys_count > 0 ? `${tournament?.starter_beys_count}v${tournament?.starter_beys_count} (+${tournament?.reserve_beys_count})` : `${tournament?.starter_beys_count || 1}v${tournament?.starter_beys_count || 1}`})
+             </h3>
              
-             {deck.map((bey, i) => (
-               <div key={i} className="p-6 rounded-[32px] bg-[#12122A] border border-white/5 space-y-5">
+             {deck.map((bey, i) => {
+               const isReserve = i >= (tournament?.starter_beys_count || (tournament?.battle_type === '3v3' ? 3 : 1));
+               return (
+               <div key={i} className={`p-6 rounded-[32px] bg-[#12122A] border space-y-5 relative overflow-hidden ${isReserve ? 'border-[#4361EE]/20' : 'border-white/5'}`}>
+                  {isReserve && <div className="absolute top-0 right-0 left-0 h-1 bg-[#4361EE]/20" />}
                   <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">Beyblade {i+1}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Beyblade {i+1}</div>
+                      {isReserve && (
+                        <span className="text-[8px] font-black text-[#4361EE] bg-[#4361EE]/10 px-2 py-0.5 rounded-md border border-[#4361EE]/20 uppercase">
+                          Riserva
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2">
                       <button 
                         onClick={() => setActiveSlot(i)}
@@ -352,7 +366,8 @@ export default function TournamentJoinPage() {
                     )}
                   </div>
                </div>
-             ))}
+               );
+             })}
           </div>
         )}
 

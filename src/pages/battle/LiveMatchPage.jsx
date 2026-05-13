@@ -204,7 +204,7 @@ export function LiveMatchPage() {
     if (!error) loadRounds();
   }
 
-  const deckSize = battle.battle_type === '3v3' ? 3 : 1;
+  const deckSize = battle.starter_beys_count || (battle.battle_type === '3v3' || battle.format?.includes('3v3') ? 3 : 1);
   const isTargetReached = battle.win_condition === 'total_battle' 
     ? rounds.length >= deckSize 
     : (p1Score >= battle.point_target || p2Score >= battle.point_target);
@@ -356,7 +356,7 @@ export function LiveMatchPage() {
         </div>
         <div className="text-[10px] text-white/30 uppercase tracking-widest font-bold">
           {battle.win_condition === 'total_battle' 
-            ? `MODALITÀ TOTAL BATTLE (${deckSize} BEY)` 
+            ? `MODALITÀ TOTAL BATTLE (${deckSize} ROUND)` 
             : `Primo a ${battle.point_target} punti`}
         </div>
       </div>

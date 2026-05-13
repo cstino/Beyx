@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function TournamentSetup({ onConfirm }) {
   const [name, setName] = useState('');
   const [format, setFormat] = useState('bracket'); 
+  const [starterBeysCount, setStarterBeysCount] = useState(1);
+  const [reserveBeysCount, setReserveBeysCount] = useState(0);
   const [battleType, setBattleType] = useState('1v1');
   const [participants, setParticipants] = useState([]);
   const [guestName, setGuestName] = useState('');
@@ -60,8 +62,9 @@ export function TournamentSetup({ onConfirm }) {
         />
       </div>
       
-      {/* Format & Battle Type */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Format & Custom Roster Size */}
+      <div className="space-y-6">
+        {/* Formato */}
         <div className="space-y-2">
            <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Formato</label>
            <div className="flex bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner">
@@ -69,12 +72,90 @@ export function TournamentSetup({ onConfirm }) {
              <button onClick={() => setFormat('round_robin')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${format === 'round_robin' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}>GIRONE</button>
            </div>
         </div>
-        <div className="space-y-2">
-           <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">Sfida</label>
-           <div className="flex bg-white/5 rounded-2xl p-1 border border-white/5 shadow-inner">
-             <button onClick={() => setBattleType('1v1')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '1v1' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}>1v1</button>
-             <button onClick={() => setBattleType('3v3')} className={`flex-1 py-3 rounded-xl text-[10px] font-black tracking-widest transition-all ${battleType === '3v3' ? 'bg-[#4361EE] text-white shadow-lg shadow-[#4361EE]/20' : 'text-white/30'}`}>3v3</button>
-           </div>
+
+        {/* Dimensione Roster */}
+        <div className="space-y-4">
+          <label className="text-[9px] font-black text-white/30 tracking-[0.2em] uppercase px-1">
+            DIMENSIONE ROSTER BEYBLADE
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Starters count */}
+            <div className="p-4 rounded-2xl bg-[#12122A] border border-white/10 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 left-0 w-1 bottom-0 bg-primary" />
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Swords size={14} className="text-primary" />
+                  <span className="text-xs font-black text-white uppercase font-createfuture italic">Bey Titolari</span>
+                </div>
+                <p className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Round da giocare</p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 mt-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                <button 
+                  onClick={() => {
+                    const s = Math.max(1, starterBeysCount - 1);
+                    setStarterBeysCount(s);
+                    setBattleType(reserveBeysCount > 0 ? `${s}v${s} (+${reserveBeysCount})` : `${s}v${s}`);
+                  }}
+                  className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 active:scale-95 transition-all font-bold"
+                >
+                  -
+                </button>
+                <span className="text-2xl font-black text-white font-createfuture italic tabular-nums">
+                  {starterBeysCount}
+                </span>
+                <button 
+                  onClick={() => {
+                    const s = starterBeysCount + 1;
+                    setStarterBeysCount(s);
+                    setBattleType(reserveBeysCount > 0 ? `${s}v${s} (+${reserveBeysCount})` : `${s}v${s}`);
+                  }}
+                  className="w-10 h-10 rounded-lg bg-primary/20 text-primary flex items-center justify-center hover:bg-primary/30 active:scale-95 transition-all font-bold border border-primary/20"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Reserves count */}
+            <div className="p-4 rounded-2xl bg-[#12122A] border border-white/10 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 left-0 w-1 bottom-0 bg-[#4361EE]" />
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <Users size={14} className="text-[#4361EE]" />
+                  <span className="text-xs font-black text-white uppercase font-createfuture italic">Bey di Riserva</span>
+                </div>
+                <p className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Roster esteso</p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 mt-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                <button 
+                  onClick={() => {
+                    const r = Math.max(0, reserveBeysCount - 1);
+                    setReserveBeysCount(r);
+                    setBattleType(r > 0 ? `${starterBeysCount}v${starterBeysCount} (+${r})` : `${starterBeysCount}v${starterBeysCount}`);
+                  }}
+                  className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 active:scale-95 transition-all font-bold disabled:opacity-20"
+                  disabled={!reserveBeysCount}
+                >
+                  -
+                </button>
+                <span className={`text-2xl font-black font-createfuture italic tabular-nums ${reserveBeysCount ? 'text-[#4361EE]' : 'text-white/20'}`}>
+                  {reserveBeysCount}
+                </span>
+                <button 
+                  onClick={() => {
+                    const r = reserveBeysCount + 1;
+                    setReserveBeysCount(r);
+                    setBattleType(r > 0 ? `${starterBeysCount}v${starterBeysCount} (+${r})` : `${starterBeysCount}v${starterBeysCount}`);
+                  }}
+                  className="w-10 h-10 rounded-lg bg-[#4361EE]/20 text-[#4361EE] flex items-center justify-center hover:bg-[#4361EE]/30 active:scale-95 transition-all font-bold border border-[#4361EE]/20"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -134,7 +215,7 @@ export function TournamentSetup({ onConfirm }) {
           >
              <div className="text-[10px] font-black text-[#4361EE] tracking-widest uppercase italic text-center">Modalità Total Battle</div>
              <p className="text-[9px] text-white/40 font-medium text-center leading-relaxed">
-               I blader dovranno utilizzare tutti i {battleType === '3v3' ? '3 ' : ''}Bey del loro deck.<br/>
+               I blader dovranno disputare tutti i {starterBeysCount} Round previsti.<br/>
                Vince chi accumula più punti totali. In caso di parità, viene assegnato un punto ciascuno.
              </p>
           </motion.div>
@@ -350,7 +431,7 @@ export function TournamentSetup({ onConfirm }) {
 
       <motion.button
         onClick={() => onConfirm({ 
-          name, format, battleType, participants, pointTarget, winCondition,
+          name, format, battleType, starterBeysCount, reserveBeysCount, participants, pointTarget, winCondition,
           registrationOpen: true, // Always true now, but filtered by mode
           registrationMode: entryMode, 
           maxParticipants: entryMode === 'invitation' ? participants.length : maxParticipants,

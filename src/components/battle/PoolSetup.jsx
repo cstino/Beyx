@@ -12,7 +12,7 @@ export function PoolSetup({ tournament, onComplete }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
-  const deckSize = tournament.battle_type === '3v3' ? 3 : 1;
+  const deckSize = (tournament.starter_beys_count || (tournament.battle_type === '3v3' ? 3 : 1)) + (tournament.reserve_beys_count || 0);
   const targetCount = tournament.max_participants * deckSize;
 
   useEffect(() => {

@@ -14,7 +14,7 @@ const FORMATS = [
     key: 'quick',
     icon: Swords,
     title: 'Quick Match',
-    subtitle: 'Sfida 1v1 o 3v3',
+    subtitle: 'Sfida rapida, ranked o amichevole',
     color: '#E94560',
     path: '/battle/new',
   },

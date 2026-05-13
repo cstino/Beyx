@@ -446,7 +446,9 @@ export default function NewTournamentPage() {
     const { data, error } = await supabase.from('tournaments').insert({
       name: name,
       format: config.format,
-      battle_type: config.battleType,
+      battle_type: (config.starterBeysCount >= 3 ? '3v3' : '1v1'),
+      starter_beys_count: config.starterBeysCount || 1,
+      reserve_beys_count: config.reserveBeysCount || 0,
       participants: config.participants || [],
       point_target: config.pointTarget || 4,
       win_condition: config.winCondition || 'point_target',
@@ -525,6 +527,8 @@ export default function NewTournamentPage() {
         p1_deck_config: match.p1.deck || [],
         p2_deck_config: match.p2.deck || [],
         battle_type: tournament.battle_type || '1v1',
+        starter_beys_count: tournament.starter_beys_count || 1,
+        reserve_beys_count: tournament.reserve_beys_count || 0,
         status: 'active',
         point_target: tournament.point_target || 4,
         win_condition: tournament.win_condition || tournament.structure?.settings?.winCondition || 'point_target',
@@ -752,7 +756,7 @@ export default function NewTournamentPage() {
 
     if (tournament.beyblade_mode === 'pool') {
       if (tournament.assignment_mode === 'random' || tournament.assignment_mode === 'draft') {
-        const deckSize = tournament.battle_type === '3v3' ? 3 : 1;
+        const deckSize = (tournament.starter_beys_count || (tournament.battle_type === '3v3' ? 3 : 1)) + (tournament.reserve_beys_count || 0);
         
         // Shuffle participants
         const shuffledParticipants = [...finalParticipants].sort(() => 0.5 - Math.random());
@@ -835,9 +839,7 @@ export default function NewTournamentPage() {
   }
 
   async function archiveCurrentAndNew() {
-    if (tournament) {
-      await supabase.from('tournaments').update({ status: 'completed' }).eq('id', tournament.id);
-    }
+    // Rimuoviamo l'update a 'completed' per consentire tornei paralleli
     setTournament(null);
     setStage('setup');
   }

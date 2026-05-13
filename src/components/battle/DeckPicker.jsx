@@ -25,10 +25,12 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
   }, [userId]);
 
   useEffect(() => {
-    // Initialize deck slots based on format
-    const count = match.format === '3v3' ? 3 : 1; 
-    setDeck(Array(count).fill({ blade_id: '', is_stock: true, ratchet_id: '', bit_id: '' }));
-  }, [match.format]);
+    // Initialize deck slots based on extended roster format
+    const starters = match.starter_beys_count || (match.format?.includes('3v3') ? 3 : 1);
+    const reserves = match.reserve_beys_count || 0;
+    const totalCount = starters + reserves;
+    setDeck(Array(totalCount).fill({ blade_id: '', is_stock: true, ratchet_id: '', bit_id: '' }));
+  }, [match.format, match.starter_beys_count, match.reserve_beys_count]);
 
   async function fetchParts() {
     const [b, r, t] = await Promise.all([
@@ -98,15 +100,25 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
       <div className="flex items-center gap-2 mb-2">
         <div className="w-[3px] h-3 bg-primary" />
         <div className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">
-          Il Tuo Bey ({match.format})
+          Il Tuo Roster ({match.format})
         </div>
       </div>
 
       <div className="space-y-6">
-        {deck.map((bey, i) => (
-          <div key={i} className="p-6 rounded-[32px] bg-[#12122A] border border-white/5 space-y-5">
+        {deck.map((bey, i) => {
+          const isReserve = i >= (match.starter_beys_count || (match.format?.includes('3v3') ? 3 : 1));
+          return (
+          <div key={i} className={`p-6 rounded-[32px] bg-[#12122A] border space-y-5 relative overflow-hidden ${isReserve ? 'border-[#4361EE]/20' : 'border-white/5'}`}>
+            {isReserve && <div className="absolute top-0 right-0 left-0 h-1 bg-[#4361EE]/20" />}
             <div className="flex items-center justify-between">
-              <div className="text-[10px] font-black text-white/20 uppercase tracking-widest">Beyblade {i+1}</div>
+              <div className="flex items-center gap-2">
+                <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Beyblade {i+1}</div>
+                {isReserve && (
+                  <span className="text-[8px] font-black text-[#4361EE] bg-[#4361EE]/10 px-2 py-0.5 rounded-md border border-[#4361EE]/20 uppercase">
+                    Riserva
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setActiveSlot(i)}
@@ -209,7 +221,8 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="pt-4">
