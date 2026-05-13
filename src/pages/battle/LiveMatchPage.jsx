@@ -88,14 +88,16 @@ export function LiveMatchPage() {
 
     if (data) {
       let finalWinCondition = data.win_condition;
+      let finalStarterCount = data.starter_beys_count;
       if (data.tournament_id) {
-        const { data: tData } = await supabase.from('tournaments').select('win_condition, structure').eq('id', data.tournament_id).single();
+        const { data: tData } = await supabase.from('tournaments').select('win_condition, starter_beys_count, structure').eq('id', data.tournament_id).single();
         if (tData) {
           const struct = typeof tData.structure === 'string' ? JSON.parse(tData.structure) : tData.structure;
           finalWinCondition = tData.win_condition || struct?.settings?.winCondition || data.win_condition || 'point_target';
+          finalStarterCount = tData.starter_beys_count || data.starter_beys_count;
         }
       }
-      setBattle({ ...data, win_condition: finalWinCondition });
+      setBattle({ ...data, win_condition: finalWinCondition, starter_beys_count: finalStarterCount });
       
       // Fetch parts to resolve names from configs
       const [b, r, t] = await Promise.all([
