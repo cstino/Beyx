@@ -24,6 +24,7 @@ export function LiveMatchPage() {
   const { battleId } = useParams();
   const navigate = useNavigate();
   const userId = useAuthStore(s => s.user?.id);
+  const isAdmin = useAuthStore(s => s.profile?.is_admin);
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
 
@@ -145,7 +146,6 @@ export function LiveMatchPage() {
 
   if (!battle) return null;
 
-  const isAdmin = useAuthStore(s => s.profile?.is_admin);
   const isCreator = isAdmin || userId === battle.created_by || userId === battle.player1_user_id;
   const mySide = userId === battle.player1_user_id ? 'p1' : 'p2';
 

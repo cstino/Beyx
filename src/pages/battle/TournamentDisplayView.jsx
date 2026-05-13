@@ -704,45 +704,47 @@ export default function TournamentDisplayView() {
                    <div className="absolute w-36 h-36 rounded-full border border-[#E94560]/10 animate-pulse" />
                 </div>
 
-                {/* Top Section: Horizontal Match Live Header - Centered visually */}
-                <div className="flex items-center justify-between w-full z-10 pb-4 shrink-0 px-1 border-b border-white/5">
-                   {/* Left side: P1 */}
-                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                     <Avatar avatarId={p1AvatarId} username={p1DispName} size={46} />
-                     <div className="flex flex-col min-w-0 pr-1 text-left justify-center">
-                       <div className="flex items-baseline gap-1 overflow-visible">
-                         <span className="text-[10px] font-black text-white italic uppercase tracking-normal font-createfuture truncate pr-1">
-                           {p1DispName}
-                         </span>
-                         <span className="text-[8px] font-bold text-[#E94560] tracking-widest shrink-0 font-createfuture">(P1)</span>
+                {/* Top Section: Redesigned Match Live Header - Punteggi Giganti Centrali */}
+                <div className="flex items-center justify-between w-full z-10 pb-6 shrink-0 px-2 border-b border-white/5">
+                   {/* P1 Info */}
+                   <div className="flex flex-col items-center gap-1.5 w-1/3 min-w-0">
+                     <Avatar avatarId={p1AvatarId} username={p1DispName} size={54} />
+                     <div className="text-center w-full px-1">
+                       <div className="text-[10px] font-black text-white italic uppercase tracking-wider font-createfuture truncate max-w-full">
+                         {p1DispName}
                        </div>
-                       <div className="text-4xl font-black text-[#E94560] font-createfuture tracking-wider mt-1 drop-shadow-glow leading-none">
-                         {p1LiveScore}
+                       <div className="text-[8px] font-bold text-[#E94560] tracking-widest font-createfuture">
+                         (P1)
                        </div>
                      </div>
                    </div>
 
-                   {/* Center VS visualizer */}
-                   <div className="flex flex-col items-center justify-center shrink-0 px-2">
-                     <div className="px-2.5 py-0.5 rounded-lg bg-white/5 border border-white/10 backdrop-blur-md text-white/60 font-createfuture text-[9px] uppercase tracking-widest shadow-inner">
-                       VS
+                   {/* Center Giant Scores */}
+                   <div className="flex items-center justify-center gap-4 shrink-0 px-2">
+                     <div className="text-5xl md:text-7xl font-black text-[#E94560] font-createfuture tracking-tight drop-shadow-[0_0_30px_rgba(233,69,96,0.5)]">
+                       {p1LiveScore}
+                     </div>
+                     <div className="flex flex-col items-center justify-center">
+                       <div className="px-2 py-1 rounded-lg bg-white/5 border border-white/10 backdrop-blur-md text-white/40 font-createfuture text-[8px] uppercase tracking-widest">
+                         VS
+                       </div>
+                     </div>
+                     <div className="text-5xl md:text-7xl font-black text-[#4361EE] font-createfuture tracking-tight drop-shadow-[0_0_30px_rgba(67,97,238,0.5)]">
+                       {p2LiveScore}
                      </div>
                    </div>
 
-                   {/* Right side: P2 */}
-                   <div className="flex items-center gap-2 min-w-0 flex-1 justify-end text-right">
-                     <div className="flex flex-col min-w-0 pl-1 items-end justify-center">
-                       <div className="flex items-baseline gap-1 overflow-visible justify-end">
-                         <span className="text-[8px] font-bold text-[#4361EE] tracking-widest shrink-0 font-createfuture">(P2)</span>
-                         <span className="text-[10px] font-black text-white italic uppercase tracking-normal font-createfuture truncate pr-1">
-                           {p2DispName}
-                         </span>
+                   {/* P2 Info */}
+                   <div className="flex flex-col items-center gap-1.5 w-1/3 min-w-0">
+                     <Avatar avatarId={p2AvatarId} username={p2DispName} size={54} />
+                     <div className="text-center w-full px-1">
+                       <div className="text-[10px] font-black text-white italic uppercase tracking-wider font-createfuture truncate max-w-full">
+                         {p2DispName}
                        </div>
-                       <div className="text-4xl font-black text-[#4361EE] font-createfuture tracking-wider mt-1 drop-shadow-glow leading-none">
-                         {p2LiveScore}
+                       <div className="text-[8px] font-bold text-[#4361EE] tracking-widest font-createfuture">
+                         (P2)
                        </div>
                      </div>
-                     <Avatar avatarId={p2AvatarId} username={p2DispName} size={46} />
                    </div>
                 </div>
 
