@@ -193,10 +193,30 @@ DECLARE
   v_loser_score  INT;
   v_delta_w INT;
   v_delta_l INT;
+  v_p1_elo INT;
+  v_p2_elo INT;
 BEGIN
   IF NEW.is_official IS NOT TRUE THEN RETURN NEW; END IF;
   IF NEW.player1_user_id IS NULL OR NEW.player2_user_id IS NULL THEN RETURN NEW; END IF;
-  IF NEW.winner_side IS NULL OR NEW.winner_side = 'draw' THEN RETURN NEW; END IF;
+  IF NEW.winner_side IS NULL THEN RETURN NEW; END IF;
+
+  -- GESTIONE PAREGGIO (DRAW)
+  IF NEW.winner_side = 'draw' THEN
+    UPDATE profiles 
+    SET elo_matches = elo_matches + 1, 
+        placement_done = (elo_matches + 1 >= 5) 
+    WHERE id IN (NEW.player1_user_id, NEW.player2_user_id);
+
+    SELECT elo INTO v_p1_elo FROM profiles WHERE id = NEW.player1_user_id;
+    SELECT elo INTO v_p2_elo FROM profiles WHERE id = NEW.player2_user_id;
+
+    INSERT INTO user_elo_history (user_id, elo_before, elo_after, delta, reason, battle_id, opponent_id, opponent_elo)
+    VALUES 
+      (NEW.player1_user_id, v_p1_elo, v_p1_elo, 0, CASE NEW.format WHEN 'tournament' THEN 'tournament' ELSE NEW.format END, NEW.id, NEW.player2_user_id, v_p2_elo),
+      (NEW.player2_user_id, v_p2_elo, v_p2_elo, 0, CASE NEW.format WHEN 'tournament' THEN 'tournament' ELSE NEW.format END, NEW.id, NEW.player1_user_id, v_p1_elo);
+
+    RETURN NEW;
+  END IF;
 
   IF NEW.winner_side = 'p1' THEN
     v_winner_id := NEW.player1_user_id;

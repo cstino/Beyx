@@ -170,7 +170,7 @@ export default function AccountPage() {
             <div className="w-[3px] h-4 bg-primary" />
             <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase">Rendimento</h2>
           </div>
-          <StatGrid stats={stats} />
+          <StatGrid stats={stats} userId={user?.id} />
         </section>
 
         {/* Achievements */}
