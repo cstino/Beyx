@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit2, Trash2, Search, Save, X, Settings, Shield, Zap, Target, ArrowUpRight, Copy, Layers, Upload, ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Save, X, Settings, Shield, Zap, Target, ArrowUpRight, Copy, Layers, Upload, ImageIcon, Wand2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PageContainer } from '../components/PageContainer';
 import { useToastStore } from '../store/useToastStore';
@@ -201,6 +201,65 @@ function PartForm({ type, initialData, onSave, onCancel }) {
 
   const [availableParts, setAvailableParts] = useState({ ratchets: [], bits: [] });
 
+  // --- REMOVE.BG STATES ---
+  const [removingBg, setRemovingBg] = useState(false);
+
+  const handleRemoveBackground = async (imageUrl, targetField, variantIndex = null) => {
+    const toast = useToastStore.getState();
+    if (!imageUrl) return;
+
+    setRemovingBg(variantIndex !== null ? `variant-${variantIndex}` : 'base');
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve) => {
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      const imageBase64 = await base64Promise;
+
+      const proxyRes = await fetch('/api/remove-bg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64 })
+      });
+
+      const data = await proxyRes.json();
+      if (!proxyRes.ok || data.error) {
+        throw new Error(data.error || 'Errore dal proxy/Remove.bg');
+      }
+
+      const resultRes = await fetch(data.resultBase64);
+      const resultBlob = await resultRes.blob();
+      const fileName = `clip-${Math.random().toString(36).substring(2)}.png`;
+      const filePath = `${type}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('parts-images')
+        .upload(filePath, resultBlob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('parts-images')
+        .getPublicUrl(filePath);
+
+      if (variantIndex !== null) {
+        const newVs = [...formData.variants];
+        newVs[variantIndex].image_url = publicUrl;
+        handleChange('variants', newVs);
+      } else {
+        handleChange(targetField, publicUrl);
+      }
+      toast.success('Sfondo rimosso con Remove.bg e salvato!');
+    } catch (err) {
+      toast.error('Errore rimozione sfondo: ' + err.message);
+    } finally {
+      setRemovingBg(false);
+    }
+  };
+
   useEffect(() => {
     if (type === 'blades') {
       Promise.all([
@@ -256,7 +315,12 @@ function PartForm({ type, initialData, onSave, onCancel }) {
       className="space-y-6 pb-40"
     >
       <div className="flex items-center justify-between sticky top-0 py-2 bg-[#0A0A1A] z-20">
-        <h2 className="text-xl font-black text-white italic uppercase">{initialData.id ? 'Modifica' : 'Nuovo'} {type.slice(0, -1)}</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-black text-white italic uppercase">{initialData.id ? 'Modifica' : 'Nuovo'} {type.slice(0, -1)}</h2>
+          <span className="px-2 py-0.5 rounded-md bg-green-500/10 text-green-400 border border-green-500/20 text-[8px] font-bold uppercase tracking-wider flex items-center gap-1">
+            <Wand2 size={10} /> Remove.bg .env
+          </span>
+        </div>
         <button onClick={onCancel} className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40"><X /></button>
       </div>
 
@@ -285,20 +349,34 @@ function PartForm({ type, initialData, onSave, onCancel }) {
 
         <div className="space-y-2">
           <label className="text-[9px] font-black text-white/30 uppercase tracking-widest pl-1">Immagine Componente</label>
-          <div className="flex gap-4">
-            <div className="w-24 h-24 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
-              {formData.image_url ? (
-                <img src={formData.image_url} alt="Preview" className="w-full h-full object-contain" />
-              ) : (
-                <ImageIcon className="text-white/10" size={32} />
+          <div className="flex flex-col md:flex-row gap-4 items-start">
+            <div className="flex gap-3 items-center">
+              <div className="w-24 h-24 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+                {formData.image_url ? (
+                  <img src={formData.image_url} alt="Preview" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon className="text-white/10" size={32} />
+                )}
+                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
+                  <Upload size={20} className="text-white mb-1" />
+                  <span className="text-[8px] font-black text-white uppercase">Upload</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+                </label>
+              </div>
+              {formData.image_url && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveBackground(formData.image_url, 'image_url')}
+                  disabled={removingBg === 'base'}
+                  className="px-3 py-2 rounded-xl bg-[#F5A623]/10 hover:bg-[#F5A623]/20 border border-[#F5A623]/20 text-[#F5A623] text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all self-center disabled:opacity-50"
+                  title="Rimuovi lo sfondo usando Remove.bg"
+                >
+                  <Wand2 size={12} className={removingBg === 'base' ? 'animate-spin' : ''} />
+                  {removingBg === 'base' ? 'Rimozione...' : '✨ Rimuovi Sfondo'}
+                </button>
               )}
-              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
-                <Upload size={20} className="text-white mb-1" />
-                <span className="text-[8px] font-black text-white uppercase">Upload</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-              </label>
             </div>
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-2 w-full">
                <input 
                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-[11px] font-bold outline-none focus:border-[#F5A623]/30"
                  value={formData.image_url}
@@ -469,27 +547,41 @@ function PartForm({ type, initialData, onSave, onCancel }) {
                      >
                         <Trash2 size={12} />
                      </button>
-                     <div className="flex gap-4">
-                        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
-                           {variant.image_url ? <img src={variant.image_url} alt="v" className="w-full h-full object-contain" /> : <ImageIcon className="text-white/10" size={20} />}
-                           <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                              <Upload size={14} className="text-white" />
-                              <input type="file" onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const fileExt = file.name.split('.').pop();
-                                const filePath = `${type}/var-${Date.now()}.${fileExt}`;
-                                const { data } = await supabase.storage.from('parts-images').upload(filePath, file);
-                                if (data) {
-                                  const { data: { publicUrl } } = supabase.storage.from('parts-images').getPublicUrl(filePath);
-                                  const newVs = [...formData.variants];
-                                  newVs[idx].image_url = publicUrl;
-                                  handleChange('variants', newVs);
-                                }
-                              }} className="hidden" />
-                           </label>
+                     <div className="flex flex-col sm:flex-row gap-4 items-start">
+                        <div className="flex gap-2 items-center">
+                          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative group">
+                             {variant.image_url ? <img src={variant.image_url} alt="v" className="w-full h-full object-contain" /> : <ImageIcon className="text-white/10" size={20} />}
+                             <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                                <Upload size={14} className="text-white" />
+                                <input type="file" onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  const fileExt = file.name.split('.').pop();
+                                  const filePath = `${type}/var-${Date.now()}.${fileExt}`;
+                                  const { data } = await supabase.storage.from('parts-images').upload(filePath, file);
+                                  if (data) {
+                                    const { data: { publicUrl } } = supabase.storage.from('parts-images').getPublicUrl(filePath);
+                                    const newVs = [...formData.variants];
+                                    newVs[idx].image_url = publicUrl;
+                                    handleChange('variants', newVs);
+                                  }
+                                }} className="hidden" />
+                             </label>
+                          </div>
+                          {variant.image_url && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBackground(variant.image_url, null, idx)}
+                              disabled={removingBg === `variant-${idx}`}
+                              className="px-2.5 py-2 rounded-xl bg-[#F5A623]/10 hover:bg-[#F5A623]/20 border border-[#F5A623]/20 text-[#F5A623] text-[9px] font-black uppercase flex items-center gap-1 transition-all disabled:opacity-50"
+                              title="Rimuovi sfondo con Remove.bg"
+                            >
+                              <Wand2 size={12} className={removingBg === `variant-${idx}` ? 'animate-spin' : ''} />
+                              {removingBg === `variant-${idx}` ? '...' : '✨ Rimuovi'}
+                            </button>
+                          )}
                         </div>
-                        <div className="flex-1 space-y-2">
+                        <div className="flex-1 space-y-2 w-full">
                            <input 
                               placeholder="Codice" className="w-full bg-white/5 border border-white/10 rounded-xl p-2 text-white text-[10px] font-bold"
                               value={variant.release_code || ''} onChange={e => {
