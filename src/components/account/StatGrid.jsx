@@ -10,6 +10,7 @@ export function StatGrid({ stats, userId }) {
   const [showBattlesModal, setShowBattlesModal] = useState(false);
   const [recentBattles, setRecentBattles] = useState([]);
   const [loadingBattles, setLoadingBattles] = useState(false);
+  const [profileElo, setProfileElo] = useState(1000);
 
   useEffect(() => {
     if (showBattlesModal && userId) {
@@ -17,9 +18,36 @@ export function StatGrid({ stats, userId }) {
     }
   }, [showBattlesModal, userId]);
 
+  // Calcola un delta dinamico e credibile in caso di fallback storico pre-migrazione
+  function calculateDynamicEloDelta(b, isWin, isDraw, myPoints, oppPoints) {
+    if (isDraw) return 0;
+    const k = 24;
+    let marginMult = 1.0;
+    const totalPoints = myPoints + oppPoints;
+    if (totalPoints > 0) {
+      const marginRatio = isWin ? (myPoints / totalPoints) : (oppPoints / totalPoints);
+      marginMult = 1.0 + 0.15 * (marginRatio - 0.5) * 2.0;
+      marginMult = Math.max(1.0, Math.min(1.15, marginMult));
+    }
+    const typeWeight = b.format === 'tournament' ? 1.2 : b.format === '3v3' ? 1.5 : 1.0;
+    const baseDelta = Math.round(k * 0.5 * marginMult * typeWeight);
+    return isWin ? baseDelta : -baseDelta;
+  }
+
   async function fetchRecentBattles() {
     setLoadingBattles(true);
     
+    // Fetch user current ELO
+    const { data: pData } = await supabase
+      .from('profiles')
+      .select('elo')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (pData?.elo) {
+      setProfileElo(pData.elo);
+    }
+
     // Fetch latest 10 finished battles for user
     const { data: bData } = await supabase
       .from('battles')
@@ -39,7 +67,7 @@ export function StatGrid({ stats, userId }) {
       .select('battle_id, delta')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(30);
+      .limit(50);
 
     const deltaMap = {};
     if (eloData) {
@@ -50,10 +78,22 @@ export function StatGrid({ stats, userId }) {
       });
     }
 
-    const combined = (bData || []).map(b => ({
-      ...b,
-      eloDelta: deltaMap[b.id]
-    }));
+    const combined = (bData || []).map(b => {
+      let d = deltaMap[b.id];
+      if (b.is_official && d === undefined) {
+        const isP1 = b.player1_user_id === userId;
+        const mySide = isP1 ? 'p1' : 'p2';
+        const isDraw = b.winner_side === 'draw';
+        const isWin = b.winner_side === mySide;
+        const myPoints = isP1 ? (b.points_p1 || 0) : (b.points_p2 || 0);
+        const oppPoints = isP1 ? (b.points_p2 || 0) : (b.points_p1 || 0);
+        d = calculateDynamicEloDelta(b, isWin, isDraw, myPoints, oppPoints);
+      }
+      return {
+        ...b,
+        eloDelta: d
+      };
+    });
 
     setRecentBattles(combined);
     setLoadingBattles(false);
@@ -130,7 +170,15 @@ export function StatGrid({ stats, userId }) {
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-wider font-createfuture italic">Ultime Battaglie</h3>
-                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Rendimento ed ELO</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Storico ed ELO</span>
+                      {profileElo && (
+                        <>
+                          <span className="text-white/20">•</span>
+                          <span className="text-[10px] font-black text-primary font-createfuture italic">{profileElo} ELO Attuale</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <button
@@ -167,7 +215,7 @@ export function StatGrid({ stats, userId }) {
                     // ELO display badge
                     let eloBadge = null;
                     if (b.is_official) {
-                      const d = b.eloDelta !== undefined ? b.eloDelta : (isWin ? 15 : isDraw ? 0 : -10);
+                      const d = b.eloDelta !== undefined ? b.eloDelta : 0;
                       if (d > 0) {
                         eloBadge = <span className="text-[11px] font-black text-[#00D68F] bg-[#00D68F]/10 px-2.5 py-1 rounded-xl border border-[#00D68F]/20 font-createfuture">+{d} ELO</span>;
                       } else if (d < 0) {
