@@ -81,29 +81,33 @@ export default function BattleHistoryPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-4 w-full">
                     {/* Player 1 */}
-                    <div className="flex items-center gap-3 flex-1">
-                      <Avatar avatarId={battle.p1?.avatar_id} size={28} showFallback={!battle.p1} username={battle.player1_guest_name} />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-start">
+                      <div className="shrink-0">
+                        <Avatar avatarId={battle.p1?.avatar_id} size={28} showFallback={!battle.p1} username={battle.player1_guest_name} />
+                      </div>
                       <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p1' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p1?.username || battle.player1_guest_name}
                       </div>
                     </div>
 
                     {/* Scores */}
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[80px] justify-center font-createfuture">
-                      <span className={`text-lg font-black italic ${battle.winner_side === 'p1' ? 'text-[#E94560]' : 'text-white/40'}`}>
+                    <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white/5 rounded-2xl border border-white/5 min-w-[70px] sm:min-w-[80px] justify-center font-createfuture shrink-0 mx-auto">
+                      <span className={`text-base sm:text-lg font-black italic ${battle.winner_side === 'p1' ? 'text-[#E94560]' : 'text-white/40'}`}>
                         {battle.points_p1}
                       </span>
                       <span className="text-[10px] font-black text-white/10">-</span>
-                      <span className={`text-lg font-black italic ${battle.winner_side === 'p2' ? 'text-[#E94560]' : 'text-white/40'}`}>
+                      <span className={`text-base sm:text-lg font-black italic ${battle.winner_side === 'p2' ? 'text-[#E94560]' : 'text-white/40'}`}>
                         {battle.points_p2}
                       </span>
                     </div>
 
                     {/* Player 2 */}
-                    <div className="flex items-center gap-3 flex-1 flex-row-reverse text-right">
-                      <Avatar avatarId={battle.p2?.avatar_id} size={28} showFallback={!battle.p2} username={battle.player2_guest_name} />
+                    <div className="flex items-center gap-2 sm:gap-3 flex-row-reverse text-right min-w-0 justify-start">
+                      <div className="shrink-0">
+                        <Avatar avatarId={battle.p2?.avatar_id} size={28} showFallback={!battle.p2} username={battle.player2_guest_name} />
+                      </div>
                       <div className={`text-xs font-black uppercase tracking-tight truncate font-createfuture ${battle.winner_side === 'p2' ? 'text-white' : 'text-white/30'}`}>
                         {battle.p2?.username || battle.player2_guest_name}
                       </div>
