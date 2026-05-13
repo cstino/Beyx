@@ -690,12 +690,7 @@ export default function BattlePage() {
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 relative z-10">
                     {/* Player 1 */}
                     <div className="flex flex-col items-center gap-2 min-w-0">
-                      <div className="relative">
-                        <Avatar avatarId={selectedMatch.p1?.avatar_id} size={56} showFallback={!selectedMatch.p1} />
-                        {selectedMatch.winner_side === 'p1' && (
-                          <div className="absolute -inset-1 rounded-full border-2 border-primary animate-pulse pointer-events-none" />
-                        )}
-                      </div>
+                      <Avatar avatarId={selectedMatch.p1?.avatar_id} size={56} showFallback={!selectedMatch.p1} />
                       <div className="text-xs font-black text-white uppercase italic tracking-tight truncate w-full text-center font-createfuture mt-1">
                         {selectedMatch.p1?.username || selectedMatch.player1_guest_name}
                       </div>
@@ -707,7 +702,7 @@ export default function BattlePage() {
                     </div>
 
                     {/* Score pill */}
-                    <div className="flex flex-col items-center justify-center px-4 py-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 min-w-[100px] shadow-inner font-createfuture">
+                    <div className="flex items-center justify-center px-5 py-3.5 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 min-w-[100px] shadow-inner font-createfuture">
                       <div className="flex items-center gap-3">
                         <span className={`text-3xl sm:text-4xl font-black italic tabular-nums ${selectedMatch.winner_side === 'p1' ? 'text-primary drop-shadow-[0_0_12px_rgba(233,69,96,0.4)]' : 'text-white/60'}`}>
                           {selectedMatch.points_p1}
@@ -717,21 +712,11 @@ export default function BattlePage() {
                           {selectedMatch.points_p2}
                         </span>
                       </div>
-                      {selectedMatch.point_target && (
-                        <div className="text-[8px] font-bold text-white/30 uppercase tracking-widest mt-1">
-                          Target {selectedMatch.point_target} PT
-                        </div>
-                      )}
                     </div>
 
                     {/* Player 2 */}
                     <div className="flex flex-col items-center gap-2 min-w-0">
-                      <div className="relative">
-                        <Avatar avatarId={selectedMatch.p2?.avatar_id} size={56} showFallback={!selectedMatch.p2} />
-                        {selectedMatch.winner_side === 'p2' && (
-                          <div className="absolute -inset-1 rounded-full border-2 border-[#4361EE] animate-pulse pointer-events-none" />
-                        )}
-                      </div>
+                      <Avatar avatarId={selectedMatch.p2?.avatar_id} size={56} showFallback={!selectedMatch.p2} />
                       <div className="text-xs font-black text-white uppercase italic tracking-tight truncate w-full text-center font-createfuture mt-1">
                         {selectedMatch.p2?.username || selectedMatch.player2_guest_name}
                       </div>
