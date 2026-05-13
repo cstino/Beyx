@@ -644,71 +644,195 @@ export default function BattlePage() {
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSelectedMatch(null)}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
             />
             
             <motion.div 
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              className="relative w-full max-w-lg bg-[#0A0A1A] border-t sm:border border-white/10 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-lg bg-[#12122A] border-t sm:border border-white/10 rounded-t-[40px] sm:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="p-8 pb-4">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-2">
-                    <div className="w-[3px] h-4 bg-primary" />
-                    <div className="text-[10px] font-black text-white/40 tracking-[0.2em] uppercase">Dettaglio Match</div>
+              {/* Top vibrant accent border */}
+              <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-primary via-[#4361EE] to-[#00D68F]" />
+
+              <div className="p-6 sm:p-8 pb-4 flex-1 flex flex-col overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6 pt-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-primary shadow-inner">
+                      <Swords size={20} className="text-primary" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-white uppercase tracking-wider font-createfuture italic">Dettaglio Match</h3>
+                        {selectedMatch.is_official && (
+                          <span className="text-[8px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20 uppercase tracking-widest font-createfuture">Official</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mt-0.5">
+                        {new Date(selectedMatch.played_at).toLocaleDateString()} · {selectedMatch.format}
+                      </p>
+                    </div>
                   </div>
-                  <button onClick={() => setSelectedMatch(null)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/40"><X size={20} /></button>
+                  <button 
+                    onClick={() => setSelectedMatch(null)} 
+                    className="w-10 h-10 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
 
-                <div className="bg-[#12122A] rounded-[32px] p-6 border border-white/5 mb-8">
-                   <div className="flex items-center justify-between gap-4">
-                      <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-                        <Avatar avatarId={selectedMatch.p1?.avatar_id} size={48} showFallback={!selectedMatch.p1} />
-                        <div className="text-xs font-black text-white uppercase italic truncate w-full text-center">{selectedMatch.p1?.username || selectedMatch.player1_guest_name}</div>
+                {/* Central Premium Scoreboard HUD */}
+                <div className="relative rounded-[32px] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/10 p-6 mb-6 overflow-hidden shadow-xl shrink-0">
+                  {/* Subtle Background Glows */}
+                  <div className="absolute top-0 left-1/4 w-32 h-32 bg-primary/10 blur-[50px] rounded-full pointer-events-none -translate-y-1/2" />
+                  <div className="absolute bottom-0 right-1/4 w-32 h-32 bg-[#4361EE]/10 blur-[50px] rounded-full pointer-events-none translate-y-1/2" />
+
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 relative z-10">
+                    {/* Player 1 */}
+                    <div className="flex flex-col items-center gap-2 min-w-0">
+                      <div className="relative">
+                        <Avatar avatarId={selectedMatch.p1?.avatar_id} size={56} showFallback={!selectedMatch.p1} />
+                        {selectedMatch.winner_side === 'p1' && (
+                          <div className="absolute -inset-1 rounded-full border-2 border-primary animate-pulse pointer-events-none" />
+                        )}
                       </div>
+                      <div className="text-xs font-black text-white uppercase italic tracking-tight truncate w-full text-center font-createfuture mt-1">
+                        {selectedMatch.p1?.username || selectedMatch.player1_guest_name}
+                      </div>
+                      {selectedMatch.winner_side === 'p1' && (
+                        <span className="text-[8px] font-black text-primary uppercase tracking-widest bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 font-createfuture">
+                          Winner
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Score pill */}
+                    <div className="flex flex-col items-center justify-center px-4 py-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 min-w-[100px] shadow-inner font-createfuture">
                       <div className="flex items-center gap-3">
-                        <span className="text-3xl font-black text-primary italic">{selectedMatch.points_p1}</span>
-                        <span className="text-white/10 font-black italic">VS</span>
-                        <span className="text-3xl font-black text-white italic">{selectedMatch.points_p2}</span>
+                        <span className={`text-3xl sm:text-4xl font-black italic tabular-nums ${selectedMatch.winner_side === 'p1' ? 'text-primary drop-shadow-[0_0_12px_rgba(233,69,96,0.4)]' : 'text-white/60'}`}>
+                          {selectedMatch.points_p1}
+                        </span>
+                        <span className="text-xs font-black text-white/20 italic">VS</span>
+                        <span className={`text-3xl sm:text-4xl font-black italic tabular-nums ${selectedMatch.winner_side === 'p2' ? 'text-[#4361EE] drop-shadow-[0_0_12px_rgba(67,97,238,0.4)]' : 'text-white/60'}`}>
+                          {selectedMatch.points_p2}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
-                        <Avatar avatarId={selectedMatch.p2?.avatar_id} size={48} showFallback={!selectedMatch.p2} />
-                        <div className="text-xs font-black text-white uppercase italic truncate w-full text-center">{selectedMatch.p2?.username || selectedMatch.player2_guest_name}</div>
+                      {selectedMatch.point_target && (
+                        <div className="text-[8px] font-bold text-white/30 uppercase tracking-widest mt-1">
+                          Target {selectedMatch.point_target} PT
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Player 2 */}
+                    <div className="flex flex-col items-center gap-2 min-w-0">
+                      <div className="relative">
+                        <Avatar avatarId={selectedMatch.p2?.avatar_id} size={56} showFallback={!selectedMatch.p2} />
+                        {selectedMatch.winner_side === 'p2' && (
+                          <div className="absolute -inset-1 rounded-full border-2 border-[#4361EE] animate-pulse pointer-events-none" />
+                        )}
                       </div>
-                   </div>
+                      <div className="text-xs font-black text-white uppercase italic tracking-tight truncate w-full text-center font-createfuture mt-1">
+                        {selectedMatch.p2?.username || selectedMatch.player2_guest_name}
+                      </div>
+                      {selectedMatch.winner_side === 'p2' && (
+                        <span className="text-[8px] font-black text-[#4361EE] uppercase tracking-widest bg-[#4361EE]/10 px-2 py-0.5 rounded-md border border-[#4361EE]/20 font-createfuture">
+                          Winner
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <h3 className="text-[11px] font-black text-white tracking-widest uppercase mb-4 px-2">Cronologia Round</h3>
+                {/* Round History Section */}
+                <div className="flex items-center justify-between mb-3 px-1 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-3.5 bg-[#F5A623] rounded-full" />
+                    <h3 className="text-xs font-black text-white tracking-widest uppercase font-createfuture italic">
+                      Cronologia Round
+                    </h3>
+                  </div>
+                  <span className="text-[9px] font-bold text-white/30 uppercase tracking-widest">
+                    {matchRounds.length} {matchRounds.length === 1 ? 'Round' : 'Rounds'}
+                  </span>
+                </div>
                 
-                <div className="overflow-y-auto no-scrollbar flex-1 space-y-3 pb-8">
+                <div className="overflow-y-auto custom-scrollbar flex-1 space-y-2.5 pb-4">
                   {loadingRounds ? (
-                    <div className="py-20 flex justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>
+                    <div className="py-16 flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      <span className="text-[9px] font-black text-white/30 uppercase tracking-widest animate-pulse">Caricamento clash...</span>
+                    </div>
                   ) : matchRounds.length === 0 ? (
-                    <div className="py-12 text-center text-white/20 font-bold uppercase text-[10px] border-2 border-dashed border-white/5 rounded-3xl">Dettagli round non disponibili per questo match</div>
+                    <div className="py-12 text-center text-white/20 font-bold uppercase text-[10px] border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
+                      Dettagli round non registrati per questo match
+                    </div>
                   ) : (
-                    matchRounds.map((round, idx) => (
-                      <div key={idx} className="bg-white/5 border border-white/5 rounded-2xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center text-[10px] font-black text-white/20 border border-white/5">R{round.round_number}</div>
-                          <div className="space-y-1">
-                            <div className="text-[8px] font-black text-white/20 uppercase tracking-widest">{FINISH_TYPES[round.finish_type]?.label || 'Match Result'}</div>
-                            <div className="flex items-center gap-2">
-                               <div className={`text-xs font-black uppercase italic ${round.winner_side === 'p1' ? 'text-primary' : 'text-white/40'}`}>
-                                 {round.p1_combo_label || 'Bey P1'}
-                               </div>
-                               <span className="text-[8px] font-black text-white/10 italic">vs</span>
-                               <div className={`text-xs font-black uppercase italic ${round.winner_side === 'p2' ? 'text-primary' : 'text-white/40'}`}>
-                                 {round.p2_combo_label || 'Bey P2'}
-                               </div>
+                    matchRounds.map((round, idx) => {
+                      const isR1Win = round.winner_side === 'p1';
+                      const isR2Win = round.winner_side === 'p2';
+                      const finishInfo = FINISH_TYPES[round.finish_type] || { label: 'Result', color: '#94A3B8' };
+
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`relative overflow-hidden bg-white/[0.02] border rounded-2xl p-3.5 transition-all flex items-center justify-between gap-3
+                            ${isR1Win ? 'border-primary/20 bg-primary/[0.02]' : isR2Win ? 'border-[#4361EE]/20 bg-[#4361EE]/[0.02]' : 'border-white/5'}`}
+                        >
+                          {/* Accent side strip */}
+                          <div className={`absolute top-0 bottom-0 left-0 w-1 ${isR1Win ? 'bg-primary' : isR2Win ? 'bg-[#4361EE]' : 'bg-white/10'}`} />
+
+                          <div className="flex items-center gap-3 pl-1.5 flex-1 min-w-0">
+                            {/* Round Badge */}
+                            <div className="w-8 h-8 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center text-xs font-black text-white/60 font-createfuture italic shrink-0 shadow-inner">
+                              R{round.round_number}
+                            </div>
+
+                            {/* Clash Details */}
+                            <div className="space-y-1 flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span 
+                                  className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border font-createfuture"
+                                  style={{ 
+                                    color: finishInfo.color, 
+                                    backgroundColor: `${finishInfo.color}15`,
+                                    borderColor: `${finishInfo.color}30` 
+                                  }}
+                                >
+                                  {finishInfo.label}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 truncate">
+                                <div className={`text-xs font-black uppercase tracking-tight truncate max-w-[110px] sm:max-w-[150px] ${isR1Win ? 'text-white font-createfuture italic' : 'text-white/40'}`}>
+                                  {round.p1_combo_label || 'Bey P1'}
+                                </div>
+                                <span className="text-[8px] font-black text-white/20 italic shrink-0">vs</span>
+                                <div className={`text-xs font-black uppercase tracking-tight truncate max-w-[110px] sm:max-w-[150px] ${isR2Win ? 'text-white font-createfuture italic' : 'text-white/40'}`}>
+                                  {round.p2_combo_label || 'Bey P2'}
+                                </div>
+                              </div>
                             </div>
                           </div>
+
+                          {/* Points Awarded Badge */}
+                          <div className="flex flex-col items-end shrink-0">
+                            <div className={`px-2.5 py-1 rounded-xl text-xs font-black font-createfuture italic border ${
+                              isR1Win 
+                                ? 'bg-primary/10 text-primary border-primary/20' 
+                                : isR2Win 
+                                ? 'bg-[#4361EE]/10 text-[#4361EE] border-[#4361EE]/20' 
+                                : 'bg-white/5 text-white/40 border-white/10'
+                            }`}>
+                              +{round.points_awarded || 0} PT
+                            </div>
+                            <span className="text-[7px] font-black text-white/30 uppercase tracking-widest mt-1">
+                              {isR1Win ? 'P1 Scored' : isR2Win ? 'P2 Scored' : 'Pareggio'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end">
-                           <div className="text-[11px] font-black text-primary italic">+{round.points_awarded} PT</div>
-                           <div className="text-[8px] font-black text-white/40 uppercase tracking-tighter">{round.winner_side === 'p1' ? 'Winner P1' : round.winner_side === 'p2' ? 'Winner P2' : 'Pareggio'}</div>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
