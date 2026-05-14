@@ -1,4 +1,4 @@
--- 🔐 BeyManager X - Referee/Admin RLS Policies per Tornei e Battaglie
+-- 🔐 BeyManager X - Referee/Admin RLS Policies per Tornei, Battaglie e Round
 -- Consente agli arbitri/amministratori di avviare e gestire le partite in corso nei tornei
 
 -- 1. Aggiorniamo la funzione is_admin per riconoscere l'account arbitro ufficiale tramite email JWT
@@ -33,7 +33,24 @@ CREATE POLICY "Admins can delete battles" ON public.battles
 FOR DELETE TO authenticated
 USING (public.is_admin());
 
--- 3. Policy sulla tabella 'tournaments' per consentire agli admin di aggiornare la struttura
+-- 3. Policy sulla tabella 'rounds' per consentire agli arbitri di inserire, modificare e cancellare i round
+DROP POLICY IF EXISTS "Admins can insert rounds" ON public.rounds;
+CREATE POLICY "Admins can insert rounds" ON public.rounds
+FOR INSERT TO authenticated
+WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can update rounds" ON public.rounds;
+CREATE POLICY "Admins can update rounds" ON public.rounds
+FOR UPDATE TO authenticated
+USING (public.is_admin())
+WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete rounds" ON public.rounds;
+CREATE POLICY "Admins can delete rounds" ON public.rounds
+FOR DELETE TO authenticated
+USING (public.is_admin());
+
+-- 4. Policy sulla tabella 'tournaments' per consentire agli admin di aggiornare la struttura
 DROP POLICY IF EXISTS "Admins can update tournaments" ON public.tournaments;
 CREATE POLICY "Admins can update tournaments" ON public.tournaments
 FOR UPDATE TO authenticated
