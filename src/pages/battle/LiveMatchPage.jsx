@@ -334,7 +334,7 @@ export function LiveMatchPage() {
           .from('user_elo_history')
           .select('*')
           .eq('battle_id', battleId)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .maybeSingle();
         
         if (history) {
@@ -348,21 +348,29 @@ export function LiveMatchPage() {
             });
           }
         } else {
-           navigate(battle.tournament_id ? `/battle/tournament/${battle.tournament_id}` : '/battle');
+          handleEndMatchNavigation();
         }
       }, 1000);
     } else {
-      if (battle.tournament_id) {
-        navigate(`/battle/tournament/${battle.tournament_id}`);
-      } else {
-        navigate('/battle');
-      }
+      handleEndMatchNavigation();
     }
   }
 
+  const handleEndMatchNavigation = () => {
+    if (battle.tournament_id) {
+      if (userEmail === 'hcskso96@gmail.com') {
+        navigate(`/battle/tournament/${battle.tournament_id}/display`);
+      } else {
+        navigate(`/battle/tournament/${battle.tournament_id}`);
+      }
+    } else {
+      navigate('/battle');
+    }
+  };
+
 
   if (eloResult) {
-    return <EloSummary result={eloResult} battle={battle} onDone={() => navigate('/battle')} />;
+    return <EloSummary result={eloResult} battle={battle} onDone={handleEndMatchNavigation} />;
   }
 
   return (
@@ -432,10 +440,7 @@ export function LiveMatchPage() {
           ) : (
             <motion.button 
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              onClick={() => {
-                if (battle.tournament_id) navigate(`/battle/tournament/${battle.tournament_id}`);
-                else navigate('/battle');
-              }}
+              onClick={handleEndMatchNavigation}
               className="w-full py-5 rounded-[22px] bg-white/5 border border-white/10 text-white/60 font-createfuture uppercase tracking-[0.2em]"
             >
               Torna alla Battle
@@ -480,8 +485,26 @@ export function LiveMatchPage() {
 
           <div className="text-[10px] font-black text-white/50 tracking-[0.2em] mb-3 text-center uppercase">Bey per questo round</div>
           <div className="grid grid-cols-2 gap-3 mb-6">
-            <ComboSelector label={p1Name} combos={p1Combos} selected={selectedP1Combo} onSelect={setSelectedP1Combo} accentColor="#E94560" getBeyName={getBeyName} blades={parts.blades} />
-            <ComboSelector label={p2Name} combos={p2Combos} selected={selectedP2Combo} onSelect={setSelectedP2Combo} accentColor="#4361EE" getBeyName={getBeyName} blades={parts.blades} />
+            <ComboSelector 
+              label={p1Name} 
+              combos={p1Combos} 
+              selected={selectedP1Combo} 
+              onSelect={setSelectedP1Combo} 
+              accentColor="#E94560" 
+              getBeyName={getBeyName} 
+              blades={parts.blades}
+              usedIds={rounds.map(r => r.p1_combo_id || r.p1_blade_id).filter(Boolean)}
+            />
+            <ComboSelector 
+              label={p2Name} 
+              combos={p2Combos} 
+              selected={selectedP2Combo} 
+              onSelect={setSelectedP2Combo} 
+              accentColor="#4361EE" 
+              getBeyName={getBeyName} 
+              blades={parts.blades}
+              usedIds={rounds.map(r => r.p2_combo_id || r.p2_blade_id).filter(Boolean)}
+            />
           </div>
 
           <div className="text-[10px] font-bold text-white/50 tracking-[0.15em] mb-3 uppercase text-center">Chi ha vinto questo round?</div>
@@ -581,7 +604,7 @@ export function LiveMatchPage() {
   );
 }
 
-function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyName, blades }) {
+function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyName, blades, usedIds = [] }) {
   const [open, setOpen] = useState(false);
   const selectedBlade = selected ? blades.find(b => b.id === selected.blade_id) : null;
 
@@ -637,10 +660,12 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
                       key={c.id || idx} 
                       onClick={() => { onSelect(c); setOpen(false); }}
                       className={`w-full p-4 rounded-2xl flex items-center justify-between text-left transition-all border
-                        ${isSelected ? 'bg-primary/10 border-primary shadow-glow-primary-sm' : 'bg-white/5 border-white/5 hover:border-white/20'}`}
+                        ${isSelected ? 'bg-primary/10 border-primary shadow-glow-primary-sm' : 'bg-white/5 border-white/5 hover:border-white/20'}
+                        ${usedIds.includes(c.id || c.blade_id) && !isSelected ? 'opacity-60' : 'opacity-100'}`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center p-2">
+                        <div className={`w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center p-2 transition-all
+                          ${usedIds.includes(c.id || c.blade_id) ? 'grayscale-[0.8] opacity-50' : ''}`}>
                            <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
                         </div>
                         <div>
@@ -648,6 +673,12 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
                           <div className="flex items-center gap-2">
                              <div className="text-[8px] font-black px-1.5 py-0.5 rounded bg-white/5 text-white/30 uppercase tracking-widest">{blade?.type || 'Tipo Ignoto'}</div>
                              <div className="text-[8px] font-black text-primary uppercase tracking-widest italic">Slot {idx + 1}</div>
+                             {usedIds.includes(c.id || c.blade_id) && (
+                               <div className="flex items-center gap-1.5 ml-1">
+                                 <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse" />
+                                 <div className="text-[8px] font-black text-yellow-500/80 uppercase tracking-widest">Già Usato</div>
+                               </div>
+                             )}
                           </div>
                         </div>
                       </div>

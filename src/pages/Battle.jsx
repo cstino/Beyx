@@ -59,7 +59,7 @@ export default function BattlePage() {
       fetchPendingInvitations();
       fetchMyTournaments();
     }
-  }, [user]);
+  }, [user, profile]);
 
   async function fetchLeaderboard() {
     const { data } = await supabase.from('profiles')
@@ -394,9 +394,22 @@ export default function BattlePage() {
                         {isAdminUser ? 'Arbitro / Hub' : (isCreator ? 'Creato da te' : 'Partecipante')}
                       </div>
                     </div>
-                    <button className="px-5 py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-glow-primary">
-                      {btnLabel}
-                    </button>
+                    <div className="flex gap-2">
+                      {isAdminUser && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/battle/new/tournament`, { state: { tournamentId: t.id } });
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                        >
+                          Gestisci
+                        </button>
+                      )}
+                      <button className="px-5 py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-glow-primary">
+                        {btnLabel}
+                      </button>
+                    </div>
                   </div>
                   
                   <Trophy size={120} className="absolute right-[-20px] bottom-[-20px] text-white/[0.03] rotate-12 pointer-events-none" />

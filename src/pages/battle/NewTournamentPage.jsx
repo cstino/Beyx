@@ -20,7 +20,7 @@ export default function NewTournamentPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { tournamentId } = useParams();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
   
@@ -64,6 +64,8 @@ export default function NewTournamentPage() {
         return;
       }
       
+      const isAdminUser = user?.email === 'hcskso96@gmail.com' || profile?.is_admin;
+      
       const targetId = tournamentId || location.state?.tournamentId;
       let query = supabase.from('tournaments').select('*');
       
@@ -77,7 +79,8 @@ export default function NewTournamentPage() {
       const { data, error } = await query.maybeSingle();
 
       if (data) {
-        setIsReadOnly(data.created_by !== user.id);
+        const isAdminUser = user?.email === 'hcskso96@gmail.com' || profile?.is_admin;
+        setIsReadOnly(!(isAdminUser || data.created_by === user.id));
         const structure = typeof data.structure === 'string' ? JSON.parse(data.structure) : data.structure;
         data.structure = structure || {};
         data.assignment_mode = data.assignment_mode || data.structure?.assignment_mode;
@@ -168,7 +171,7 @@ export default function NewTournamentPage() {
         
       return () => supabase.removeChannel(channel);
     }
-  }, [user, tournamentId, location.state?.tournamentId]);
+  }, [user, profile, tournamentId, location.state?.tournamentId]);
 
   function calculateStandings(t) {
     const participants = t.participants || [];
