@@ -165,7 +165,7 @@ export default function Collection() {
             <p className="text-[10px] font-black uppercase tracking-widest opacity-30">Caricamento...</p>
           </div>
         ) : (
-          <motion.div layout className="grid grid-cols-2 gap-4">
+          <motion.div layout className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             <AnimatePresence mode='popLayout'>
               {filteredParts.map((part) => (
                 <motion.div

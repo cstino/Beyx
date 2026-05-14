@@ -7,6 +7,7 @@ import { DeckPicker } from '../../components/battle/DeckPicker';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUIStore } from '../../store/useUIStore';
+import { useToastStore } from '../../store/useToastStore';
 import { OfficialToggle } from '../../components/battle/OfficialToggle';
 
 const STEPS = ['players', 'settings', 'decks'];
@@ -86,12 +87,16 @@ export function NewMatchPage() {
       admin_user_id:      userId,
     }).select().single();
 
-    if (!error) {
-      if (isInvitation) {
-        navigate('/battle', { state: { invitationSent: true } });
-      } else {
-        navigate(`/battle/live/${data.id}`);
-      }
+    if (error) {
+      useToastStore.getState().error('Errore creazione match: ' + error.message);
+      console.error('Errore inserimento in battles:', error);
+      return;
+    }
+
+    if (isInvitation) {
+      navigate('/battle', { state: { invitationSent: true } });
+    } else {
+      navigate(`/battle/live/${data.id}`);
     }
   }
 
