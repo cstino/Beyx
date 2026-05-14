@@ -408,14 +408,14 @@ export default function BattlePage() {
       )}
 
       {/* Open Tournaments */}
-      {openTournaments.length > 0 && (
+      {openTournaments.filter(t => !myTournaments.some(mt => mt.id === t.id)).length > 0 && (
         <section className="mb-10 px-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[11px] font-black text-white/40 tracking-[0.2em] uppercase font-createfuture">Iscrizioni Aperte</h2>
             <div className="px-2 py-1 bg-primary/10 rounded text-[8px] font-black text-primary animate-pulse uppercase">Live</div>
           </div>
           <div className="space-y-4">
-            {openTournaments.map(t => {
+            {openTournaments.filter(t => !myTournaments.some(mt => mt.id === t.id)).map(t => {
               const isCreator = t.created_by === user?.id;
               const registration = userRegistrations.find(r => r.tournament_id === t.id);
               const isRegistered = !!registration;

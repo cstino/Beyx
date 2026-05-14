@@ -10,6 +10,7 @@ export default function TournamentDisplayView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const userEmail = useAuthStore(s => s.user?.email);
+  const userId = useAuthStore(s => s.user?.id);
   const isAdmin = useAuthStore(s => s.profile?.is_admin) || userEmail === 'hcskso96@gmail.com';
   const [tournament, setTournament] = useState(null);
   const [revealingPack, setRevealingPack] = useState(null);
@@ -124,11 +125,13 @@ export default function TournamentDisplayView() {
 
   const nextScheduledMatch = React.useMemo(() => {
     if (!tournament?.structure?.rounds) return null;
-    for (const r of tournament.structure.rounds) {
+    for (let rIndex = 0; rIndex < tournament.structure.rounds.length; rIndex++) {
+      const r = tournament.structure.rounds[rIndex];
       if (r.matches) {
-        for (const m of r.matches) {
+        for (let mIndex = 0; mIndex < r.matches.length; mIndex++) {
+          const m = r.matches[mIndex];
           if (m.p1 && m.p2 && !m.p1.isBye && !m.p2.isBye && !m.winner) {
-            return { ...m, roundTitle: r.title || `Turno ${tournament.structure.rounds.indexOf(r) + 1}` };
+            return { ...m, rIndex, mIndex, roundTitle: r.title || `Turno ${rIndex + 1}` };
           }
         }
       }
@@ -158,6 +161,8 @@ export default function TournamentDisplayView() {
     if (nextScheduledMatch) {
       return {
         isPreview: true,
+        rIndex: nextScheduledMatch.rIndex,
+        mIndex: nextScheduledMatch.mIndex,
         player1_user_id: nextScheduledMatch.p1?.user_id,
         player1_guest_name: nextScheduledMatch.p1?.user_id ? null : nextScheduledMatch.p1?.username,
         player2_user_id: nextScheduledMatch.p2?.user_id,
@@ -695,10 +700,51 @@ export default function TournamentDisplayView() {
 
             return (
               <div 
-                className={`flex-1 flex flex-col relative min-h-0 ${isAdmin && displayedActiveBattle.id ? 'cursor-pointer group' : ''}`}
-                onClick={() => {
-                  if (isAdmin && displayedActiveBattle.id) {
+                className={`flex-1 flex flex-col relative min-h-0 ${isAdmin ? 'cursor-pointer group' : ''}`}
+                onClick={async () => {
+                  if (!isAdmin) return;
+                  if (displayedActiveBattle.id) {
                     navigate(`/battle/live/${displayedActiveBattle.id}`);
+                  } else if (displayedActiveBattle.isPreview) {
+                    const { rIndex, mIndex, p1, p2 } = displayedActiveBattle;
+                    if (rIndex === undefined || mIndex === undefined) return;
+                    
+                    const { data: battleData, error: battleError } = await supabase.from('battles').insert({
+                      format: 'tournament',
+                      is_official: true,
+                      tournament_id: tournament.id,
+                      player1_user_id: p1.user_id || null,
+                      player1_guest_name: p1.user_id ? null : p1.username,
+                      player2_user_id: p2.user_id || null,
+                      player2_guest_name: p2.user_id ? null : p2.username,
+                      p1_deck_config: p1.deck || [],
+                      p2_deck_config: p2.deck || [],
+                      battle_type: tournament.battle_type || '1v1',
+                      starter_beys_count: tournament.starter_beys_count || 1,
+                      reserve_beys_count: tournament.reserve_beys_count || 0,
+                      status: 'active',
+                      point_target: tournament.point_target || 4,
+                      win_condition: tournament.win_condition || tournament.structure?.settings?.winCondition || 'point_target',
+                      created_by: tournament.created_by || null
+                    }).select().single();
+
+                    if (battleError) {
+                      alert("Errore avvio match: " + battleError.message);
+                      return;
+                    }
+
+                    const battleId = battleData.id;
+                    const newStructure = JSON.parse(JSON.stringify(tournament.structure));
+                    newStructure.rounds[rIndex].matches[mIndex].battle_id = battleId;
+
+                    const updatedTournament = { ...tournament, structure: newStructure };
+                    setTournament(updatedTournament);
+
+                    await supabase.from('tournaments')
+                      .update({ structure: newStructure })
+                      .eq('id', tournament.id);
+
+                    navigate(`/battle/live/${battleId}`);
                   }
                 }}
               >
@@ -707,9 +753,9 @@ export default function TournamentDisplayView() {
                    <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.25em] bg-[#0A0A1A]/90 px-3.5 py-1.5 rounded-lg border border-white/10 backdrop-blur-md shadow-md">
                      {displayedActiveBattle.isPreview ? `${displayedActiveBattle.roundTitle?.toUpperCase() || 'MATCH'} - IN ATTESA DI AVVIO` : `${displayedActiveBattle.roundTitle?.toUpperCase() || 'MATCH'} - ROUND ${liveRounds.length + 1} IN CORSO`}
                    </span>
-                   {isAdmin && displayedActiveBattle.id && (
+                   {isAdmin && (
                      <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/30 animate-pulse group-hover:scale-105 transition-transform">
-                       ⚙️ Gestisci Match
+                       {displayedActiveBattle.isPreview ? '🚀 Avvia Match Live' : '⚙️ Gestisci Match'}
                      </span>
                    )}
                 </div>

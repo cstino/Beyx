@@ -12,6 +12,8 @@ export function TournamentSetup({ onConfirm }) {
   const [participants, setParticipants] = useState([]);
   const [guestName, setGuestName] = useState('');
   const [activeUsers, setActiveUsers] = useState([]);
+  const [userFilter, setUserFilter] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   const [entryMode, setEntryMode] = useState('invitation'); // 'invitation' | 'open'
   const [maxParticipants, setMaxParticipants] = useState(8);
@@ -389,13 +391,98 @@ export function TournamentSetup({ onConfirm }) {
                   </div>
                   <button onClick={addGuest} className="w-14 h-14 rounded-2xl bg-[#4361EE] flex items-center justify-center text-white active:scale-95 shadow-lg shadow-[#4361EE]/20"><CheckCircle2 size={24} /></button>
               </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mask-linear-right">
-                {activeUsers.map(u => (
-                  <button key={u.id} onClick={() => addParticipant(u)} className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[9px] font-black text-white/60 uppercase tracking-widest hover:border-[#4361EE]/50 hover:bg-[#4361EE]/5 transition-all">
-                    {u.username}
-                  </button>
-                ))}
-              </div>
+              {(() => {
+                const availableUsers = activeUsers.filter(u => !participants.some(p => p.user_id === u.id));
+                const filteredUsers = availableUsers.filter(u => u.username.toLowerCase().includes(userFilter.toLowerCase()));
+                
+                const selectAllFiltered = () => {
+                  const newParts = [...participants];
+                  filteredUsers.forEach(u => {
+                    if (!newParts.some(p => p.user_id === u.id)) {
+                      newParts.push({ user_id: u.id, username: u.username, seed: newParts.length + 1 });
+                    }
+                  });
+                  setParticipants(newParts);
+                  setUserFilter('');
+                  setIsDropdownOpen(false);
+                };
+
+                return (
+                  <div className="relative mt-2 z-30">
+                     <button 
+                       onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                       className="w-full bg-white/5 border border-white/5 hover:border-white/20 p-4 rounded-2xl flex items-center justify-between text-left transition-all"
+                     >
+                       <div className="flex items-center gap-3">
+                         <Users size={18} className="text-[#4361EE]" />
+                         <span className="text-xs font-bold text-white/70 uppercase tracking-wider truncate">
+                           Seleziona Blader Registrati ({availableUsers.length} disponibili)
+                         </span>
+                       </div>
+                       <span className="text-xs text-white/40 shrink-0 ml-2">{isDropdownOpen ? '▲' : '▼'}</span>
+                     </button>
+
+                     <AnimatePresence>
+                       {isDropdownOpen && (
+                         <motion.div 
+                           initial={{ opacity: 0, y: -5 }} 
+                           animate={{ opacity: 1, y: 0 }} 
+                           exit={{ opacity: 0, y: -5 }}
+                           className="absolute top-full left-0 right-0 mt-2 bg-[#12122A] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-60 z-50"
+                         >
+                           {/* Search & Select All Header */}
+                           <div className="p-3 border-b border-white/5 flex items-center gap-2 bg-[#0A0A1A]">
+                             <input 
+                               type="text" 
+                               placeholder="Cerca nome blader..." 
+                               value={userFilter}
+                               onChange={(e) => setUserFilter(e.target.value)}
+                               className="bg-transparent text-white text-xs outline-none flex-1 font-medium placeholder-white/20 px-2 py-1"
+                               onClick={(e) => e.stopPropagation()}
+                             />
+                             {filteredUsers.length > 0 && (
+                               <button 
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   selectAllFiltered();
+                                 }}
+                                 className="px-3 py-1.5 bg-[#4361EE]/20 hover:bg-[#4361EE]/30 text-[#4361EE] rounded-lg text-[9px] font-black uppercase tracking-widest border border-[#4361EE]/30 shrink-0 transition-all"
+                               >
+                                 Seleziona Tutti
+                               </button>
+                             )}
+                           </div>
+
+                           {/* Users List */}
+                           <div className="overflow-y-auto flex-1 divide-y divide-white/5">
+                             {filteredUsers.length > 0 ? (
+                               filteredUsers.map(u => (
+                                 <button
+                                   key={u.id}
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     addParticipant(u);
+                                   }}
+                                   className="w-full p-3 text-left hover:bg-white/5 flex items-center justify-between transition-colors"
+                                 >
+                                   <span className="text-xs font-bold text-white">{u.username}</span>
+                                   <span className="text-[9px] text-[#4361EE] font-black uppercase tracking-widest bg-[#4361EE]/10 px-2 py-1 rounded">
+                                     + Aggiungi
+                                   </span>
+                                 </button>
+                               ))
+                             ) : (
+                               <div className="p-4 text-center text-[10px] text-white/30 uppercase tracking-widest">
+                                 Nessun blader trovato
+                               </div>
+                             )}
+                           </div>
+                         </motion.div>
+                       )}
+                     </AnimatePresence>
+                  </div>
+                );
+              })()}
             </div>
           </motion.div>
         ) : (
