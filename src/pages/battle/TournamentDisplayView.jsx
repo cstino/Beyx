@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
 import { Sword, Shield, Wind, Trophy, Zap, Sparkles, Clock, CheckCircle2, Swords, User, Tv } from 'lucide-react';
 import { Avatar } from '../../components/Avatar';
+import { useAuthStore } from '../../store/useAuthStore';
 import '../../components/battle/DraftCard.css';
 
 export default function TournamentDisplayView() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const userEmail = useAuthStore(s => s.user?.email);
+  const isAdmin = useAuthStore(s => s.profile?.is_admin) || userEmail === 'hcskso96@gmail.com';
   const [tournament, setTournament] = useState(null);
   const [revealingPack, setRevealingPack] = useState(null);
   const [revealedCombo, setRevealedCombo] = useState(null);
@@ -690,12 +694,24 @@ export default function TournamentDisplayView() {
             const p2AvatarId = p2Participant?.avatar_id || displayedActiveBattle.p2?.avatar_id || 'avatar-2';
 
             return (
-              <div className="flex-1 flex flex-col relative min-h-0">
+              <div 
+                className={`flex-1 flex flex-col relative min-h-0 ${isAdmin && displayedActiveBattle.id ? 'cursor-pointer group' : ''}`}
+                onClick={() => {
+                  if (isAdmin && displayedActiveBattle.id) {
+                    navigate(`/battle/live/${displayedActiveBattle.id}`);
+                  }
+                }}
+              >
                 {/* Round status indicator moved to bottom-left */}
-                <div className="absolute bottom-0 left-0 z-20">
+                <div className="absolute bottom-0 left-0 z-20 flex items-center gap-2">
                    <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.25em] bg-[#0A0A1A]/90 px-3.5 py-1.5 rounded-lg border border-white/10 backdrop-blur-md shadow-md">
                      {displayedActiveBattle.isPreview ? `${displayedActiveBattle.roundTitle?.toUpperCase() || 'MATCH'} - IN ATTESA DI AVVIO` : `${displayedActiveBattle.roundTitle?.toUpperCase() || 'MATCH'} - ROUND ${liveRounds.length + 1} IN CORSO`}
                    </span>
+                   {isAdmin && displayedActiveBattle.id && (
+                     <span className="text-[9px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1.5 rounded-lg border border-primary/30 animate-pulse group-hover:scale-105 transition-transform">
+                       ⚙️ Gestisci Match
+                     </span>
+                   )}
                 </div>
 
                 {/* Pulsating Arena Background Accent */}

@@ -30,7 +30,7 @@ const FORMATS = [
 
 export default function BattlePage() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const [recentBattles, setRecentBattles] = useState([]);
   const [liveMatches, setLiveMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,17 +102,23 @@ export default function BattlePage() {
 
   async function fetchLiveMatches() {
     if (!user) return;
-    const { data } = await supabase
+    const isAdminUser = user.email === 'hcskso96@gmail.com' || profile?.is_admin;
+    
+    let query = supabase
       .from('battles')
       .select(`
         *,
         p1:player1_user_id(username, avatar_id, avatar_color),
         p2:player2_user_id(username, avatar_id, avatar_color)
       `)
-      .or(`player1_user_id.eq.${user.id},player2_user_id.eq.${user.id}`)
       .in('status', ['active', 'deck_select'])
       .order('played_at', { ascending: false });
+      
+    if (!isAdminUser) {
+      query = query.or(`player1_user_id.eq.${user.id},player2_user_id.eq.${user.id}`);
+    }
     
+    const { data } = await query;
     setLiveMatches(data || []);
   }
 
@@ -128,6 +134,17 @@ export default function BattlePage() {
 
   async function fetchMyTournaments() {
     if (!user) return;
+    const isAdminUser = user.email === 'hcskso96@gmail.com' || profile?.is_admin;
+    
+    if (isAdminUser) {
+      const { data: tourneys } = await supabase
+        .from('tournaments')
+        .select('*')
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false });
+      setMyTournaments(tourneys || []);
+      return;
+    }
     
     // Get tournaments where user is registered
     const { data: regs } = await supabase
@@ -204,7 +221,13 @@ export default function BattlePage() {
           </div>
           <div className="space-y-3">
             {liveMatches.map(match => {
-              const isAdmin = match.created_by === user?.id || match.player1_user_id === user?.id;
+              const canManage = match.created_by === user?.id || match.player1_user_id === user?.id || user?.email === 'hcskso96@gmail.com' || profile?.is_admin;
+              const starters = match.starter_beys_count || 1;
+              const reserves = match.reserve_beys_count || 0;
+              const formatLabel = reserves > 0 ? `${starters}v${starters} (+${reserves} Ris.)` : `${starters}v${starters}`;
+              const typeLabel = match.tournament_id ? 'Torneo' : match.is_official ? 'Ranked' : 'Amichevole';
+              const winCondLabel = match.win_condition === 'total_battle' ? 'Total Battle' : `Primo a ${match.point_target || 4}`;
+              
               return (
                 <motion.div 
                   key={match.id}
@@ -229,11 +252,11 @@ export default function BattlePage() {
                       </div>
                     </div>
                     <button className="px-5 py-2.5 rounded-xl bg-red-500 text-white text-[10px] font-black uppercase tracking-widest shadow-glow-red transition-all group-hover:scale-105">
-                      {isAdmin ? 'Gestisci' : 'Entra'}
+                      {canManage ? 'Gestisci' : 'Entra'}
                     </button>
                   </div>
                   <div className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] flex items-center gap-2">
-                    {match.format} · {match.battle_type || 'Amichevole'} · Primo a {match.point_target}
+                    {formatLabel} · {typeLabel} · {winCondLabel}
                   </div>
                   {/* Subtle BG effect */}
                   <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/5 blur-[40px] -translate-y-1/2 translate-x-1/2" />
@@ -328,18 +351,19 @@ export default function BattlePage() {
           <div className="space-y-4">
             {myTournaments.map(t => {
               const isCreator = t.created_by === user?.id;
+              const isAdminUser = user?.email === 'hcskso96@gmail.com' || profile?.is_admin;
               const registration = userRegistrations.find(r => r.tournament_id === t.id);
               
               let statusLabel = t.status === 'setup' ? 'In Preparazione' : 'In Corso';
-              let btnLabel = isCreator ? "Gestisci" : "Entra";
+              let btnLabel = isAdminUser ? "Display Hub" : (isCreator ? "Gestisci" : "Entra");
               let btnAction = () => {
-                if (isCreator) {
+                if (isAdminUser) {
+                  navigate(`/battle/tournament/${t.id}/display`);
+                } else if (isCreator) {
                   navigate(`/battle/new/tournament`, { state: { tournamentId: t.id } });
                 } else if (t.status === 'setup') {
                   navigate(`/battle/tournament/${t.id}/join`);
                 } else {
-                  // If active, we need a way for participants to view the bracket
-                  // For now, let's lead them to the tournament page which should handle active state
                   navigate(`/battle/new/tournament`, { state: { tournamentId: t.id, viewOnly: true } });
                 }
               };
@@ -367,7 +391,7 @@ export default function BattlePage() {
                         <Trophy size={14} className="text-primary" />
                       </div>
                       <div className="text-[10px] font-bold text-white/40 uppercase">
-                        {isCreator ? 'Creato da te' : 'Partecipante'}
+                        {isAdminUser ? 'Arbitro / Hub' : (isCreator ? 'Creato da te' : 'Partecipante')}
                       </div>
                     </div>
                     <button className="px-5 py-2.5 rounded-xl bg-primary text-white text-[9px] font-black uppercase tracking-widest shadow-glow-primary">

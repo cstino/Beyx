@@ -11,6 +11,7 @@ import { RankBadge, getRankFromElo, getNextThreshold, RANK_RANGES } from '../../
 import { Avatar } from '../../components/Avatar';
 import { Info, AlertCircle, ChevronRight, Share2, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { RefereeCountdownScreen } from '../../components/battle/RefereeCountdownScreen';
 
 const FINISH_TYPES = [
   { id: 'burst',       name: 'Burst',   points: 2, icon: Zap,       color: '#E94560' },
@@ -24,7 +25,8 @@ export function LiveMatchPage() {
   const { battleId } = useParams();
   const navigate = useNavigate();
   const userId = useAuthStore(s => s.user?.id);
-  const isAdmin = useAuthStore(s => s.profile?.is_admin);
+  const userEmail = useAuthStore(s => s.user?.email);
+  const isAdmin = useAuthStore(s => s.profile?.is_admin) || userEmail === 'hcskso96@gmail.com';
   const setHeader = useUIStore(s => s.setHeader);
   const clearHeader = useUIStore(s => s.clearHeader);
 
@@ -40,6 +42,7 @@ export function LiveMatchPage() {
   const [selectedWinner, setSelectedWinner] = useState(null);
   const [selectedFinish, setSelectedFinish] = useState(null);
   const [eloResult, setEloResult] = useState(null);
+  const [showCountdown, setShowCountdown] = useState(false);
 
   useEffect(() => {
     setHeader('BATTLE ARENA', '/battle');
@@ -456,6 +459,25 @@ export function LiveMatchPage() {
       {/* CONTROLS (Only for Creator/Admin) */}
       {!isComplete && !isTargetReached && isCreator && (
         <div className="mx-4 mb-6">
+          {userEmail === 'hcskso96@gmail.com' && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setShowCountdown(true)}
+              className="w-full py-4 mb-6 rounded-2xl font-black tracking-[0.2em] text-white uppercase text-xs flex items-center justify-center gap-2 border border-[#4361EE]/40"
+              style={{
+                background: 'linear-gradient(135deg, #4361EE, #2E45C9)',
+                boxShadow: '0 4px 20px -4px rgba(67,97,238,0.5)'
+              }}
+            >
+              <Sparkles size={16} className="text-white animate-spin" style={{ animationDuration: '3s' }} />
+              <span>Avvia Countdown Lancio</span>
+            </motion.button>
+          )}
+
+          {showCountdown && (
+            <RefereeCountdownScreen onComplete={() => setShowCountdown(false)} />
+          )}
+
           <div className="text-[10px] font-black text-white/50 tracking-[0.2em] mb-3 text-center uppercase">Bey per questo round</div>
           <div className="grid grid-cols-2 gap-3 mb-6">
             <ComboSelector label={p1Name} combos={p1Combos} selected={selectedP1Combo} onSelect={setSelectedP1Combo} accentColor="#E94560" getBeyName={getBeyName} blades={parts.blades} />
