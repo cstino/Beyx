@@ -16,6 +16,8 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
   // Selection state
   const [deck, setDeck] = useState([]); // [{ blade_id, is_stock, ratchet_id, bit_id }]
   const [activeSlot, setActiveSlot] = useState(null);
+  const [openDropdownSlot, setOpenDropdownSlot] = useState(null);
+  const [bladeSearch, setBladeSearch] = useState('');
 
   useEffect(() => {
     fetchParts();
@@ -108,8 +110,8 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
         {deck.map((bey, i) => {
           const isReserve = i >= (match.starter_beys_count || (match.format?.includes('3v3') ? 3 : 1));
           return (
-          <div key={i} className={`p-6 rounded-[32px] bg-[#12122A] border space-y-5 relative overflow-hidden ${isReserve ? 'border-[#4361EE]/20' : 'border-white/5'}`}>
-            {isReserve && <div className="absolute top-0 right-0 left-0 h-1 bg-[#4361EE]/20" />}
+          <div key={i} style={{ zIndex: 50 - i }} className={`p-6 rounded-[32px] bg-[#12122A] border space-y-5 relative ${isReserve ? 'border-[#4361EE]/20' : 'border-white/5'}`}>
+            {isReserve && <div className="absolute top-0 right-0 left-0 h-1 bg-[#4361EE]/20 rounded-t-[32px]" />}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Beyblade {i+1}</div>
@@ -142,55 +144,90 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
             <div className="space-y-4">
               {/* Blade Picker */}
               <div className="relative">
-                <button 
+                <div 
                   onClick={() => {
-                    const el = document.getElementById(`dropdown-${i}`);
-                    el.classList.toggle('hidden');
+                    if (openDropdownSlot !== i) {
+                      setOpenDropdownSlot(i);
+                      setBladeSearch('');
+                    }
                   }}
-                  className="w-full h-16 bg-white/5 rounded-2xl px-5 flex items-center justify-between border border-white/5 hover:border-white/20 transition-all"
+                  className="w-full h-16 bg-white/5 rounded-2xl px-5 flex items-center justify-between border border-white/5 hover:border-white/20 transition-all cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    {bey.blade_id ? (
+                  <div className="flex items-center gap-3 w-full mr-2">
+                    {bey.blade_id && openDropdownSlot !== i ? (
                       <>
                         <img 
                           src={blades.find(b => b.id === bey.blade_id)?.image_url} 
-                          className="w-10 h-10 object-contain drop-shadow-lg" 
+                          className="w-10 h-10 object-contain drop-shadow-lg shrink-0" 
                           alt="" 
                         />
                         <span className="text-white font-black uppercase text-xs truncate">
                           {blades.find(b => b.id === bey.blade_id)?.name}
                         </span>
                       </>
+                    ) : openDropdownSlot === i ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={bladeSearch}
+                        onChange={(e) => setBladeSearch(e.target.value)}
+                        placeholder="Cerca blade..."
+                        className="bg-transparent text-white font-black uppercase text-xs w-full outline-none placeholder-white/20"
+                      />
                     ) : (
                       <span className="text-white/20 font-black uppercase text-xs italic">Seleziona Blade...</span>
                     )}
                   </div>
-                  <Plus size={14} className="text-white/20" />
-                </button>
-
-                <div 
-                  id={`dropdown-${i}`}
-                  className="hidden absolute top-full left-0 right-0 mt-2 bg-[#12122A] border border-white/10 rounded-3xl shadow-2xl z-50 max-h-[250px] overflow-y-auto no-scrollbar backdrop-blur-3xl"
-                >
-                  {blades.map(b => (
-                    <button
-                      key={b.id}
-                      onClick={() => {
-                        updateBey(i, 'blade_id', b.id);
-                        document.getElementById(`dropdown-${i}`).classList.add('hidden');
+                  {openDropdownSlot === i ? (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenDropdownSlot(null);
                       }}
-                      className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-all text-left border-b border-white/[0.02] last:border-0"
+                      className="text-white/40 hover:text-white p-1"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center p-2">
-                          <img src={b.image_url} className="w-full h-full object-contain" alt="" />
-                        </div>
-                        <div className="text-xs font-black text-white uppercase italic">{b.name}</div>
-                      </div>
-                      {bey.blade_id === b.id && <Check size={14} className="text-primary" />}
+                      <X size={14} />
                     </button>
-                  ))}
+                  ) : (
+                    <Plus size={14} className="text-white/20 shrink-0" />
+                  )}
                 </div>
+
+                {openDropdownSlot === i && (
+                  <>
+                    <div 
+                      onClick={() => setOpenDropdownSlot(null)} 
+                      className="fixed inset-0 z-40"
+                    />
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#12122A] border border-white/10 rounded-3xl shadow-2xl z-50 max-h-[250px] overflow-y-auto no-scrollbar backdrop-blur-3xl">
+                      {blades
+                        .filter(b => b.name.toLowerCase().includes(bladeSearch.toLowerCase()))
+                        .map(b => (
+                          <button
+                            key={b.id}
+                            onClick={() => {
+                              updateBey(i, 'blade_id', b.id);
+                              setOpenDropdownSlot(null);
+                            }}
+                            className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-all text-left border-b border-white/[0.02] last:border-0"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center p-2 shrink-0">
+                                <img src={b.image_url} className="w-full h-full object-contain" alt="" />
+                              </div>
+                              <div className="text-xs font-black text-white uppercase italic">{b.name}</div>
+                            </div>
+                            {bey.blade_id === b.id && <Check size={14} className="text-primary shrink-0" />}
+                          </button>
+                        ))}
+                      {blades.filter(b => b.name.toLowerCase().includes(bladeSearch.toLowerCase())).length === 0 && (
+                        <div className="p-4 text-center text-xs font-bold text-white/20 uppercase">
+                          Nessuna blade trovata
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
 
               {!bey.is_stock && (

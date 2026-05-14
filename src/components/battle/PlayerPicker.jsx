@@ -84,7 +84,7 @@ export function PlayerPicker({ battle, onChange, onNext }) {
                   size={44}
                 />
                 <div className="flex-1 text-left">
-                  <div className="text-white font-bold text-sm tracking-tight">{u.username}</div>
+                  <div className="text-white font-createfuture font-black italic uppercase text-sm tracking-tight">{u.username}</div>
                   <div className="text-white/30 text-[10px] font-bold uppercase tracking-widest leading-none mt-1">Blader Registrato</div>
                 </div>
                 {selected && (
@@ -116,7 +116,7 @@ export function PlayerPicker({ battle, onChange, onNext }) {
           placeholder="Nome dell'ospite"
           value={battle.player2.guest_name ?? ''}
           onChange={e => setGuestName(e.target.value)}
-          className="flex-1 bg-transparent text-white text-sm font-bold outline-none placeholder-white/10"
+          className="flex-1 bg-transparent text-white text-sm font-createfuture font-black italic uppercase outline-none placeholder-white/10"
         />
       </div>
 
