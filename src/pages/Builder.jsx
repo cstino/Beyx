@@ -122,6 +122,8 @@ export default function Builder() {
       if (error) throw error;
       setSavedCombos([data, ...savedCombos]);
       setView('saved');
+      reset();
+      setIsBuilding(false);
       toast.success('Combo registrata nell\'Arena!');
     } catch (err) {
       toast.error('Registrazione fallita: ' + err.message);
@@ -283,19 +285,17 @@ export default function Builder() {
                       part={p} 
                       owned={ownedIds.has(p.id)}
                       wishlisted={wishlistIds.has(p.id)}
-                      onClick={() => {
+                      onClick={(effectivePart) => {
+                        const target = effectivePart || p;
                         if (activeTab === 'blades') {
-                          const stockRatchet = parts.ratchets.find(r => r.name === p.stock_ratchet);
-                          const stockBit = parts.bits.find(b => b.name === p.stock_bit);
-                          select('blade', p);
+                          const stockRatchet = parts.ratchets.find(r => r.name === target.stock_ratchet);
+                          const stockBit = parts.bits.find(b => b.name === target.stock_bit);
+                          select('blade', target);
                           if (stockRatchet) select('ratchet', stockRatchet);
                           if (stockBit) select('bit', stockBit);
                           setActiveTab('ratchets');
-                          // Don't auto-open drawer, let them see stock parts
                         } else {
-                          select(activeTab.slice(0, -1), p);
-                          // If it was the last piece manually, maybe open? 
-                          // Let's keep it manual for consistency
+                          select(activeTab.slice(0, -1), target);
                         }
                       }}
                       className={`
@@ -327,27 +327,27 @@ export default function Builder() {
         <div className="px-4 mt-6">
           {/* Filtering & Sorting Controls */}
           <div className="mb-8 space-y-4">
-             <div className="flex items-center justify-between px-1">
-                <h2 className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">
                    VISTA FILTRATA ({filteredAndSortedCombos.length})
                 </h2>
                 <button 
                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                   className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10 text-[8px] font-black text-white/50 active:scale-95 transition-all"
+                   className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[9px] font-black text-white/40 active:scale-95 transition-all uppercase tracking-widest"
                 >
-                   <ArrowUpDown size={12} /> {sortOrder === 'desc' ? 'VOTO HIGH' : 'VOTO LOW'}
+                   <ArrowUpDown size={12} className="text-primary" /> {sortOrder === 'desc' ? 'High Rating' : 'Low Rating'}
                 </button>
-             </div>
+              </div>
              
              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 px-1">
                 {TYPES.map(type => (
                    <button
                       key={type}
                       onClick={() => setFilterType(type)}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${
+                      className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${
                          filterType === type 
-                           ? 'bg-[#E94560] border-[#E94560] text-white shadow-glow-primary' 
-                           : 'bg-white/5 border-white/5 text-white/40'
+                           ? 'bg-primary border-primary text-white shadow-glow-primary-sm' 
+                           : 'bg-[#12122A] border-white/5 text-white/30 hover:border-white/10'
                       }`}
                    >
                       {type}
@@ -356,10 +356,10 @@ export default function Builder() {
              </div>
           </div>
           
-          <div className="space-y-3 pb-20">
+          <div className="grid grid-cols-2 gap-3 pb-32">
             {filteredAndSortedCombos.length === 0 ? (
-                <div className="py-20 text-center bg-[#12122A] rounded-3xl border border-dashed border-white/10 mx-2">
-                   <p className="text-xs text-white/30 font-black uppercase tracking-[0.2em] leading-relaxed">
+                <div className="py-20 text-center bg-[#12122A]/50 rounded-[40px] border border-dashed border-white/10 mx-2">
+                   <p className="text-xs text-white/20 font-black uppercase tracking-[0.2em] leading-relaxed">
                        Nessuna combo trovata.<br/>{filterType !== 'ALL' ? 'Prova con un altro filtro.' : 'Crea subito la prima!'}
                    </p>
                 </div>

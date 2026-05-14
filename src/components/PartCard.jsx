@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Zap, Target, Star, Check, Heart } from 'lucide-react';
+import { Shield, Zap, Target, Star, Check, Heart, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -25,13 +25,34 @@ const archetypeColors = {
 };
 
 export default function PartCard({ part, owned = false, wishlisted = false, onClick, className }) {
-  const { name, type, tier, image_url, kind } = part;
+  const [variantIdx, setVariantIdx] = React.useState(0);
+  
+  // Combine main image with variants
+  const allVariants = React.useMemo(() => {
+    const base = { image_url: part.image_url, release_code: part.release_code, isBase: true };
+    const others = (part.variants || []).map(v => ({ ...v, isBase: false }));
+    return [base, ...others];
+  }, [part]);
+
+  const currentVariant = allVariants[variantIdx] || allVariants[0];
+  const { name, type, tier, kind } = part;
+  const image_url = currentVariant.image_url;
+
+  const handleNext = (e) => {
+    e.stopPropagation();
+    setVariantIdx((prev) => (prev + 1) % allVariants.length);
+  };
+
+  const handlePrev = (e) => {
+    e.stopPropagation();
+    setVariantIdx((prev) => (prev - 1 + allVariants.length) % allVariants.length);
+  };
 
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
-      onClick={onClick}
+      onClick={() => onClick({ ...part, image_url: currentVariant.image_url, release_code: currentVariant.release_code })}
       className={cn(
         "glass-card p-4 flex flex-col gap-3 cursor-pointer relative group transition-all duration-300",
         className
@@ -45,8 +66,38 @@ export default function PartCard({ part, owned = false, wishlisted = false, onCl
         {tier || 'C'}
       </div>
 
-      {/* Part Image */}
-      <div className="aspect-square w-full flex items-center justify-center p-2 bg-transparent">
+      {/* Part Image Section */}
+      <div className="aspect-square w-full flex items-center justify-center p-2 bg-transparent relative">
+        {allVariants.length > 1 && (
+          <>
+            <button 
+              onClick={handlePrev}
+              className="absolute left-0 z-30 p-1 bg-black/20 hover:bg-black/40 rounded-full text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+            >
+              <ChevronRight className="rotate-180" size={16} />
+            </button>
+            <button 
+              onClick={handleNext}
+              className="absolute right-0 z-30 p-1 bg-black/20 hover:bg-black/40 rounded-full text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+            >
+              <ChevronRight size={16} />
+            </button>
+            
+            {/* Variant Dots */}
+            <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 z-30">
+              {allVariants.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={cn(
+                    "w-1 h-1 rounded-full transition-all",
+                    i === variantIdx ? "bg-primary w-3" : "bg-white/20"
+                  )} 
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         <PartImage 
           src={image_url} 
           name={name} 
@@ -72,7 +123,7 @@ export default function PartCard({ part, owned = false, wishlisted = false, onCl
       {/* Release Code Badge */}
       <div className="absolute bottom-4 right-4 opacity-40 group-hover:opacity-100 transition-opacity">
         <span className="text-[8px] font-black tracking-widest text-slate-400 border border-white/10 px-1.5 py-0.5 rounded uppercase bg-white/5">
-          {part.release_code || 'PROMO'}
+          {currentVariant.release_code || 'PROMO'}
         </span>
       </div>
 
