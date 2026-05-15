@@ -83,7 +83,7 @@ export function SavedComboCard({ combo, onClick, onDelete, hideActions, compactL
          <div className="p-3 flex flex-col flex-1">
            {/* Combo Name */}
            <div className="mb-3 overflow-hidden">
-             <h3 className="text-[13px] font-black text-white italic tracking-tight uppercase font-createfuture leading-none truncate group-hover:text-primary transition-colors">
+             <h3 className="text-[13px] font-black text-white italic tracking-tight uppercase font-createfuture leading-none truncate transition-colors">
                {combo.blade?.name}
              </h3>
              <p className="text-[9px] font-black text-white/30 uppercase tracking-widest leading-none mt-1.5 truncate">
