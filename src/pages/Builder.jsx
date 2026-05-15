@@ -40,6 +40,7 @@ export default function Builder() {
   
   const [comboToDelete, setComboToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { setHeader, clearHeader } = useUIStore();
 
@@ -116,7 +117,9 @@ export default function Builder() {
         blade_id: blade.id,
         ratchet_id: ratchet.id,
         bit_id: bit.id,
-        combo_type: blade.type 
+        combo_type: blade.type,
+        override_image_url: blade.image_url,
+        override_release_code: blade.release_code
       }).select('*, blade:blades(*), ratchet:ratchets(*), bit:bits(*)').single();
       
       if (error) throw error;
@@ -265,7 +268,10 @@ export default function Builder() {
                   {['blades', 'ratchets', 'bits'].map((type) => (
                     <button
                       key={type}
-                      onClick={() => setActiveTab(type)}
+                      onClick={() => {
+                        setActiveTab(type);
+                        setSearchQuery('');
+                      }}
                       className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
                         activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
                       }`}
@@ -274,12 +280,39 @@ export default function Builder() {
                     </button>
                   ))}
                 </div>
+
+                {/* Search Bar */}
+                <div className="mt-4 relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                    <Search size={14} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={`Cerca ${activeTab.slice(0, -1)} o codice...`}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-[#12122A] border border-white/5 rounded-xl py-3 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#4361EE]/50 focus:ring-1 focus:ring-[#4361EE]/20 transition-all font-bold uppercase tracking-wider"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 hover:text-white uppercase px-2"
+                    >
+                      Cancella
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* List Section */}
               <div className="px-4 py-3">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-2">
-                  {parts[activeTab].map((p) => (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 mt-2">
+                  {parts[activeTab]
+                    .filter(p => 
+                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                      (p.release_code && p.release_code.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )
+                    .map((p) => (
                     <PartCard 
                       key={p.id} 
                       part={p} 
@@ -287,6 +320,7 @@ export default function Builder() {
                       wishlisted={wishlistIds.has(p.id)}
                       onClick={(effectivePart) => {
                         const target = effectivePart || p;
+                        setSearchQuery(''); // Clear search when a part is selected
                         if (activeTab === 'blades') {
                           const stockRatchet = parts.ratchets.find(r => r.name === target.stock_ratchet);
                           const stockBit = parts.bits.find(b => b.name === target.stock_bit);

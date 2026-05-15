@@ -48,13 +48,28 @@ export default function PartCard({ part, owned = false, wishlisted = false, onCl
     setVariantIdx((prev) => (prev - 1 + allVariants.length) % allVariants.length);
   };
 
+  const handleDragEnd = (e, { offset, velocity }) => {
+    if (allVariants.length <= 1) return;
+    
+    const swipeThreshold = 50;
+    const velocityThreshold = 500;
+    
+    if (Math.abs(offset.x) > swipeThreshold || Math.abs(velocity.x) > velocityThreshold) {
+      if (offset.x > 0) {
+        handlePrev(e);
+      } else {
+        handleNext(e);
+      }
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
       onClick={() => onClick({ ...part, image_url: currentVariant.image_url, release_code: currentVariant.release_code })}
       className={cn(
-        "glass-card p-4 flex flex-col gap-3 cursor-pointer relative group transition-all duration-300",
+        "glass-card p-4 flex flex-col gap-3 cursor-pointer relative group transition-all duration-300 overflow-hidden",
         className
       )}
     >
@@ -67,43 +82,57 @@ export default function PartCard({ part, owned = false, wishlisted = false, onCl
       </div>
 
       {/* Part Image Section */}
-      <div className="aspect-square w-full flex items-center justify-center p-2 bg-transparent relative">
+      <div className="aspect-square w-full flex items-center justify-center p-2 bg-transparent relative touch-pan-y">
         {allVariants.length > 1 && (
           <>
             <button 
               onClick={handlePrev}
-              className="absolute left-0 z-30 p-1 bg-black/20 hover:bg-black/40 rounded-full text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+              className="absolute left-0 z-30 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
             >
-              <ChevronRight className="rotate-180" size={16} />
+              <ChevronRight className="rotate-180" size={14} />
             </button>
             <button 
               onClick={handleNext}
-              className="absolute right-0 z-30 p-1 bg-black/20 hover:bg-black/40 rounded-full text-white/50 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+              className="absolute right-0 z-30 p-1.5 bg-black/40 hover:bg-black/60 rounded-full text-white/70 hover:text-white transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
             
             {/* Variant Dots */}
-            <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 z-30">
+            <div className="absolute bottom-1 left-0 right-0 flex justify-center gap-1.5 z-30">
               {allVariants.map((_, i) => (
-                <div 
+                <motion.div 
                   key={i} 
-                  className={cn(
-                    "w-1 h-1 rounded-full transition-all",
-                    i === variantIdx ? "bg-primary w-3" : "bg-white/20"
-                  )} 
+                  animate={{ 
+                    width: i === variantIdx ? 12 : 4,
+                    backgroundColor: i === variantIdx ? '#4361EE' : 'rgba(255,255,255,0.2)'
+                  }}
+                  className="h-1 rounded-full" 
                 />
               ))}
             </div>
           </>
         )}
 
-        <PartImage 
-          src={image_url} 
-          name={name} 
-          type={kind} 
-          className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
-        />
+        <motion.div
+          key={image_url}
+          drag={allVariants.length > 1 ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.2}
+          onDragEnd={handleDragEnd}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+        >
+          <PartImage 
+            src={image_url} 
+            name={name} 
+            type={kind} 
+            className="w-full h-full object-contain pointer-events-none drop-shadow-[0_10px_15px_rgba(0,0,0,0.4)]"
+          />
+        </motion.div>
       </div>
 
       <div className="flex flex-col">

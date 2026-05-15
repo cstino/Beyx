@@ -101,7 +101,7 @@ export function SavedComboCard({ combo, onClick, onDelete, hideActions, compactL
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05)_0%,transparent_70%)]" />
              
              <motion.img 
-               src={combo.blade?.image_url} 
+               src={combo.override_image_url || combo.blade?.image_url} 
                alt="blade" 
                className="w-[85%] h-[85%] object-contain relative z-10 drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)]"
                whileHover={{ rotate: 10, scale: 1.05 }}
