@@ -16,6 +16,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body class="bg-background text-slate-100 antialiased selection:bg-primary/30">
+    <!-- Splash Screen Statica: visibile istantaneamente mentre il JS carica -->
+    <div id="initial-loader" style="position:fixed;top:0;left:0;right:0;bottom:0;background:#0A0A1A;display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.5s ease-out">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
+        <img src="/beyx.svg" style="width:160px;height:auto;opacity:0.5;animation:initial-pulse 2s infinite ease-in-out" alt="BeyX">
+      </div>
+      <style>
+        @keyframes initial-pulse { 
+          0%, 100% { opacity: 0.3; transform: scale(0.95); } 
+          50% { opacity: 0.6; transform: scale(1); } 
+        }
+      </style>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
