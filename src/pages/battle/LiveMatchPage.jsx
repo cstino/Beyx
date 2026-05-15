@@ -227,109 +227,109 @@ export function LiveMatchPage() {
     : (p1Score >= battle.point_target || p2Score >= battle.point_target);
 
   async function handleEndMatch() {
-    let winnerSide = 'draw';
-    if (p1Score > p2Score) winnerSide = 'p1';
-    else if (p2Score > p1Score) winnerSide = 'p2';
-    
-    // 1. Update the battle status if not already completed
-    if (battle.status !== 'completed') {
-      const { error: battleErr } = await supabase.from('battles').update({ 
-        status: 'completed', 
-        winner_side: winnerSide,
-        points_p1: p1Score,
-        points_p2: p2Score,
-        played_at: new Date().toISOString()
-      }).eq('id', battleId);
-
-      if (battleErr) {
-        useToastStore.getState().error("Errore: " + battleErr.message);
-        return;
-      }
-    }
-
-    // 2. If it's a tournament match, update the tournament structure
-    if (battle.tournament_id) {
-      const { data: tourney } = await supabase.from('tournaments')
-        .select('*')
-        .eq('id', battle.tournament_id)
-        .single();
+    try {
+      let winnerSide = 'draw';
+      if (p1Score > p2Score) winnerSide = 'p1';
+      else if (p2Score > p1Score) winnerSide = 'p2';
       
-      if (tourney) {
-        const structure = typeof tourney.structure === 'string' ? JSON.parse(tourney.structure) : tourney.structure;
-        let found = false;
-        let rIdx = -1;
-        let mIdx = -1;
+      // 1. Update the battle status if not already completed
+      if (battle.status !== 'completed') {
+        const { error: battleErr } = await supabase.from('battles').update({ 
+          status: 'completed', 
+          winner_side: winnerSide,
+          points_p1: p1Score,
+          points_p2: p2Score,
+          played_at: new Date().toISOString()
+        }).eq('id', battleId);
 
-        // Find the match in the structure
-        structure.rounds.forEach((r, ri) => {
-          r.matches.forEach((m, mi) => {
-            if (m.battle_id === battleId) {
-              rIdx = ri;
-              mIdx = mi;
-              m.winner = winnerSide;
-              m.score = { p1: p1Score, p2: p2Score };
-              found = true;
-            }
-          });
-        });
+        if (battleErr) {
+          useToastStore.getState().error("Errore: " + battleErr.message);
+          return;
+        }
+      }
 
-        if (found) {
-          const winner = winnerSide === 'p1' ? structure.rounds[rIdx].matches[mIdx].p1 : 
-                         winnerSide === 'p2' ? structure.rounds[rIdx].matches[mIdx].p2 : null;
-          let updatedStatus = tourney.status;
-          let winnerUserId = tourney.winner_user_id;
-          let winnerGuestName = tourney.winner_guest_name;
+      // 2. If it's a tournament match, update the tournament structure
+      if (battle.tournament_id) {
+        const { data: tourney } = await supabase.from('tournaments')
+          .select('*')
+          .eq('id', battle.tournament_id)
+          .single();
+        
+        if (tourney) {
+          const structure = typeof tourney.structure === 'string' ? JSON.parse(tourney.structure) : tourney.structure;
+          let found = false;
+          let rIdx = -1;
+          let mIdx = -1;
 
-          if (tourney.format === 'bracket' && winner) {
-            if (rIdx < structure.rounds.length - 1) {
-              let currentR = rIdx;
-              let currentM = mIdx;
-              let currentWinner = winner;
-
-              while (currentR < structure.rounds.length - 1) {
-                const nextR = currentR + 1;
-                const nextM = Math.floor(currentM / 2);
-                
-                if (currentM % 2 === 0) structure.rounds[nextR].matches[nextM].p1 = currentWinner;
-                else structure.rounds[nextR].matches[nextM].p2 = currentWinner;
-
-                const nextMatch = structure.rounds[nextR].matches[nextM];
-                if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
-                  nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
-                  currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
-                  currentR = nextR;
-                  currentM = nextM;
-                } else break;
+          // Find the match in the structure
+          structure.rounds.forEach((r, ri) => {
+            r.matches.forEach((m, mi) => {
+              if (m.battle_id === battleId) {
+                rIdx = ri;
+                mIdx = mi;
+                m.winner = winnerSide;
+                m.score = { p1: p1Score, p2: p2Score };
+                found = true;
               }
-            } else {
-              updatedStatus = 'completed';
-              winnerUserId = winner.user_id;
-              winnerGuestName = winner.username;
+            });
+          });
+
+          if (found) {
+            const winner = winnerSide === 'p1' ? structure.rounds[rIdx].matches[mIdx].p1 : 
+                           winnerSide === 'p2' ? structure.rounds[rIdx].matches[mIdx].p2 : null;
+            let updatedStatus = tourney.status;
+            let winnerUserId = tourney.winner_user_id;
+            let winnerGuestName = tourney.winner_guest_name;
+
+            if (tourney.format === 'bracket' && winner) {
+              if (rIdx < structure.rounds.length - 1) {
+                let currentR = rIdx;
+                let currentM = mIdx;
+                let currentWinner = winner;
+
+                while (currentR < structure.rounds.length - 1) {
+                  const nextR = currentR + 1;
+                  const nextM = Math.floor(currentM / 2);
+                  
+                  if (currentM % 2 === 0) structure.rounds[nextR].matches[nextM].p1 = currentWinner;
+                  else structure.rounds[nextR].matches[nextM].p2 = currentWinner;
+
+                  const nextMatch = structure.rounds[nextR].matches[nextM];
+                  if (nextMatch.p1 && nextMatch.p2 && (nextMatch.p1.isBye || nextMatch.p2.isBye)) {
+                    nextMatch.winner = nextMatch.p1.isBye ? 'p2' : 'p1';
+                    currentWinner = nextMatch.winner === 'p1' ? nextMatch.p1 : nextMatch.p2;
+                    currentR = nextR;
+                    currentM = nextM;
+                  } else break;
+                }
+              } else {
+                updatedStatus = 'completed';
+                winnerUserId = winner.user_id;
+                winnerGuestName = winner.username;
+              }
             }
-          }
 
-          // Update tournament in DB
-          const { error: tourneyUpdateError } = await supabase.from('tournaments').update({
-            structure,
-            status: updatedStatus,
-            winner_user_id: winnerUserId,
-            winner_guest_name: winnerGuestName,
-            completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
-          }).eq('id', tourney.id);
+            // Update tournament in DB
+            const { error: tourneyUpdateError } = await supabase.from('tournaments').update({
+              structure,
+              status: updatedStatus,
+              winner_user_id: winnerUserId,
+              winner_guest_name: winnerGuestName,
+              completed_at: updatedStatus === 'completed' ? new Date().toISOString() : null
+            }).eq('id', tourney.id);
 
-          if (tourneyUpdateError) {
-            console.error("Error updating tournament:", tourneyUpdateError);
-            useToastStore.getState().error("Errore aggiornamento torneo: " + tourneyUpdateError.message);
+            if (tourneyUpdateError) {
+              console.error("Error updating tournament:", tourneyUpdateError);
+            }
           }
         }
       }
-    }
 
-    useToastStore.getState().success("Match concluso!");
-    
-    if (battle.is_official) {
-      // Fetch ELO changes from history
-      setTimeout(async () => {
+      useToastStore.getState().success("Match concluso!");
+
+      // 3. ELO / Navigation logic
+      if (battle.is_official) {
+        // Recuperiamo i cambiamenti ELO (se presenti) solo se siamo un partecipante
         const { data: history } = await supabase
           .from('user_elo_history')
           .select('*')
@@ -350,19 +350,32 @@ export function LiveMatchPage() {
         } else {
           handleEndMatchNavigation();
         }
-      }, 1000);
-    } else {
+      } else {
+        handleEndMatchNavigation();
+      }
+    } catch (err) {
+      console.error("Error in handleEndMatch:", err);
+      useToastStore.getState().error("Errore nel completamento del match");
       handleEndMatchNavigation();
     }
   }
 
   const handleEndMatchNavigation = () => {
     if (battle.tournament_id) {
+      // Priorità 1: Se l'utente è l'arbitro "ufficiale" (email dedicata), torna sempre al display
       if (userEmail === 'hcskso96@gmail.com') {
         navigate(`/battle/tournament/${battle.tournament_id}/display`);
-      } else {
-        navigate(`/battle/tournament/${battle.tournament_id}`);
+        return;
       }
+      
+      // Priorità 2: Se l'utente è l'admin/creatore del torneo, torna alla pagina del torneo (gestione)
+      if (isAdmin || userId === battle.created_by) {
+        navigate(`/battle/tournament/${battle.tournament_id}`);
+        return;
+      }
+
+      // Default: Torna alla lista battaglie
+      navigate('/battle');
     } else {
       navigate('/battle');
     }

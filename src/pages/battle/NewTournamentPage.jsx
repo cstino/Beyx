@@ -604,7 +604,7 @@ export default function NewTournamentPage() {
         if (!nextRound) continue;
 
         currentRound.matches.forEach((m, mIdx) => {
-          if (m.winner) {
+          if (m.winner && m.winner !== 'draw') {
             const winnerObj = m.winner === 'p1' ? m.p1 : m.p2;
             
             if (currentRound.title === 'Play-In') {
