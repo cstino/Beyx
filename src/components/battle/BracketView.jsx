@@ -255,7 +255,11 @@ function StandingsTable({ standings }) {
             {standings.map((s, i) => (
               <tr key={s.user_id || s.guest_name || s.username} className="text-[11px] font-black text-white uppercase">
                 <td className="px-3 py-3 text-center text-white/20 font-createfuture">{i + 1}</td>
-                <td className="px-3 py-3 font-createfuture pr-2 whitespace-nowrap overflow-visible">{s.username}</td>
+                <td className="px-3 py-3 font-createfuture pr-2">
+                  <div className="flex items-center gap-2 max-w-[100px] sm:max-w-none">
+                    <span className="truncate">{s.username}</span>
+                  </div>
+                </td>
                 <td className="px-1.5 py-3 text-center text-white/70">{s.won}</td>
                 <td className="px-1.5 py-3 text-center text-white/30">{s.lost}</td>
                 <td className="px-1.5 py-3 text-center text-white/40">{s.draws || 0}</td>

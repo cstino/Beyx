@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check, Users } from 'lucide-react';
+import { Trophy, LayoutGrid, X, Trash2, Zap, Target, Flame, RotateCcw, Minus, Plus, Check, Users, Sparkles, Swords } from 'lucide-react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { TournamentSetup } from '../../components/battle/TournamentSetup';
 import { BracketView } from '../../components/battle/BracketView';
@@ -28,6 +28,10 @@ export default function NewTournamentPage() {
   const [stage, setStage] = useState('setup'); // 'setup' | 'active'
   const [tournament, setTournament] = useState(null);
   const [loadingTournament, setLoadingTournament] = useState(true);
+  const [battles, setBattles] = useState([]);
+  const [allRounds, setAllRounds] = useState([]);
+  const [allCombos, setAllCombos] = useState([]);
+  const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [blades, setBlades] = useState([]);
   const [ratchets, setRatchets] = useState([]);
@@ -63,8 +67,6 @@ export default function NewTournamentPage() {
         setLoadingTournament(false);
         return;
       }
-      
-      const isAdminUser = user?.email === 'hcskso96@gmail.com' || profile?.is_admin;
       
       const targetId = tournamentId || location.state?.tournamentId;
       let query = supabase.from('tournaments').select('*');
@@ -132,6 +134,40 @@ export default function NewTournamentPage() {
             }
           } else {
             setStage('active');
+          }
+        }
+
+        // FETCH ADDITIONAL DATA FOR DETAILS
+        const tid = data.id;
+        const [bladesRes, ratchetsRes, bitsRes, battlesRes] = await Promise.all([
+          supabase.from('blades').select('*'),
+          supabase.from('ratchets').select('*'),
+          supabase.from('bits').select('*'),
+          supabase.from('battles').select('*').eq('tournament_id', tid)
+        ]);
+        
+        setParts({
+          blades: bladesRes.data || [],
+          ratchets: ratchetsRes.data || [],
+          bits: bitsRes.data || []
+        });
+        setBattles(battlesRes.data || []);
+
+        if (battlesRes.data?.length > 0) {
+          const battleIds = battlesRes.data.map(b => b.id);
+          const { data: roundsData } = await supabase.from('rounds').select('*').in('battle_id', battleIds);
+          setAllRounds(roundsData || []);
+
+          const comboIds = [...new Set([
+            ...battlesRes.data.map(b => b.player1_combo_id),
+            ...battlesRes.data.map(b => b.player2_combo_id),
+            ...(roundsData || []).map(r => r.p1_combo_id),
+            ...(roundsData || []).map(r => r.p2_combo_id)
+          ])].filter(Boolean);
+
+          if (comboIds.length > 0) {
+            const { data: combosData } = await supabase.from('combos').select('*').in('id', comboIds);
+            setAllCombos(combosData || []);
           }
         }
       } else {
@@ -1192,32 +1228,184 @@ export default function NewTournamentPage() {
               )}
            </div>
          ) : tournament?.status === 'completed' ? (
-           <motion.div 
-             initial={{ opacity: 0, scale: 0.9 }}
-             animate={{ opacity: 1, scale: 1 }}
-             className="flex flex-col items-center justify-center pt-20 text-center"
-           >
-             <div className="w-24 h-24 bg-gradient-to-br from-[#F5A623] to-[#FF7E5F] rounded-full flex items-center justify-center mb-6 shadow-glow-primary">
-               <Trophy size={48} className="text-white drop-shadow-lg" />
-             </div>
-             <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">CAMPIONE!</h2>
-             <p className="text-white/40 font-bold uppercase tracking-[0.2em] mb-12">Il torneo è concluso</p>
-             
-             <div className="bg-[#12122A] border border-[#F5A623]/30 p-8 rounded-[32px] w-full mb-12 relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-full h-1 bg-[#F5A623]" />
-               <div className="text-[10px] font-black text-[#F5A623] tracking-widest uppercase mb-4 italic">Vincitore</div>
-               <div className="text-3xl font-black text-white uppercase italic tracking-tighter">
-                 {tournament.winner_user_id ? (tournament.participants.find(p => p.user_id === tournament.winner_user_id)?.username) : tournament.winner_guest_name}
-               </div>
-             </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center px-4"
+            >
+              <div className="flex flex-col items-center justify-center pt-10 text-center mb-12">
+                <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-6 shadow-glow-primary border-2 border-primary/40">
+                  <Trophy size={40} className="text-primary animate-pulse" />
+                </div>
+                <h1 className="text-4xl font-black text-white mb-2 font-createfuture tracking-tighter uppercase italic">
+                  Torneo Terminato
+                </h1>
+                <p className="text-white/40 text-xs font-createfuture tracking-[0.2em] uppercase">
+                  Classifica Finale e Podio
+                </p>
+              </div>
 
-             <button 
-               onClick={() => navigate('/battle')}
-               className="w-full py-5 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase text-[11px] tracking-widest hover:bg-white/10 transition-all"
-             >
-               Chiudi e Torna ai Match
-             </button>
-           </motion.div>
+              {/* NICE PODIUM (Matches Projector Level of Detail) */}
+              {(() => {
+                const standings = calculateStandings(tournament);
+                return (
+                  <div className="w-full max-w-2xl mb-16">
+                    <div className="flex items-end justify-center gap-2 sm:gap-6 relative pb-2 min-h-[220px]">
+                      {/* Glowing Background Sparkles */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                        <Sparkles size={200} className="text-[#F5A623] animate-pulse" />
+                      </div>
+
+                      {/* 2nd Place */}
+                      {standings[1] ? (
+                        <div className="flex flex-col items-center w-24 sm:w-32 animate-fade-in shrink-0" style={{ animationDelay: '0.2s' }}>
+                          <Avatar avatarId={standings[1].avatar_id || 'avatar-2'} username={standings[1].username} size={48} />
+                          <span className="font-createfuture text-[10px] sm:text-xs font-black text-white italic uppercase tracking-[0.05em] mt-2 block truncate max-w-full px-2">
+                            {standings[1].username}
+                          </span>
+                          <div className="w-full h-20 sm:h-28 bg-gradient-to-t from-white/5 to-[#94a3b8]/20 border-t-2 border-[#94a3b8] rounded-t-xl mt-2 flex flex-col items-center justify-start pt-2 relative shadow-[0_0_15px_rgba(148,163,184,0.2)]">
+                            <span className="font-createfuture text-[10px] font-black text-[#94a3b8]">2°</span>
+                          </div>
+                        </div>
+                      ) : <div className="w-24 sm:w-32" />}
+
+                      {/* 1st Place */}
+                      {standings[0] ? (
+                        <div className="flex flex-col items-center w-28 sm:w-40 animate-fade-in z-10 shrink-0">
+                          <div className="text-[#F5A623] animate-bounce mb-1 text-xl">👑</div>
+                          <Avatar avatarId={standings[0].avatar_id || 'avatar-1'} username={standings[0].username} size={64} />
+                          <span className="font-createfuture text-xs sm:text-sm font-black text-[#F5A623] italic uppercase tracking-[0.05em] mt-2 block truncate max-w-full px-2 drop-shadow-glow">
+                            {standings[0].username}
+                          </span>
+                          <div className="w-full h-28 sm:h-40 bg-gradient-to-t from-white/5 to-[#F5A623]/25 border-t-2 border-[#F5A623] rounded-t-xl mt-2 flex flex-col items-center justify-start pt-2 relative shadow-[0_0_30px_rgba(245,166,35,0.3)]">
+                            <span className="font-createfuture text-[10px] font-black text-[#F5A623]">1° CAMPIONE</span>
+                          </div>
+                        </div>
+                      ) : <div className="w-28 sm:w-40" />}
+
+                      {/* 3rd Place */}
+                      {standings[2] ? (
+                        <div className="flex flex-col items-center w-24 sm:w-32 animate-fade-in shrink-0" style={{ animationDelay: '0.4s' }}>
+                          <Avatar avatarId={standings[2].avatar_id || 'avatar-3'} username={standings[2].username} size={48} />
+                          <span className="font-createfuture text-[10px] sm:text-xs font-black text-white italic uppercase tracking-[0.05em] mt-2 block truncate max-w-full px-2">
+                            {standings[2].username}
+                          </span>
+                          <div className="w-full h-14 sm:h-20 bg-gradient-to-t from-white/5 to-[#d97706]/20 border-t-2 border-[#d97706] rounded-t-xl mt-2 flex flex-col items-center justify-start pt-2 relative shadow-[0_0_15px_rgba(217,119,6,0.1)]">
+                            <span className="font-createfuture text-[10px] font-black text-[#d97706]">3°</span>
+                          </div>
+                        </div>
+                      ) : <div className="w-24 sm:w-32" />}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* DETAILED MATCH HISTORY (Matches Projector Level of Detail) */}
+              <div className="w-full max-w-2xl bg-[#12122A]/60 border border-white/5 rounded-3xl p-6 mb-12">
+                <div className="flex items-center gap-2 mb-6">
+                  <Swords size={16} className="text-primary" />
+                  <h2 className="text-xs font-black text-white uppercase tracking-widest font-createfuture">Cronologia Match Dettagliata</h2>
+                </div>
+
+                <div className="space-y-4">
+                  {battles.filter(b => b.status === 'completed').sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at)).map(battle => {
+                    const battleRounds = allRounds.filter(r => r.battle_id === battle.id).sort((a, b) => a.round_number - b.round_number);
+                    
+                    const resolveBeyName = (round, player) => {
+                      const prefix = player === 1 ? 'p1' : 'p2';
+                      const comboId = round[`${prefix}_combo_id`];
+                      const bladeId = round[`${prefix}_blade_id`];
+                      const label = round[`${prefix}_combo_label`];
+
+                      if (comboId) {
+                        const combo = allCombos.find(c => c.id === comboId);
+                        if (combo) return combo.name;
+                      }
+
+                      if (bladeId) {
+                        const blade = parts.blades.find(b => b.id === bladeId);
+                        if (blade) return blade.name;
+                      }
+
+                      if (label && label !== 'BEY') return label;
+                      
+                      if (tournament?.structure?.pool) {
+                        const poolItem = tournament.structure.pool.find(item => item.id === comboId || item.blade_id === bladeId);
+                        if (poolItem) return poolItem.name || poolItem.blade_name;
+                      }
+
+                      return null;
+                    };
+
+                    return (
+                      <div key={battle.id} className="bg-white/[0.03] border border-white/5 rounded-2xl overflow-hidden">
+                        <div className="px-4 py-3 bg-white/[0.02] flex items-center justify-between border-b border-white/5">
+                          <span className="text-[10px] font-black text-white/60 uppercase font-createfuture">
+                            {battle.player1_guest_name || 'Player 1'} vs {battle.player2_guest_name || 'Player 2'}
+                          </span>
+                          <span className="text-[10px] font-black text-primary uppercase font-createfuture">
+                            {battle.p1_score} - {battle.p2_score}
+                          </span>
+                        </div>
+                        <div className="p-3 space-y-1">
+                          {battleRounds.map((r, idx) => {
+                            const p1Bey = resolveBeyName(r, 1);
+                            const p2Bey = resolveBeyName(r, 2);
+                            const FINISH_TYPES = {
+                              'ko': 'KO',
+                              'over': 'Over Finish',
+                              'burst': 'Burst Finish',
+                              'spin': 'Spin Finish',
+                              'extreme': 'Xtreme Finish'
+                            };
+
+                            if (!p1Bey && !p2Bey) return null;
+
+                            return (
+                              <div key={r.id} className="flex items-center justify-between text-[9px] font-medium uppercase tracking-tight py-1 border-b border-white/5 last:border-0">
+                                <div className="flex-1 text-left truncate pr-2">
+                                  <span className={r.winner_id === battle.player1_user_id || (r.winner_id === null && r.points_p1 > 0) ? 'text-white font-black' : 'text-white/30'}>
+                                    {p1Bey || 'BEY'}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col items-center gap-0.5 shrink-0 px-2 min-w-[80px]">
+                                  <span className="text-primary font-black text-[8px] leading-none">
+                                    {FINISH_TYPES[r.finish_type] || 'Esito'}
+                                  </span>
+                                  <span className="text-white/20 text-[7px] font-bold">
+                                    Round {idx + 1}
+                                  </span>
+                                </div>
+                                <div className="flex-1 text-right truncate pl-2">
+                                  <span className={r.winner_id === battle.player2_user_id || (r.winner_id === null && r.points_p2 > 0) ? 'text-white font-black' : 'text-white/30'}>
+                                    {p2Bey || 'BEY'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }).filter(Boolean)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex gap-4 mb-20 w-full max-w-2xl">
+                <button 
+                  onClick={() => navigate('/battle')}
+                  className="flex-1 py-5 bg-white/5 border border-white/10 rounded-2xl text-white font-black uppercase text-[11px] tracking-widest hover:bg-white/10 transition-all font-createfuture"
+                >
+                  Torna ai Match
+                </button>
+                <button 
+                  onClick={archiveCurrentAndNew}
+                  className="flex-1 py-5 bg-primary rounded-2xl text-white font-black uppercase text-[11px] tracking-widest hover:bg-primary-hover transition-all font-createfuture shadow-glow-primary"
+                >
+                  Nuovo Torneo
+                </button>
+              </div>
+            </motion.div>
          ) : (
            <>
             <div className="px-3 py-6 pb-32 overflow-y-auto no-scrollbar">

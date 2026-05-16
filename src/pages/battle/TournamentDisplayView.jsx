@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabaseClient';
-import { Sword, Shield, Wind, Trophy, Zap, Sparkles, Clock, CheckCircle2, Swords, User, Tv } from 'lucide-react';
+import { Sword, Shield, Wind, Trophy, Zap, Sparkles, Clock, CheckCircle2, Swords, User, Tv, Target, Flame, RotateCcw, Minus } from 'lucide-react';
 import { Avatar } from '../../components/Avatar';
 import { useAuthStore } from '../../store/useAuthStore';
 import '../../components/battle/DraftCard.css';
+
+const FINISH_TYPES = [
+  { id: 'burst',       name: 'Burst',   points: 2, icon: Zap,       color: '#E94560' },
+  { id: 'ko',          name: 'KO',      points: 2, icon: Target,    color: '#4361EE' },
+  { id: 'xtreme',      name: 'Xtreme',  points: 3, icon: Flame,     color: '#F5A623' },
+  { id: 'spin_finish', name: 'Spin',    points: 1, icon: RotateCcw, color: '#00D68F' },
+  { id: 'draw',        name: 'Draw',    points: 0, icon: Minus,     color: '#6B7280' },
+];
 
 export default function TournamentDisplayView() {
   const { id } = useParams();
@@ -19,6 +27,8 @@ export default function TournamentDisplayView() {
   const [battles, setBattles] = useState([]);
   const [liveRounds, setLiveRounds] = useState([]);
   const [standingsPage, setStandingsPage] = useState(0);
+  const [allRounds, setAllRounds] = useState([]);
+  const [allCombos, setAllCombos] = useState([]);
   const [pastMatchLoopIndex, setPastMatchLoopIndex] = useState(0);
 
   useEffect(() => {
@@ -68,6 +78,24 @@ export default function TournamentDisplayView() {
         bits: bitsRes.data || []
       });
       setBattles(battlesRes.data || []);
+
+      if (battlesRes.data?.length > 0) {
+        const battleIds = battlesRes.data.map(b => b.id);
+        const { data: roundsData } = await supabase.from('rounds').select('*').in('battle_id', battleIds);
+        setAllRounds(roundsData || []);
+
+        const comboIds = [...new Set([
+          ...battlesRes.data.map(b => b.player1_combo_id),
+          ...battlesRes.data.map(b => b.player2_combo_id),
+          ...(roundsData || []).map(r => r.p1_combo_id),
+          ...(roundsData || []).map(r => r.p2_combo_id)
+        ])].filter(Boolean);
+
+        if (comboIds.length > 0) {
+          const { data: combosData } = await supabase.from('combos').select('*').in('id', comboIds);
+          setAllCombos(combosData || []);
+        }
+      }
     };
 
     fetchTournament();
@@ -85,6 +113,28 @@ export default function TournamentDisplayView() {
           if (!newTourneyRaw) return;
           
           const newTourney = await enrichParticipants(newTourneyRaw);
+
+          // Refresh battles, rounds and combos too
+          const { data: newBattles } = await supabase.from('battles').select('*').eq('tournament_id', id);
+          setBattles(newBattles || []);
+          
+          if (newBattles?.length > 0) {
+            const bIds = newBattles.map(b => b.id);
+            const { data: nRounds } = await supabase.from('rounds').select('*').in('battle_id', bIds);
+            setAllRounds(nRounds || []);
+            
+            const cIds = [...new Set([
+              ...newBattles.map(b => b.player1_combo_id),
+              ...newBattles.map(b => b.player2_combo_id),
+              ...(nRounds || []).map(r => r.p1_combo_id),
+              ...(nRounds || []).map(r => r.p2_combo_id)
+            ])].filter(Boolean);
+            
+            if (cIds.length > 0) {
+              const { data: nCombos } = await supabase.from('combos').select('*').in('id', cIds);
+              setAllCombos(nCombos || []);
+            }
+          }
 
           // Check if a new pack was picked using the latest known tournament state
           const oldLastAction = currentTournament?.structure?.draft?.lastAction;
@@ -922,9 +972,9 @@ export default function TournamentDisplayView() {
                      <div className="text-center font-createfuture text-[11px] font-black text-white/30 shrink-0">
                        {globalRank}
                      </div>
-                     <div className="flex items-center gap-2 min-w-0 pr-1 overflow-visible">
-                       <Avatar avatarId={s.avatar_id || `avatar-${(globalRank % 12) + 1}`} username={s.username} size={28} />
-                       <span className="font-createfuture text-[11px] font-bold text-white/90 italic uppercase tracking-[0.05em] block overflow-visible whitespace-nowrap">
+                     <div className="flex items-center gap-2 min-w-0 pr-1">
+                       <Avatar avatarId={s.avatar_id || `avatar-${(globalRank % 12) + 1}`} username={s.username} size={22} />
+                       <span className="font-createfuture text-[10px] font-bold text-white/90 italic uppercase tracking-[0.05em] truncate block">
                          {s.username}
                        </span>
                      </div>
@@ -1027,11 +1077,79 @@ export default function TournamentDisplayView() {
 
                     {/* Expand Details on loop */}
                     {isHighlighted && (
-                      <div className="mt-1.5 pt-1.5 border-t border-[#E94560]/20 flex items-center justify-between text-[9px] font-black animate-fade-in">
-                        <span className="text-white/40 uppercase tracking-widest">Esito Scontro:</span>
-                        <span className="text-[#E94560] uppercase tracking-widest font-createfuture">
-                          {m.winner === 'draw' ? 'PAREGGIO' : `VITTORIA ${(m.winner === 'p1' ? m.p1?.username : m.p2?.username)}`}
-                        </span>
+                      <div className="mt-1.5 pt-1.5 border-t border-[#E94560]/20 flex flex-col gap-1 animate-fade-in">
+                        {(() => {
+                          const matchRounds = allRounds.filter(r => r.battle_id === m.battle_id).sort((a, b) => a.round_number - b.round_number);
+                          const battle = battles.find(b => b.id === m.battle_id);
+                          const p1Combo = allCombos.find(c => c.id === battle?.player1_combo_id);
+                          const p2Combo = allCombos.find(c => c.id === battle?.player2_combo_id);
+                          
+                          const p1Blade = parts.blades.find(b => b.id === p1Combo?.blade_id);
+                          const p2Blade = parts.blades.find(b => b.id === p2Combo?.blade_id);
+                          
+                          const p1Name = p1Blade?.name || 'BEY';
+                          const p2Name = p2Blade?.name || 'BEY';
+
+                          if (matchRounds.length === 0) {
+                            return <div className="text-[8px] text-white/30 italic uppercase">Dettagli non disponibili</div>;
+                          }
+
+                          return matchRounds.map((r, rIdx) => {
+                            const finish = FINISH_TYPES.find(f => f.id === r.finish_type);
+                            const isP1Winner = r.winner_side === 'p1';
+                            const isP2Winner = r.winner_side === 'p2';
+                            
+                            // Resolve correct combo for THIS round
+                            const rP1ComboId = r.p1_combo_id || battle?.player1_combo_id;
+                            const rP2ComboId = r.p2_combo_id || battle?.player2_combo_id;
+                            
+                            const pool = tournament?.structure?.pool || [];
+                            const p1C = allCombos.find(c => c.id === rP1ComboId) || pool.find(c => c.id === rP1ComboId);
+                            const p2C = allCombos.find(c => c.id === rP2ComboId) || pool.find(c => c.id === rP2ComboId);
+                            
+                            // 1. Try resolving by direct blade_id from round (most reliable for new data)
+                            // 2. Try resolving via combo lookup
+                            // 3. Fallback to parsing the label for legacy data
+                            const findName = (side, combo) => {
+                              const bId = r[`${side}_blade_id`] || combo?.blade_id;
+                              const found = parts.blades.find(b => b.id === bId);
+                              if (found) return found.name;
+                              
+                              const label = r[`${side}_combo_label`];
+                              if (label) {
+                                // Try to find a blade name that matches the start of the label (longest first)
+                                const matchedBlade = [...parts.blades]
+                                  .sort((a, b) => b.name.length - a.name.length)
+                                  .find(b => label.startsWith(b.name));
+                                return matchedBlade ? matchedBlade.name : label.split(' ')[0];
+                              }
+                              return null;
+                            };
+
+                            const p1Name = findName('p1', p1C);
+                            const p2Name = findName('p2', p2C);
+
+                            if (!p1Name || !p2Name) return null;
+
+                            return (
+                              <div key={rIdx} className="flex items-center justify-between text-[8px] uppercase tracking-wider font-bold">
+                                <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                                  <span className={`truncate ${isP1Winner ? 'text-primary font-black' : 'text-white/40'}`}>
+                                    {p1Name}
+                                  </span>
+                                  <span className="text-[7px] text-white/20 shrink-0">VS</span>
+                                  <span className={`truncate ${isP2Winner ? 'text-primary font-black' : 'text-white/40'}`}>
+                                    {p2Name}
+                                  </span>
+                                </div>
+                                <div className="shrink-0 flex items-center gap-2 ml-2">
+                                  <span className="text-white/60 font-black">{finish?.name || 'FINE'}</span>
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: finish?.color || '#fff' }} />
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>

@@ -5,53 +5,51 @@ export function RefereeCountdownScreen({ onComplete }) {
   const [phase, setPhase] = useState('ready'); // 'ready', '3', '2', '1', 'go'
 
   useEffect(() => {
-    // 1. Funzione per generare un suono poderoso ma bilanciato, con un leggero eco da stadio/arena
-    const playBeep = (freq = 440, duration = 0.3) => {
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const osc1 = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const mainGain = ctx.createGain();
-        
-        // Creazione del circuito di Eco (Delay + Feedback)
-        const delay = ctx.createDelay();
-        const feedback = ctx.createGain();
-        
-        // Impostazioni Eco: ritardo breve (0.15s) e ripetizione morbida per dare spazialità senza impastare
-        delay.delayTime.value = 0.15;
-        feedback.gain.value = 0.25;
-        
-        // Connessione circuito Eco
-        delay.connect(feedback);
-        feedback.connect(delay);
-        delay.connect(ctx.destination);
-        
-        osc1.type = 'sawtooth';
-        osc2.type = 'square';
-        
-        osc1.frequency.setValueAtTime(freq, ctx.currentTime);
-        osc2.frequency.setValueAtTime(freq / 2, ctx.currentTime);
-        
-        // Volume ridotto (0.12) per fare da perfetto tappeto sonoro ed esaltare la voce dello speaker
-        mainGain.gain.setValueAtTime(0.12, ctx.currentTime);
-        mainGain.gain.setValueAtTime(0.12, ctx.currentTime + duration - 0.05);
-        mainGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-        
-        osc1.connect(mainGain);
-        osc2.connect(mainGain);
-        
-        // Invio del segnale sia all'uscita diretta, sia all'effetto Eco
-        mainGain.connect(ctx.destination);
-        mainGain.connect(delay);
-        
-        osc1.start();
-        osc2.start();
-        osc1.stop(ctx.currentTime + duration);
-        osc2.stop(ctx.currentTime + duration);
-      } catch (e) {
-        // API non supportata
-      }
+    // 1. Setup Audio Context once
+    let audioCtx = null;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      console.warn("AudioContext not supported");
+    }
+
+    const playBeep = (time, freq = 440, duration = 0.3) => {
+      if (!audioCtx) return;
+      
+      const startTime = audioCtx.currentTime + time;
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const mainGain = audioCtx.createGain();
+      
+      // Circuito di Eco
+      const delay = audioCtx.createDelay();
+      const feedback = audioCtx.createGain();
+      delay.delayTime.value = 0.15;
+      feedback.gain.value = 0.25;
+      
+      delay.connect(feedback);
+      feedback.connect(delay);
+      delay.connect(audioCtx.destination);
+      
+      osc1.type = 'sawtooth';
+      osc2.type = 'square';
+      osc1.frequency.setValueAtTime(freq, startTime);
+      osc2.frequency.setValueAtTime(freq / 2, startTime);
+      
+      mainGain.gain.setValueAtTime(0, startTime);
+      mainGain.gain.linearRampToValueAtTime(0.12, startTime + 0.01);
+      mainGain.gain.setValueAtTime(0.12, startTime + duration - 0.05);
+      mainGain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      
+      osc1.connect(mainGain);
+      osc2.connect(mainGain);
+      mainGain.connect(audioCtx.destination);
+      mainGain.connect(delay);
+      
+      osc1.start(startTime);
+      osc2.start(startTime);
+      osc1.stop(startTime + duration);
+      osc2.stop(startTime + duration);
     };
 
     // 2. Avvia la traccia vocale iniziale "Are you ready?"
@@ -60,37 +58,27 @@ export function RefereeCountdownScreen({ onComplete }) {
 
     let countAudio = null;
 
-    // Sincronizzazione al millisecondo:
+    // Sincronizzazione:
     // 0s - 3s: ARE YOU READY?
     const t3 = setTimeout(() => {
       setPhase('3');
-      // Avvia la traccia vocale del countdown dello speaker
       countAudio = new Audio('/assets/321GO.mp3');
       countAudio.play().catch(e => console.error("Errore riproduzione 321GO:", e));
-      // Suono poderoso e profondo per i semafori rossi
-      playBeep(440, 0.3);
+      
+      // Scheduliamo tutti i beep in un colpo solo per massima precisione
+      if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        playBeep(0, 440, 0.3);      // Per il "3" (ora)
+        playBeep(1.0, 440, 0.3);    // Per il "2" (tra 1s)
+        playBeep(2.0, 440, 0.3);    // Per il "1" (tra 2s)
+        playBeep(3.0, 880, 0.7);    // Per il "GO" (tra 3s)
+      }
     }, 3000);
 
-    // 3s - 4s: 3
-    const t2 = setTimeout(() => {
-      setPhase('2');
-      playBeep(440, 0.3);
-    }, 4000);
-
-    // 4s - 5s: 2
-    const t1 = setTimeout(() => {
-      setPhase('1');
-      playBeep(440, 0.3);
-    }, 5000);
-
-    // 5s - 6s: 1
-    const tGo = setTimeout(() => {
-      setPhase('go');
-      // Suono trionfale un'ottava sopra, prolungato per il semaforo verde!
-      playBeep(880, 0.7);
-    }, 6000);
-
-    // 6s - 8.5s: GO SHOOT!
+    // Gestione fasi UI (devono restare con setTimeout per animazioni React)
+    const t2 = setTimeout(() => setPhase('2'), 4000);
+    const t1 = setTimeout(() => setPhase('1'), 5000);
+    const tGo = setTimeout(() => setPhase('go'), 6000);
     const tDone = setTimeout(() => onComplete(), 8500);
 
     return () => {
@@ -101,6 +89,7 @@ export function RefereeCountdownScreen({ onComplete }) {
       clearTimeout(tDone);
       readyAudio.pause();
       if (countAudio) countAudio.pause();
+      if (audioCtx) audioCtx.close();
     };
   }, [onComplete]);
 
