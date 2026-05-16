@@ -683,9 +683,14 @@ export default function NewTournamentPage() {
         const completed = { ...tournament, status: 'completed', winner_user_id: winner.user_id, winner_guest_name: winner.guest_name || winner.username };
         setTournament(completed);
         updateTournamentDB(completed);
-      } else if (tournament.format === 'round_robin' && structure.settings?.rrWinnerMode === 'points') {
-        const allComplete = newRounds.every(r => r.matches.every(m => m.winner || m.p1?.isBye || m.p2?.isBye));
-        if (allComplete) {
+      } else if (tournament.format === 'round_robin') {
+        const hasPlayoffs = newRounds.some(r => r.isPlayoff);
+        const allMatchesComplete = newRounds.every(r => r.matches.every(m => m.winner || m.p1?.isBye || m.p2?.isBye));
+        
+        // If it's a pure round robin (no playoffs) and all matches are done, OR if it's a round robin with playoffs and the final is done
+        const isActuallyFinished = (!hasPlayoffs && allMatchesComplete) || (hasPlayoffs && isBracketOrPlayoffFinal);
+
+        if (isActuallyFinished && !isBracketOrPlayoffFinal) {
           const standings = calculateStandings({ ...tournament, structure: { ...structure, rounds: newRounds } });
           const winner = standings[0];
           if (winner) {

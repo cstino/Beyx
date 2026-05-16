@@ -637,6 +637,8 @@ export default function TournamentDisplayView() {
     );
   }
 
+  const showPodium = tournament.status === 'completed' || (!displayedActiveBattle && !nextScheduledMatch && pastMatches.length > 0);
+
   return (
     <div className="w-screen h-screen bg-[#0A0A1A] text-white overflow-hidden flex flex-col p-6 relative select-none">
       {/* Background Cyberpunk Accents */}
@@ -669,7 +671,7 @@ export default function TournamentDisplayView() {
           <div className="flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 px-4 py-2 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.2)]">
              <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
              <span className="text-xs font-black text-green-400 uppercase tracking-widest font-createfuture">
-               {tournament.status === 'completed' ? 'Terminato' : 'Live Infographic'}
+               {showPodium ? 'Terminato' : 'Live Infographic'}
              </span>
           </div>
         </div>
@@ -681,17 +683,17 @@ export default function TournamentDisplayView() {
         {/* COL 1: Live Match Arena */}
         <div className="h-full flex flex-col bg-[#12122A]/60 border-2 border-[#4361EE]/40 rounded-3xl p-6 relative overflow-hidden shadow-[0_0_30px_rgba(67,97,238,0.1)] backdrop-blur-md">
           <div className="absolute top-0 right-0 bg-[#4361EE] text-white text-[8px] font-black px-4 py-1 rounded-bl-xl uppercase tracking-widest font-createfuture">
-            {tournament.status === 'completed' ? 'PODIO UFFICIALE' : 'ARENA PRINCIPALE'}
+            {showPodium ? 'PODIO UFFICIALE' : 'ARENA PRINCIPALE'}
           </div>
           
           <div className="flex items-center gap-2 mb-6 shrink-0">
             <Tv size={18} className="text-[#4361EE]" />
             <h2 className="text-sm font-black text-white uppercase tracking-[0.2em] font-createfuture">
-              {tournament.status === 'completed' ? 'Podio Finale' : 'Match Live'}
+              {showPodium ? 'Podio Finale' : 'Match Live'}
             </h2>
           </div>
 
-          {tournament.status === 'completed' ? (
+          {showPodium ? (
             <div className="flex-1 flex items-end justify-center gap-3 relative pb-2 min-h-0">
               {/* Glowing Background Sparkles */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5">
