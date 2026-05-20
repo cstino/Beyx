@@ -109,7 +109,8 @@ export default function BattlePage() {
       .select(`
         *,
         p1:player1_user_id(username, avatar_id, avatar_color),
-        p2:player2_user_id(username, avatar_id, avatar_color)
+        p2:player2_user_id(username, avatar_id, avatar_color),
+        tournament:tournament_id(status)
       `)
       .in('status', ['active', 'deck_select'])
       .order('played_at', { ascending: false });
@@ -119,7 +120,16 @@ export default function BattlePage() {
     }
     
     const { data } = await query;
-    setLiveMatches(data || []);
+    
+    // Filter out matches belonging to completed or cancelled tournaments
+    const filteredLiveMatches = (data || []).filter(match => {
+      if (match.tournament_id && match.tournament) {
+        return match.tournament.status !== 'completed' && match.tournament.status !== 'cancelled';
+      }
+      return true;
+    });
+    
+    setLiveMatches(filteredLiveMatches);
   }
 
   async function fetchOpenTournaments() {

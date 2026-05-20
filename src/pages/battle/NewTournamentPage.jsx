@@ -225,21 +225,31 @@ export default function NewTournamentPage() {
 
     rounds.forEach(r => {
       if (r.isPlayoff) return;
+      
+      // A round is completed if all non-bye matches in it are completed
+      const isRoundCompleted = r.matches?.every(m => m.p1?.isBye || m.p2?.isBye || m.winner) ?? false;
+
       r.matches.forEach(m => {
         if (m.winner) {
+          const isByeMatch = m.p1?.isBye || m.p2?.isBye;
+          // If it's a BYE match, only count it if the round is completed
+          if (isByeMatch && !isRoundCompleted) return;
+
           const p1Id = m.p1.user_id || m.p1.username;
           const p2Id = m.p2.user_id || m.p2.username;
           
           const s1 = stats.find(s => (s.user_id || s.username) === p1Id);
           const s2 = stats.find(s => (s.user_id || s.username) === p2Id);
           
-          if (s1) {
-            s1.played++;
-            s1.koPoints += (m.score?.p1 || 0);
-          }
-          if (s2) {
-            s2.played++;
-            s2.koPoints += (m.score?.p2 || 0);
+          if (!isByeMatch) {
+            if (s1) {
+              s1.played++;
+              s1.koPoints += (m.score?.p1 || 0);
+            }
+            if (s2) {
+              s2.played++;
+              s2.koPoints += (m.score?.p2 || 0);
+            }
           }
           
           if (m.winner === 'draw') {
@@ -247,10 +257,10 @@ export default function NewTournamentPage() {
             if (s2) { s2.draws++; s2.points += 1; }
           } else if (m.winner === 'p1') {
             if (s1) { s1.won++; s1.points += 3; }
-            if (s2) { s2.lost++; }
+            if (s2 && !isByeMatch) { s2.lost++; }
           } else {
             if (s2) { s2.won++; s2.points += 3; }
-            if (s1) { s1.lost++; }
+            if (s1 && !isByeMatch) { s1.lost++; }
           }
         }
       });

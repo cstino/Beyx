@@ -96,7 +96,13 @@ export function LiveMatchPage() {
         const { data: tData } = await supabase.from('tournaments').select('win_condition, starter_beys_count, structure').eq('id', data.tournament_id).single();
         if (tData) {
           const struct = typeof tData.structure === 'string' ? JSON.parse(tData.structure) : tData.structure;
-          finalWinCondition = tData.win_condition || struct?.settings?.winCondition || data.win_condition || 'point_target';
+          // Priorità: structure.settings.winCondition > tournaments.win_condition (se diverso dal default) > battles.win_condition
+          // La colonna tournaments.win_condition ha default 'point_target', quindi se vale 'point_target'
+          // non possiamo sapere se è stato impostato intenzionalmente o è solo il default DB.
+          // Diamo precedenza al valore salvato nel structure.settings che è sempre esplicito.
+          const structWinCondition = struct?.settings?.winCondition;
+          const columnWinCondition = tData.win_condition !== 'point_target' ? tData.win_condition : null;
+          finalWinCondition = structWinCondition || columnWinCondition || data.win_condition || 'point_target';
           finalStarterCount = tData.starter_beys_count || data.starter_beys_count;
         }
       }
@@ -222,8 +228,12 @@ export function LiveMatchPage() {
   }
 
   const deckSize = battle.starter_beys_count || (battle.battle_type === '3v3' || battle.format?.includes('3v3') ? 3 : 1);
-  const isTargetReached = battle.win_condition === 'total_battle' 
-    ? rounds.length >= deckSize 
+  
+  // In Total Battle: la partita finisce SOLO quando tutti i round (pari al numero di bey titolari)
+  // sono stati disputati — indipendentemente dal punteggio corrente.
+  // In Point Target: la partita finisce quando un blader raggiunge il punteggio target.
+  const isTargetReached = battle.win_condition === 'total_battle'
+    ? rounds.filter(r => r.status !== 'contested').length >= deckSize
     : (p1Score >= battle.point_target || p2Score >= battle.point_target);
 
   async function handleEndMatch() {
@@ -394,7 +404,7 @@ export function LiveMatchPage() {
         </div>
         <div className="text-[10px] text-white/30 uppercase tracking-widest font-bold">
           {battle.win_condition === 'total_battle' 
-            ? `MODALITÀ TOTAL BATTLE (${deckSize} ROUND)` 
+            ? `TOTAL BATTLE · ROUND ${Math.min(rounds.filter(r => r.status !== 'contested').length + 1, deckSize)} / ${deckSize}` 
             : `Primo a ${battle.point_target} punti`}
         </div>
       </div>
