@@ -109,22 +109,42 @@ export default function BattlePage() {
       .select(`
         *,
         p1:player1_user_id(username, avatar_id, avatar_color),
-        p2:player2_user_id(username, avatar_id, avatar_color),
-        tournament:tournament_id(status)
+        p2:player2_user_id(username, avatar_id, avatar_color)
       `)
       .in('status', ['active', 'deck_select'])
+      .is('winner_side', null) // Escludi match già conclusi ma non aggiornati
       .order('played_at', { ascending: false });
       
     if (!isAdminUser) {
       query = query.or(`player1_user_id.eq.${user.id},player2_user_id.eq.${user.id}`);
     }
     
-    const { data } = await query;
+    const { data: battles } = await query;
+    if (!battles || battles.length === 0) {
+      setLiveMatches([]);
+      return;
+    }
+
+    // Fetch separato dei tornei associati per verificarne lo stato
+    const tournamentIds = [...new Set(battles.map(b => b.tournament_id).filter(Boolean))];
     
-    // Filter out matches belonging to completed or cancelled tournaments
-    const filteredLiveMatches = (data || []).filter(match => {
-      if (match.tournament_id && match.tournament) {
-        return match.tournament.status !== 'completed' && match.tournament.status !== 'cancelled';
+    let closedTournamentIds = new Set();
+    if (tournamentIds.length > 0) {
+      const { data: tournaments } = await supabase
+        .from('tournaments')
+        .select('id, status')
+        .in('id', tournamentIds)
+        .in('status', ['completed', 'cancelled']);
+      
+      if (tournaments) {
+        closedTournamentIds = new Set(tournaments.map(t => t.id));
+      }
+    }
+
+    // Filtra i match appartenenti a tornei conclusi/annullati
+    const filteredLiveMatches = battles.filter(match => {
+      if (match.tournament_id && closedTournamentIds.has(match.tournament_id)) {
+        return false;
       }
       return true;
     });
