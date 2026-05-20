@@ -28,8 +28,8 @@ export function PoolBustePlayerView({
   const { user } = useAuthStore();
   const sealedBid = tournament?.structure?.sealed_bid;
 
-  const [timeLeft, setTimeLeft] = useState(20);
-  const [bidAmount, setBidAmount] = useState(1);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [bidAmount, setBidAmount] = useState("1");
   const [revealStep, setRevealStep] = useState(0);
   const [revealDelay, setRevealDelay] = useState(false);
 
@@ -168,12 +168,12 @@ export function PoolBustePlayerView({
   useEffect(() => {
     if (!sealedBid?.currentAuction) {
       setRevealStep(0);
-      setBidAmount(1);
+      setBidAmount("1");
       return;
     }
     if (sealedBid.currentAuction.status === "revealed") return;
     if (sealedBid.currentAuction.status !== "bidding") {
-      setBidAmount(1);
+      setBidAmount("1");
       return;
     }
 
@@ -241,7 +241,7 @@ export function PoolBustePlayerView({
       nominatorId: ctuid,
       bids: {},
       passedPlayers: [],
-      timerExpiresAt: Date.now() + 20000,
+      timerExpiresAt: Date.now() + 60000,
       status: "bidding",
     };
     const nsbs = {
@@ -260,11 +260,11 @@ export function PoolBustePlayerView({
     };
     setTournament(up);
     await updateTournamentDB(up);
-    setBidAmount(1);
+    setBidAmount("1");
     useToastStore
       .getState()
       .success(
-        "Hai messo all'asta a buste chiuse questo Beyblade! 20 secondi per offrire.",
+        "Hai messo all'asta a buste chiuse questo Beyblade! 60 secondi per offrire.",
       );
   };
 
@@ -278,7 +278,7 @@ export function PoolBustePlayerView({
       isMyDeckFull
     )
       return;
-    const amount = Math.max(0, Math.floor(bidAmount));
+    const amount = Math.max(0, Math.floor(parseInt(bidAmount) || 0));
     if (amount > myCredits) {
       useToastStore.getState().error("Crediti insufficienti!");
       return;
@@ -611,7 +611,11 @@ export function PoolBustePlayerView({
                 </div>
                 <div className="flex items-center gap-3 mb-3">
                   <button
-                    onClick={() => setBidAmount(Math.max(1, bidAmount - 1))}
+                    onClick={() =>
+                      setBidAmount(
+                        String(Math.max(1, (parseInt(bidAmount) || 1) - 1)),
+                      )
+                    }
                     className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 hover:text-white active:scale-95"
                   >
                     <Minus size={18} />
@@ -619,8 +623,9 @@ export function PoolBustePlayerView({
                   <input
                     type="number"
                     value={bidAmount}
-                    onChange={(e) =>
-                      setBidAmount(Math.max(0, parseInt(e.target.value) || 0))
+                    onChange={(e) => setBidAmount(e.target.value)}
+                    onBlur={() =>
+                      setBidAmount((prev) => (prev === "" ? "1" : prev))
                     }
                     min={0}
                     max={myCredits}
@@ -628,7 +633,11 @@ export function PoolBustePlayerView({
                   />
                   <button
                     onClick={() =>
-                      setBidAmount(Math.min(myCredits, bidAmount + 1))
+                      setBidAmount(
+                        String(
+                          Math.min(myCredits, (parseInt(bidAmount) || 0) + 1),
+                        ),
+                      )
                     }
                     className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/60 hover:text-white active:scale-95"
                   >
@@ -639,7 +648,9 @@ export function PoolBustePlayerView({
                   {[5, 10, 25, 50].map((v) => (
                     <button
                       key={v}
-                      onClick={() => setBidAmount(Math.min(myCredits, v))}
+                      onClick={() =>
+                        setBidAmount(String(Math.min(myCredits, v)))
+                      }
                       disabled={v > myCredits}
                       className="py-1.5 rounded-lg bg-white/5 text-[9px] font-bold text-white/50 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
                     >
@@ -678,7 +689,7 @@ export function PoolBustePlayerView({
                 : `Attendi ${currentParticipant?.username || ""}...`}
             </div>
             <p className="text-[9px] text-white/40 mt-1">
-              I giocatori avranno 20 secondi per inviare la loro offerta
+              I giocatori avranno 60 secondi per inviare la loro offerta
               segreta.
             </p>
           </div>

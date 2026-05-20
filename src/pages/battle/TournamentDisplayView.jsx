@@ -9,6 +9,7 @@ import {
   Zap,
   Sparkles,
   Clock,
+  EyeOff,
   CheckCircle2,
   Swords,
   User,
@@ -2056,7 +2057,8 @@ function AuctionDisplaySubView({ tournament, parts }) {
 
 function SealedBidDisplaySubView({ tournament, parts }) {
   const sealedBid = tournament.structure?.sealed_bid;
-  const [timeLeft, setTimeLeft] = React.useState(20);
+  const [timeLeft, setTimeLeft] = React.useState(60);
+  const [revealStep, setRevealStep] = React.useState(-1);
 
   React.useEffect(() => {
     if (
@@ -2076,6 +2078,36 @@ function SealedBidDisplaySubView({ tournament, parts }) {
     return () => clearInterval(interval);
   }, [sealedBid?.currentAuction]);
 
+  // Gradual reveal animation
+  React.useEffect(() => {
+    if (
+      sealedBid?.currentAuction?.status !== "revealed" ||
+      !sealedBid.currentAuction.bids
+    ) {
+      setRevealStep(-1);
+      return;
+    }
+    const allBids = Object.entries(sealedBid.currentAuction.bids)
+      .filter(([_, b]) => b.amount > 0)
+      .sort((a, b) => a[1].amount - b[1].amount);
+    if (allBids.length === 0) {
+      setRevealStep(99);
+      return;
+    }
+    setRevealStep(0);
+    const delayPerStep = Math.min(800, 5000 / allBids.length);
+    const timer = setInterval(() => {
+      setRevealStep((prev) => {
+        if (prev >= allBids.length - 1) {
+          clearInterval(timer);
+          return allBids.length;
+        }
+        return prev + 1;
+      });
+    }, delayPerStep);
+    return () => clearInterval(timer);
+  }, [sealedBid?.currentAuction?.status]);
+
   if (!sealedBid) {
     return (
       <div className="min-h-screen bg-[#0A0A1A] p-8 flex flex-col items-center justify-center text-center select-none font-createfuture">
@@ -2089,8 +2121,8 @@ function SealedBidDisplaySubView({ tournament, parts }) {
           {tournament.name}
         </h1>
         <p className="text-white/40 text-sm font-bold uppercase tracking-widest max-w-lg mb-12">
-          Iscrizioni in corso... L'organizzatore avvierà l'asta a buste
-          chiuse a breve.
+          Iscrizioni in corso... L'organizzatore avvierà l'asta a buste chiuse a
+          breve.
         </p>
         <div className="flex gap-4">
           <div className="bg-[#12122A] border border-white/5 px-8 py-4 rounded-3xl">
@@ -2171,11 +2203,11 @@ function SealedBidDisplaySubView({ tournament, parts }) {
             <span className="text-xl text-[#9b59b6] font-black uppercase tracking-widest">
               OFFERTE SEGRETE
             </span>
-            <span className="text-3xl font-black text-white">
-              ⏱️ {timeLeft}s
+            <span className="text-3xl font-black text-white flex items-center gap-1">
+              <Clock size={24} /> {timeLeft}s
             </span>
             <span className="text-sm font-black text-white/60">
-              {"\u{1F512}"} {submittedCount}/{totalPlayers}
+              <EyeOff size={18} /> {submittedCount}/{totalPlayers}
             </span>
           </div>
         ) : isRevealed && activePack ? (
@@ -2211,61 +2243,97 @@ function SealedBidDisplaySubView({ tournament, parts }) {
                 <span className="text-white/20 font-black text-6xl">?</span>
               )}
             </div>
-            <h2 className="text-4xl font-black italic uppercase text-white">
-              {activeBlade?.name || "Combo"}
-            </h2>
+            <div className="text-center">
+              <h2 className="text-4xl font-black italic uppercase text-white">
+                {activeBlade?.name || "Combo"}
+              </h2>
+              <p className="text-sm font-black text-[#9b59b6] uppercase tracking-[0.2em] mt-3">
+                Aggiudicato da...
+              </p>
+            </div>
             <div className="w-full space-y-3">
-              {sealedBid.currentAuction.bids &&
-                Object.entries(sealedBid.currentAuction.bids)
-                  .sort((a, b) => b[1].amount - a[1].amount)
-                  .map(([pId, bid]) => {
-                    const p = tournament.participants?.find(
-                      (pp) =>
-                        pp.id === pId ||
-                        pp.user_id === pId ||
-                        pp.username === pId,
-                    );
-                    const isWinner = pId === winnerId;
-                    return (
-                      <div
-                        key={pId}
-                        className={`flex items-center justify-between p-4 rounded-2xl ${isWinner ? "bg-[#9b59b6]/20 border-2 border-[#9b59b6] scale-105" : "bg-white/5 border border-white/5"}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-lg font-black text-white">
+              {(() => {
+                const allBids = Object.entries(
+                  sealedBid.currentAuction.bids || {},
+                ).sort((a, b) => b[1].amount - a[1].amount);
+                const passed = sealedBid.currentAuction.passedPlayers || [];
+                const revealedCount = revealStep;
+
+                if (revealStep < 0) return null;
+
+                return (
+                  <>
+                    {allBids.map(([pId, bid], index) => {
+                      const p = tournament.participants?.find(
+                        (pp) =>
+                          pp.id === pId ||
+                          pp.user_id === pId ||
+                          pp.username === pId,
+                      );
+                      const isWinner = pId === winnerId;
+                      const isRevealed =
+                        index < revealedCount ||
+                        (revealStep >= allBids.length && !isWinner);
+                      const isWinnerRevealed = revealStep >= allBids.length;
+                      const shouldShow =
+                        isRevealed || (isWinner && isWinnerRevealed);
+
+                      return (
+                        <div
+                          key={pId}
+                          className={`transition-all duration-500 ${
+                            shouldShow
+                              ? "opacity-100 translate-y-0"
+                              : "opacity-0 translate-y-4"
+                          } ${isWinner && isWinnerRevealed ? "bg-[#9b59b6]/20 border-2 border-[#9b59b6] scale-105 shadow-[0_0_25px_rgba(155,89,182,0.4)]" : "bg-white/5 border border-white/5"}`}
+                          style={{
+                            display: shouldShow ? "flex" : "none",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            padding: "16px",
+                            borderRadius: "16px",
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg font-black text-white">
+                              {p?.username || pId}
+                            </span>
+                            {isWinner && isWinnerRevealed && (
+                              <span className="animate-fade-in inline-flex items-center gap-1 bg-[#9b59b6] text-white text-xs font-black px-3 py-1 rounded-full">
+                                VINCE
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`text-2xl font-black ${isWinner && isWinnerRevealed ? "text-[#9b59b6]" : "text-white/50"}`}
+                          >
+                            {bid.amount} CRD
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {passed.map((pId) => {
+                      const p = tournament.participants?.find(
+                        (pp) =>
+                          pp.id === pId ||
+                          pp.user_id === pId ||
+                          pp.username === pId,
+                      );
+                      return (
+                        <div
+                          key={pId}
+                          className="flex items-center justify-between p-3 rounded-2xl bg-white/5 opacity-30"
+                        >
+                          <span className="text-sm text-white/30 line-through">
                             {p?.username || pId}
                           </span>
-                          {isWinner && (
-                            <span className="text-xs bg-[#9b59b6] text-white px-2 py-1 rounded-full font-black">
-                              VINCE
-                            </span>
-                          )}
+                          <span className="text-xs text-white/10">Passa</span>
                         </div>
-                        <span
-                          className={`text-2xl font-black ${isWinner ? "text-[#9b59b6]" : "text-white/50"}`}
-                        >
-                          {"\u{1F48C}"} {bid.amount} CRD
-                        </span>
-                      </div>
-                    );
-                  })}
-              {sealedBid.currentAuction.passedPlayers?.map((pId) => {
-                const p = tournament.participants?.find(
-                  (pp) =>
-                    pp.id === pId || pp.user_id === pId || pp.username === pId,
+                      );
+                    })}
+                  </>
                 );
-                return (
-                  <div
-                    key={pId}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white/5 opacity-30"
-                  >
-                    <span className="text-sm text-white/30 line-through">
-                      {p?.username || pId}
-                    </span>
-                    <span className="text-xs text-white/10">Passa</span>
-                  </div>
-                );
-              })}
+              })()}
             </div>
             {!winnerId && (
               <div className="text-white/40 text-sm font-bold uppercase">
