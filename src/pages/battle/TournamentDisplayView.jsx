@@ -10,6 +10,7 @@ import {
   Sparkles,
   Clock,
   EyeOff,
+  Gem,
   CheckCircle2,
   Swords,
   User,
@@ -2108,11 +2109,47 @@ function SealedBidDisplaySubView({ tournament, parts }) {
     return () => clearInterval(timer);
   }, [sealedBid?.currentAuction?.status]);
 
+  // When animation completes, set displayRevealedAt in DB
+  React.useEffect(() => {
+    const allBids = sealedBid?.currentAuction?.bids
+      ? Object.entries(sealedBid.currentAuction.bids).filter(
+          ([_, b]) => b.amount > 0,
+        )
+      : [];
+    if (
+      revealStep > 0 &&
+      revealStep >= allBids.length &&
+      sealedBid?.currentAuction?.displayRevealedAt == null
+    ) {
+      const newSealedBid = { ...sealedBid };
+      const newAuction = {
+        ...newSealedBid.currentAuction,
+        displayRevealedAt: Date.now(),
+      };
+      if (newAuction.pendingDecks) {
+        newSealedBid.playerDecks = newAuction.pendingDecks;
+        newSealedBid.playerCredits = newAuction.pendingCredits;
+      }
+      newSealedBid.currentAuction = newAuction;
+      const newStructure = {
+        ...tournament.structure,
+        sealed_bid: newSealedBid,
+      };
+      supabase
+        .from("tournaments")
+        .update({ structure: newStructure })
+        .eq("id", tournament.id)
+        .then(({ error }) => {
+          if (error) console.error("Error setting displayRevealedAt:", error);
+        });
+    }
+  }, [revealStep, sealedBid, tournament]);
+
   if (!sealedBid) {
     return (
       <div className="min-h-screen bg-[#0A0A1A] p-8 flex flex-col items-center justify-center text-center select-none font-createfuture">
         <div className="w-24 h-24 bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] rounded-full flex items-center justify-center mb-6 shadow-[0_0_50px_rgba(155,89,182,0.4)] animate-pulse">
-          <span className="text-5xl">{"\u{1F48C}"}</span>
+          <Gem size={36} className="text-[#9b59b6]" />
         </div>
         <div className="text-xs font-black text-[#9b59b6] tracking-[0.3em] uppercase mb-3">
           Modalità A Buste
@@ -2446,7 +2483,7 @@ function SealedBidDisplaySubView({ tournament, parts }) {
                               className="opacity-80 text-xl"
                               style={{ color: glowColor }}
                             >
-                              {"\u{1F48C}"}
+                              <Gem size={20} className="text-[#9b59b6]" />
                             </div>
                             <div
                               className="text-[8px] font-black uppercase opacity-80 text-center"
@@ -2514,8 +2551,8 @@ function SealedBidDisplaySubView({ tournament, parts }) {
                   {participant.username}
                 </div>
                 <div className="flex justify-between items-center px-2">
-                  <div className="text-lg font-black text-[#9b59b6]">
-                    {"\u{1F48C}"} {remainingCredits}
+                  <div className="text-lg font-black text-[#9b59b6] flex items-center gap-1">
+                    <Gem size={16} /> {remainingCredits}
                   </div>
                   <div
                     className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? "bg-green-500 text-white" : "bg-white/10 text-white/60"}`}

@@ -79,15 +79,15 @@ export function PoolBustePlayerView({
         : p,
     );
 
-    const newCredits = { ...sealedBid.playerCredits };
-    const newDecks = { ...sealedBid.playerDecks };
+    const pendingCredits = { ...sealedBid.playerCredits };
+    const pendingDecks = { ...sealedBid.playerDecks };
     if (winnerId) {
-      newCredits[winnerId] = Math.max(
+      pendingCredits[winnerId] = Math.max(
         0,
-        (newCredits[winnerId] || 0) - bids[winnerId].amount,
+        (pendingCredits[winnerId] || 0) - bids[winnerId].amount,
       );
-      newDecks[winnerId] = [
-        ...(newDecks[winnerId] || []),
+      pendingDecks[winnerId] = [
+        ...(pendingDecks[winnerId] || []),
         sealedBid.availablePacks.find((p) => p.id === packId)?.combo_id,
       ];
     }
@@ -98,13 +98,13 @@ export function PoolBustePlayerView({
     let iterations = 0;
     while (iterations < sealedBid.turnOrder.length) {
       const candidateId = sealedBid.turnOrder[nextIndex];
-      if ((newDecks[candidateId] || []).length < sealedBid.deckSize) break;
+      if ((pendingDecks[candidateId] || []).length < sealedBid.deckSize) break;
       nextIndex = (nextIndex + 1) % sealedBid.turnOrder.length;
       iterations++;
     }
 
     const allDecksFull = sealedBid.turnOrder.every(
-      (pId) => (newDecks[pId] || []).length >= sealedBid.deckSize,
+      (pId) => (pendingDecks[pId] || []).length >= sealedBid.deckSize,
     );
     const allPacksOpened = newPacks.every((p) => p.isOpened);
     const isComplete = allDecksFull || allPacksOpened;
@@ -113,13 +113,14 @@ export function PoolBustePlayerView({
       ...sealedBid.currentAuction,
       status: "revealed",
       winnerId,
+      displayRevealedAt: null,
+      pendingDecks,
+      pendingCredits,
     };
 
     const newSealedBidState = {
       ...sealedBid,
       availablePacks: newPacks,
-      playerCredits: newCredits,
-      playerDecks: newDecks,
       currentTurnIndex: nextIndex,
       currentAuction: newAuction,
       lastAction: {
@@ -203,13 +204,20 @@ export function PoolBustePlayerView({
   // Delay reveal per dare tempo al display di mostrare risultati
   useEffect(() => {
     if (sealedBid?.currentAuction?.status === "revealed") {
+      if (sealedBid.currentAuction.displayRevealedAt != null) {
+        setRevealDelay(false);
+        return;
+      }
       setRevealDelay(true);
       const timer = setTimeout(() => setRevealDelay(false), 2500);
       return () => clearTimeout(timer);
     } else {
       setRevealDelay(false);
     }
-  }, [sealedBid?.currentAuction?.status]);
+  }, [
+    sealedBid?.currentAuction?.status,
+    sealedBid?.currentAuction?.displayRevealedAt,
+  ]);
 
   if (!sealedBid) return null;
 
@@ -825,8 +833,17 @@ export function PoolBustePlayerView({
           return sortedParticipants.map((participant) => {
             const pId =
               participant.id || participant.user_id || participant.username;
-            const myDeckComboIds = sealedBid.playerDecks?.[pId] || [];
-            const remainingCredits = sealedBid.playerCredits[pId] || 0;
+            const isRevealedToPlayers =
+              sealedBid.currentAuction?.displayRevealedAt != null;
+            const deckSource = isRevealedToPlayers
+              ? sealedBid.currentAuction?.pendingDecks || sealedBid.playerDecks
+              : sealedBid.playerDecks;
+            const creditSource = isRevealedToPlayers
+              ? sealedBid.currentAuction?.pendingCredits ||
+                sealedBid.playerCredits
+              : sealedBid.playerCredits;
+            const myDeckComboIds = deckSource?.[pId] || [];
+            const remainingCredits = creditSource[pId] || 0;
             return (
               <div
                 key={pId}
