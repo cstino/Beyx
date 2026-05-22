@@ -211,7 +211,9 @@ export default function ComboLeaderboardPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.02 }}
-              onClick={() => navigate(`/combo/${item.combo_name}`)}
+              onClick={() =>
+                navigate(`/combo-stats/${encodeURIComponent(item.combo_name)}`)
+              }
               className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5 cursor-pointer hover:border-[#9b59b6]/30 hover:bg-[#1A1A3A]/50 transition-all"
             >
               <div

@@ -60,6 +60,7 @@ const AcademyLessonPage = lazy(() =>
 );
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
 const ComboLeaderboardPage = lazy(() => import("./pages/ComboLeaderboardPage"));
+const ComboStatsPage = lazy(() => import("./pages/ComboStatsPage"));
 const NewMatchPage = lazy(() =>
   import("./pages/battle/NewMatchPage").then((m) => ({
     default: m.NewMatchPage,
@@ -201,6 +202,10 @@ function App() {
                     <Route
                       path="/combo-leaderboard"
                       element={<ComboLeaderboardPage />}
+                    />
+                    <Route
+                      path="/combo-stats/:name"
+                      element={<ComboStatsPage />}
                     />
                     <Route path="/combo/:id" element={<ComboDetailPage />} />
                     <Route path="/academy" element={<AcademyPage />} />
