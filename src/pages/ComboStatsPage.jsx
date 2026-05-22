@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import CountUp from 'react-countup';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Legend
 } from 'recharts';
 import {
-  ChevronLeft, TrendingUp, Zap, Target, Flame, RotateCcw,
+  TrendingUp, Zap, Target, Flame, RotateCcw,
   Trophy, BarChart3, Gauge, Swords, Edit2, Shield
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -103,8 +103,8 @@ function ProfileRadar({ radarData }) {
       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/25 font-createfuture mb-4 flex items-center gap-2">
         <Target size={13} /> Profilo Combo
       </h3>
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ width: '100%', height: 224 }}>
+        <ResponsiveContainer width="100%" height={224}>
           <RadarChart data={radarData}>
             <PolarGrid stroke="rgba(255,255,255,0.07)" strokeDasharray="3 3" />
             <PolarAngleAxis
@@ -169,7 +169,7 @@ function WinRateDonut({ winRate, typeColor }) {
             initial={{ scale: 0.4, opacity: 0 }}
             whileInView={{ scale: 1, opacity: 1 }}
             viewport={{ once: true }}
-            transition={{ delay: 0.3, duration: 0.5, ease: 'backOut(1.3)' }}
+            transition={{ delay: 0.3, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
           >
             <CountUp end={winRate || 0} duration={1.3} delay={0.3} suffix="%"
               style={{ color: typeColor, fontWeight: 900, fontSize: '1.55rem' }} />
@@ -390,15 +390,6 @@ export default function ComboStatsPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
-            {/* Back */}
-            <div className="absolute top-4 left-0 flex items-center gap-1.5">
-              <button onClick={() => navigate('/combo-leaderboard')}
-                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.08em] text-white/40 hover:text-white transition-colors"
-              >
-                <ChevronLeft size={13} /> Classifica
-              </button>
-            </div>
-
             {/* Glow aura */}
             <motion.div
               className="absolute w-60 h-64 rounded-full blur-[90px] -z-10 pointer-events-none"
@@ -407,24 +398,17 @@ export default function ComboStatsPage() {
               transition={{ repeat: Infinity, duration: 5, ease: 'easeInOut' }}
             />
 
-            {/* Image — float + glow ring */}
+            {/* Image — float + glow */}
             <motion.div
               className="relative w-[min(22rem,80vw)] h-[15rem] flex items-center justify-center"
               animate={{ y: [-12, -22, -12] }}
               transition={{ repeat: Infinity, duration: 3.2, ease: 'easeInOut' }}
             >
-              <motion.div className="absolute inset-0 rounded-[28px]"
-                style={{ background: `conic-gradient(from 180deg at 50% 50%, transparent 25%, ${tc.light} 50%, transparent 75%)` }}
-                animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 9, ease: 'linear' }}
-              />
-              <motion.div className="absolute w-full h-full rounded-[28px]"
-                style={{ boxShadow: `0 0 48px 0 ${tc.glow}, inset 0 0 20px ${tc.light}` }}
-              />
               {combo.blade_image_url && (
                 <img
                   src={combo.blade_image_url}
                   alt={combo.combo_name}
-                  className="relative z-10 w-full h-full object-contain"
+                  className="relative z-10 w-full h-full object-contain drop-shadow-[0_0_48px_rgba(155,89,182,0.35)]"
                   onError={e => { e.currentTarget.style.visibility = 'hidden'; }}
                 />
               )}
