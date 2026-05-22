@@ -123,6 +123,7 @@ function App() {
                     <Route path="/battle/history" element={<BattleHistoryPage />} />
                     <Route path="/account" element={<Account />} />
                     <Route path="/leaderboard" element={<LeaderboardPage />} />
+          <Route path="/combo-leaderboard" element={<ComboLeaderboardPage />} />
                     <Route path="/combo/:id" element={<ComboDetailPage />} />
                     <Route path="/academy" element={<AcademyPage />} />
                     <Route path="/academy/:levelId" element={<AcademyLevelPage />} />

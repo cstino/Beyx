@@ -10,7 +10,7 @@ import { StatCard } from '../components/StatCard';
 import { AcademyBanner } from '../components/AcademyBanner';
 import { SectionHeader } from '../components/SectionHeader';
 import { LeaderboardCarousel } from '../components/LeaderboardCarousel';
-import { Trophy, ChevronRight, CheckCircle2, Trash2, Check, X } from 'lucide-react';
+import { Trophy, ChevronRight, CheckCircle2, Trash2, Check, X, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar } from '../components/Avatar';
 
@@ -215,8 +215,44 @@ export default function Dashboard() {
       )}
 
       {/* 4. Top Bladers Section - Carousel */}
-      <div className="mb-8">
+      <div className="mb-6">
         <LeaderboardCarousel bladers={topBladers} />
+      </div>
+
+      {/* 5. Top Combo Section */}
+      <div className="mx-4 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+             <div className="w-[3px] h-4 bg-[#9b59b6]" />
+             <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase font-createfuture">Top Combo</h2>
+          </div>
+          <button 
+            onClick={() => navigate('/combo-leaderboard')}
+            className="text-[9px] font-black text-[#9b59b6] uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity"
+          >
+            TUTTE <TrendingUp size={12} />
+          </button>
+        </div>
+        <div 
+          onClick={() => navigate('/combo-leaderboard')}
+          className="p-6 rounded-[32px] bg-gradient-to-br from-[#1A1A3A] to-[#0A0A1A] border border-[#9b59b6]/20 relative overflow-hidden cursor-pointer group shadow-xl"
+        >
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#9b59b6]/20 border border-[#9b59b6]/30 flex items-center justify-center">
+                <TrendingUp size={24} className="text-[#9b59b6]" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-white uppercase italic font-createfuture">Classifica Beyblade</div>
+                <div className="text-[10px] text-white/40 mt-0.5">Scopri i beyblade pi&ugrave; forti in ogni categoria</div>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-[#9b59b6]/10 border border-[#9b59b6]/20 flex items-center justify-center text-[#9b59b6] group-hover:bg-[#9b59b6]/20 transition-all">
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div className="absolute bottom-[-20%] right-[-10%] w-32 h-32 bg-[#9b59b6]/5 blur-[40px] rounded-full" />
+        </div>
       </div>
 
     </PageContainer>
