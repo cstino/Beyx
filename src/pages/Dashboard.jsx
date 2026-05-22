@@ -1,18 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabaseClient';
-import { useHomeData } from '../hooks/useHomeData';
-import { PageContainer } from '../components/PageContainer';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
+import { useHomeData } from "../hooks/useHomeData";
+import { PageContainer } from "../components/PageContainer";
 
 // Modular Components
-import { BladerHeroCard } from '../components/BladerHeroCard';
-import { StatCard } from '../components/StatCard';
-import { AcademyBanner } from '../components/AcademyBanner';
-import { SectionHeader } from '../components/SectionHeader';
-import { LeaderboardCarousel } from '../components/LeaderboardCarousel';
-import { Trophy, ChevronRight, CheckCircle2, Trash2, Check, X, TrendingUp } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Avatar } from '../components/Avatar';
+import { BladerHeroCard } from "../components/BladerHeroCard";
+import { StatCard } from "../components/StatCard";
+import { AcademyBanner } from "../components/AcademyBanner";
+import { SectionHeader } from "../components/SectionHeader";
+import { LeaderboardCarousel } from "../components/LeaderboardCarousel";
+import {
+  Trophy,
+  ChevronRight,
+  CheckCircle2,
+  Trash2,
+  Check,
+  X,
+  TrendingUp,
+  Crown,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Avatar } from "../components/Avatar";
 
 export default function Dashboard() {
   const [userId, setUserId] = useState(null);
@@ -33,13 +42,15 @@ export default function Dashboard() {
 
   async function fetchPendingInvitations(uid) {
     const { data } = await supabase
-      .from('battles')
-      .select(`
+      .from("battles")
+      .select(
+        `
         *,
         p1:player1_user_id(username, avatar_id, avatar_color)
-      `)
-      .eq('player2_user_id', uid)
-      .eq('status', 'pending');
+      `,
+      )
+      .eq("player2_user_id", uid)
+      .eq("status", "pending");
     setPendingInvitations(data || []);
   }
 
@@ -47,29 +58,31 @@ export default function Dashboard() {
     if (accept) {
       navigate(`/battle/accept/${battleId}`);
     } else {
-      await supabase.from('battles')
-        .update({ status: 'cancelled' })
-        .eq('id', battleId);
+      await supabase
+        .from("battles")
+        .update({ status: "cancelled" })
+        .eq("id", battleId);
       fetchPendingInvitations(userId);
     }
   }
 
   async function fetchOpenTournaments() {
     const { data } = await supabase
-      .from('tournaments')
-      .select('*')
-      .eq('registration_open', true)
-      .eq('status', 'setup');
+      .from("tournaments")
+      .select("*")
+      .eq("registration_open", true)
+      .eq("status", "setup");
     setOpenTournaments(data || []);
   }
 
   const { blader, parts, combos, topBladers, loading } = useHomeData(userId);
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center">
-      <div className="w-10 h-10 border-4 border-[#E94560] border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="min-h-screen bg-[#0A0A1A] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-[#E94560] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
 
   return (
     <PageContainer>
@@ -77,13 +90,13 @@ export default function Dashboard() {
       <div className="pt-8 pb-4">
         {/* Logo Container */}
         <div className="flex justify-center mb-8 px-8">
-          <img 
-            src="/beyx.svg" 
-            alt="BeyManager X Logo" 
+          <img
+            src="/beyx.svg"
+            alt="BeyManager X Logo"
             className="h-16 w-auto opacity-100 drop-shadow-[0_0_20px_rgba(67,97,238,0.3)]"
           />
         </div>
-        
+
         {/* Hero Card Container */}
         <div className="w-full">
           <BladerHeroCard blader={blader} />
@@ -96,30 +109,38 @@ export default function Dashboard() {
           <div className="mx-4 mb-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-[3px] h-3.5 bg-primary" />
-              <h2 className="text-[11px] font-black text-white tracking-[0.15em] uppercase font-createfuture">Sfide in arrivo</h2>
+              <h2 className="text-[11px] font-black text-white tracking-[0.15em] uppercase font-createfuture">
+                Sfide in arrivo
+              </h2>
             </div>
             <div className="space-y-3">
-              {pendingInvitations.map(inv => (
-                <motion.div 
+              {pendingInvitations.map((inv) => (
+                <motion.div
                   key={inv.id}
-                  initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
                   className="p-5 rounded-3xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/20 flex items-center justify-between shadow-xl"
                 >
                   <div className="flex items-center gap-4">
                     <Avatar avatarId={inv.p1?.avatar_id} size={40} />
                     <div>
-                      <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Ti ha sfidato</div>
-                      <div className="text-sm font-black text-white uppercase italic font-createfuture tracking-[0.05em]">{inv.p1?.username}</div>
+                      <div className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">
+                        Ti ha sfidato
+                      </div>
+                      <div className="text-sm font-black text-white uppercase italic font-createfuture tracking-[0.05em]">
+                        {inv.p1?.username}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={() => handleInvitation(inv.id, false)}
                       className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/40 border border-white/5"
                     >
                       <X size={18} />
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleInvitation(inv.id, true)}
                       className="px-6 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary"
                     >
@@ -136,105 +157,171 @@ export default function Dashboard() {
       {/* 2. Stats Row */}
       <div className="grid grid-cols-2 gap-3 mx-4 mt-5 mb-5">
         <StatCard
-          label="Parti" 
-          value={parts.owned} 
+          label="Parti"
+          value={parts.owned}
           total={parts.total}
-          subtitle="In collezione" 
+          subtitle="In collezione"
           accentColor="#4361EE"
-          onClick={() => navigate('/collection')}
+          onClick={() => navigate("/collection")}
         />
         <StatCard
-          label="I tuoi beys" 
+          label="I tuoi beys"
           value={combos.count}
-          subtitle="Creati da te" 
+          subtitle="Creati da te"
           accentColor="#E94560"
-          onClick={() => navigate('/builder?view=saved')}
+          onClick={() => navigate("/builder?view=saved")}
         />
       </div>
 
       {/* 3. Academy Banner */}
       <div className="mx-4 mb-4">
-        <AcademyBanner onClick={() => navigate('/academy')} />
+        <AcademyBanner onClick={() => navigate("/academy")} />
       </div>
 
       {/* NEW: Open Tournaments Discovery */}
       {openTournaments.length > 0 && (
         <div className="mx-4 mb-8">
-           <SectionHeader title="Iscrizioni Aperte" accentColor="#E94560" />
-           <div className="space-y-4 mt-4">
-              {openTournaments.map(t => (
-                <motion.div 
-                  key={t.id} whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate(`/battle/tournament/${t.id}/join`)}
-                  className="w-full p-6 rounded-[32px] bg-gradient-to-br from-[#12122A] to-[#0A0A1A] border border-white/5 relative overflow-hidden flex flex-col justify-between h-44 shadow-xl"
-                >
-                  {t.created_by === (userId || blader?.id) && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (window.confirm("Vuoi eliminare definitivamente questo torneo?")) {
-                          supabase.from('tournaments').delete().eq('id', t.id).then(() => fetchOpenTournaments());
-                        }
-                      }}
-                      className="absolute top-4 right-4 z-20 w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 backdrop-blur-md"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-2">
-                       <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">{t.battle_type}</span>
-                       <div className="flex items-center gap-2">
-                          <div className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[7px] font-black text-primary uppercase tracking-widest">Registrazioni Live</div>
-                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#E94560]" />
-                       </div>
+          <SectionHeader title="Iscrizioni Aperte" accentColor="#E94560" />
+          <div className="space-y-4 mt-4">
+            {openTournaments.map((t) => (
+              <motion.div
+                key={t.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate(`/battle/tournament/${t.id}/join`)}
+                className="w-full p-6 rounded-[32px] bg-gradient-to-br from-[#12122A] to-[#0A0A1A] border border-white/5 relative overflow-hidden flex flex-col justify-between h-44 shadow-xl"
+              >
+                {t.created_by === (userId || blader?.id) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (
+                        window.confirm(
+                          "Vuoi eliminare definitivamente questo torneo?",
+                        )
+                      ) {
+                        supabase
+                          .from("tournaments")
+                          .delete()
+                          .eq("id", t.id)
+                          .then(() => fetchOpenTournaments());
+                      }
+                    }}
+                    className="absolute top-4 right-4 z-20 w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20 backdrop-blur-md"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] italic">
+                      {t.battle_type}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[7px] font-black text-primary uppercase tracking-widest">
+                        Registrazioni Live
+                      </div>
+                      <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_10px_#E94560]" />
                     </div>
-                    <div className="text-2xl font-black text-white uppercase italic tracking-tighter leading-tight mt-1 truncate pr-12 font-createfuture">{t.name}</div>
-                    <p className="text-[10px] text-white/30 font-medium mt-1 line-clamp-1">{t.description || 'Nessuna restrizione, unisciti alla battaglia.'}</p>
                   </div>
-                  
-                  <div className="flex items-end justify-between relative z-10 mt-4">
-                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center">
-                           <Trophy size={20} className="text-primary" />
-                        </div>
-                        <div>
-                           <div className="text-[8px] font-black text-white/20 uppercase tracking-widest font-createfuture">Formato</div>
-                           <div className="text-[10px] font-black text-white uppercase tracking-wider font-createfuture">{t.format}</div>
-                        </div>
-                     </div>
-                     <button className="px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary font-createfuture">PARTECIPA ORA</button>
+                  <div className="text-2xl font-black text-white uppercase italic tracking-tighter leading-tight mt-1 truncate pr-12 font-createfuture">
+                    {t.name}
                   </div>
-                  
-                  {/* Decorative background trophy */}
-                  <Trophy className="absolute top-1/2 right-[-20px] -translate-y-1/2 opacity-[0.04] rotate-12" size={180} />
-                </motion.div>
-              ))}
-           </div>
+                  <p className="text-[10px] text-white/30 font-medium mt-1 line-clamp-1">
+                    {t.description ||
+                      "Nessuna restrizione, unisciti alla battaglia."}
+                  </p>
+                </div>
+
+                <div className="flex items-end justify-between relative z-10 mt-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center">
+                      <Trophy size={20} className="text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-[8px] font-black text-white/20 uppercase tracking-widest font-createfuture">
+                        Formato
+                      </div>
+                      <div className="text-[10px] font-black text-white uppercase tracking-wider font-createfuture">
+                        {t.format}
+                      </div>
+                    </div>
+                  </div>
+                  <button className="px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-glow-primary font-createfuture">
+                    PARTECIPA ORA
+                  </button>
+                </div>
+
+                {/* Decorative background trophy */}
+                <Trophy
+                  className="absolute top-1/2 right-[-20px] -translate-y-1/2 opacity-[0.04] rotate-12"
+                  size={180}
+                />
+              </motion.div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* 4. Top Bladers Section - Carousel */}
-      <div className="mb-6">
-        <LeaderboardCarousel bladers={topBladers} />
+      {/* 4. Hall of Fame Section */}
+      <div className="mx-4 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-[3px] h-4 bg-[#F5A623]" />
+            <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase font-createfuture">
+              Hall of Fame
+            </h2>
+          </div>
+          <button
+            onClick={() => navigate("/leaderboard")}
+            className="text-[9px] font-black text-[#F5A623] uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity"
+          >
+            TUTTE <Trophy size={12} />
+          </button>
+        </div>
+        <div
+          onClick={() => navigate("/leaderboard")}
+          className="p-6 rounded-[32px] bg-gradient-to-br from-[#2A1F00] to-[#0A0A1A] border border-[#F5A623]/20 relative overflow-hidden cursor-pointer group shadow-xl"
+        >
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#F5A623]/20 border border-[#F5A623]/30 flex items-center justify-center">
+                <Crown size={24} className="text-[#F5A623]" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-white uppercase italic font-createfuture">
+                  Classifica Blader
+                </div>
+                <div className="text-[10px] text-white/40 mt-0.5">
+                  Scopri i migliori blader per ELO e vittorie
+                </div>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-[#F5A623]/10 border border-[#F5A623]/20 flex items-center justify-center text-[#F5A623] group-hover:bg-[#F5A623]/20 transition-all">
+              <Trophy size={18} />
+            </div>
+          </div>
+          <div className="absolute bottom-[-20%] right-[-10%] w-32 h-32 bg-[#F5A623]/5 blur-[40px] rounded-full" />
+        </div>
       </div>
 
       {/* 5. Top Combo Section */}
       <div className="mx-4 mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-             <div className="w-[3px] h-4 bg-[#9b59b6]" />
-             <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase font-createfuture">Top Combo</h2>
+            <div className="w-[3px] h-4 bg-[#9b59b6]" />
+            <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase font-createfuture">
+              Top Combo
+            </h2>
           </div>
-          <button 
-            onClick={() => navigate('/combo-leaderboard')}
+          <button
+            onClick={() => navigate("/combo-leaderboard")}
             className="text-[9px] font-black text-[#9b59b6] uppercase tracking-widest flex items-center gap-1 hover:opacity-80 transition-opacity"
           >
             TUTTE <TrendingUp size={12} />
           </button>
         </div>
-        <div 
-          onClick={() => navigate('/combo-leaderboard')}
+        <div
+          onClick={() => navigate("/combo-leaderboard")}
           className="p-6 rounded-[32px] bg-gradient-to-br from-[#1A1A3A] to-[#0A0A1A] border border-[#9b59b6]/20 relative overflow-hidden cursor-pointer group shadow-xl"
         >
           <div className="relative z-10 flex items-center justify-between">
@@ -243,8 +330,12 @@ export default function Dashboard() {
                 <TrendingUp size={24} className="text-[#9b59b6]" />
               </div>
               <div>
-                <div className="text-sm font-black text-white uppercase italic font-createfuture">Classifica Beyblade</div>
-                <div className="text-[10px] text-white/40 mt-0.5">Scopri i beyblade pi&ugrave; forti in ogni categoria</div>
+                <div className="text-sm font-black text-white uppercase italic font-createfuture">
+                  Classifica Beyblade
+                </div>
+                <div className="text-[10px] text-white/40 mt-0.5">
+                  Scopri i beyblade pi&ugrave; forti in ogni categoria
+                </div>
               </div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-[#9b59b6]/10 border border-[#9b59b6]/20 flex items-center justify-center text-[#9b59b6] group-hover:bg-[#9b59b6]/20 transition-all">
@@ -254,7 +345,6 @@ export default function Dashboard() {
           <div className="absolute bottom-[-20%] right-[-10%] w-32 h-32 bg-[#9b59b6]/5 blur-[40px] rounded-full" />
         </div>
       </div>
-
     </PageContainer>
   );
 }
