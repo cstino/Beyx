@@ -129,7 +129,7 @@ export default function ComboLeaderboardPage() {
         ) : (
           data.map((item, i) => (
             <motion.div
-              key={item.combo_id || i}
+              key={item.combo_name || i}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.02 }}
