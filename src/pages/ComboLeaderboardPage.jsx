@@ -49,9 +49,10 @@ export default function ComboLeaderboardPage() {
       { p_min_battles: 5 },
     );
     if (error) {
-      console.error(error);
+      console.error("Error loading combos:", error);
       setData([]);
     } else {
+      console.log("Combos loaded:", combos?.length || 0);
       const tab = TABS.find((t) => t.id === activeTab);
       setData(
         [...(combos || [])].sort(
