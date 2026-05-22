@@ -8,30 +8,31 @@ import {
   Flame,
   RotateCcw,
   ChevronLeft,
+  Filter,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { PageContainer } from "../components/PageContainer";
 import { useUIStore } from "../store/useUIStore";
 
 const TABS = [
-  { id: "top_combo", label: "TOP", icon: TrendingUp, sortKey: "wins" },
-  { id: "burst", label: "BURST", icon: Zap, sortKey: "burst_count" },
-  { id: "ko", label: "KO", icon: Target, sortKey: "ko_count" },
-  { id: "xtreme", label: "XTREME", icon: Flame, sortKey: "xtreme_count" },
-  {
-    id: "spin_finish",
-    label: "SPIN",
-    icon: RotateCcw,
-    sortKey: "spin_finish_count",
-  },
+  { id: "top", label: "TOP", icon: TrendingUp },
+  { id: "wins", label: "WIN", icon: TrendingUp },
+  { id: "xtreme", label: "EXTREME", icon: Flame },
+  { id: "burst", label: "BURST", icon: Zap },
+  { id: "ko", label: "KO", icon: Target },
+  { id: "spin_finish", label: "SPIN", icon: RotateCcw },
 ];
+
+const BLADE_TYPES = ["Tutti", "Attack", "Defense", "Stamina", "Balance"];
 
 export default function ComboLeaderboardPage() {
   const navigate = useNavigate();
   const { setHeader, clearHeader } = useUIStore();
-  const [activeTab, setActiveTab] = useState("top_combo");
+  const [activeTab, setActiveTab] = useState("top");
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bladeFilter, setBladeFilter] = useState("Tutti");
+  const [showFilter, setShowFilter] = useState(false);
 
   useEffect(() => {
     setHeader("TOP COMBO", "/");
@@ -40,38 +41,76 @@ export default function ComboLeaderboardPage() {
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, bladeFilter]);
 
   async function loadData() {
     setLoading(true);
-    const { data: combos, error } = await supabase.rpc(
-      "all_combos_leaderboard",
-      { p_min_battles: 5 },
-    );
+    let combos = null;
+    let error = null;
+
+    if (activeTab === "top") {
+      const filter = bladeFilter === "Tutti" ? null : bladeFilter;
+      const result = await supabase.rpc("combo_points_leaderboard", {
+        p_min_battles: 5,
+        p_blade_type: filter,
+      });
+      combos = result.data;
+      error = result.error;
+    } else {
+      const result = await supabase.rpc("all_combos_leaderboard", {
+        p_min_battles: 5,
+      });
+      combos = result.data;
+      error = result.error;
+    }
+
     if (error) {
-      console.error("Error loading combos:", error);
+      console.error(error);
       setData([]);
     } else {
-      console.log("Combos loaded:", combos?.length || 0);
-      const tab = TABS.find((t) => t.id === activeTab);
-      setData(
-        [...(combos || [])].sort(
-          (a, b) => (b[tab.sortKey] || 0) - (a[tab.sortKey] || 0),
-        ),
-      );
+      if (activeTab === "top") {
+        setData(combos || []);
+      } else {
+        const sortKey =
+          activeTab === "wins"
+            ? "wins"
+            : activeTab === "burst"
+              ? "burst_count"
+              : activeTab === "ko"
+                ? "ko_count"
+                : activeTab === "xtreme"
+                  ? "xtreme_count"
+                  : "spin_finish_count";
+        setData(
+          [...(combos || [])].sort(
+            (a, b) => (b[sortKey] || 0) - (a[sortKey] || 0),
+          ),
+        );
+      }
     }
     setLoading(false);
   }
 
+  const getValue = (item) => {
+    if (activeTab === "top") return item.points;
+    if (activeTab === "wins") return item.wins;
+    if (activeTab === "burst") return item.burst_count;
+    if (activeTab === "ko") return item.ko_count;
+    if (activeTab === "xtreme") return item.xtreme_count;
+    return item.spin_finish_count;
+  };
+
   const getSublabel = (item) => {
-    const m = {
-      top_combo: `${item.wins}V / ${item.total_rounds}R · ${item.win_rate}% win rate`,
-      burst: `${item.burst_count} Burst · ${item.total_rounds}R`,
-      ko: `${item.ko_count} KO · ${item.total_rounds}R`,
-      xtreme: `${item.xtreme_count} Xtreme · ${item.total_rounds}R`,
-      spin_finish: `${item.spin_finish_count} Spin · ${item.total_rounds}R`,
-    };
-    return m[activeTab] || `${item.total_rounds} round totali`;
+    if (activeTab === "top") {
+      return `${item.wins}W / ${item.losses}L / ${item.draws}D · ${item.win_rate}%`;
+    }
+    return `${item.wins}V / ${item.total_rounds}R · ${item.win_rate}% win rate`;
+  };
+
+  const getValueLabel = () => {
+    if (activeTab === "top") return "PTS";
+    if (activeTab === "wins") return "W";
+    return "";
   };
 
   return (
@@ -90,11 +129,12 @@ export default function ComboLeaderboardPage() {
           Top Combo
         </h1>
         <p className="text-[9px] text-white/30 font-medium mt-1">
-          Minimo 5 battaglie per entrare in classifica. {data.length} beyblade
-          qualificati.
+          Minimo 5 battaglie · {data.length} beyblade qualificati.
         </p>
       </div>
-      <div className="px-4 mb-4 overflow-x-auto scrollbar-hide">
+
+      {/* Tabs */}
+      <div className="px-4 mb-2 overflow-x-auto scrollbar-hide">
         <div className="flex gap-1.5 pb-2">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -111,6 +151,44 @@ export default function ComboLeaderboardPage() {
           })}
         </div>
       </div>
+
+      {/* Filter for TOP tab */}
+      {activeTab === "top" && (
+        <div className="px-4 mb-3">
+          <button
+            onClick={() => setShowFilter(!showFilter)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-extrabold tracking-wider border transition-colors font-createfuture bg-white/5 border-white/10 text-white/50 hover:text-white/70"
+          >
+            <Filter size={10} /> {bladeFilter.toUpperCase()}
+          </button>
+          {showFilter && (
+            <div className="flex gap-1.5 mt-2 flex-wrap">
+              {BLADE_TYPES.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    setBladeFilter(t);
+                    setShowFilter(false);
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-[9px] font-extrabold tracking-wider border transition-colors ${bladeFilter === t ? "bg-[#9b59b6]/15 border-[#9b59b6]/50 text-[#9b59b6]" : "bg-white/5 border-white/10 text-white/40"}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Legend for TOP */}
+      {activeTab === "top" && (
+        <div className="px-4 mb-2 text-[9px] text-white/20 flex gap-3 font-createfuture">
+          <span>Win: X+3, KO/Burst/Spin +2</span>
+          <span>Lose: X-3, KO/Burst/Spin -2</span>
+        </div>
+      )}
+
+      {/* Results */}
       <div className="px-4 pb-24 space-y-2">
         {loading ? (
           <div className="flex justify-center p-20">
@@ -123,7 +201,7 @@ export default function ComboLeaderboardPage() {
               Nessuna combo qualificata
             </div>
             <p className="text-white/20 text-[10px] mt-2">
-              Le combo devono aver partecipato ad almeno 5 scontri
+              Minimo 5 battaglie per entrare in classifica
             </p>
           </div>
         ) : (
@@ -133,7 +211,8 @@ export default function ComboLeaderboardPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.02 }}
-              className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5"
+              onClick={() => navigate(`/combo/${item.combo_name}`)}
+              className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5 cursor-pointer hover:border-[#9b59b6]/30 hover:bg-[#1A1A3A]/50 transition-all"
             >
               <div
                 className={`w-7 text-center font-black tabular-nums font-createfuture ${i === 0 ? "text-[#9b59b6] text-lg" : i === 1 ? "text-[#94A3B8] text-base" : i === 2 ? "text-[#A16207] text-base" : "text-white/30 text-sm"}`}
@@ -154,8 +233,17 @@ export default function ComboLeaderboardPage() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="text-white font-bold text-sm truncate font-createfuture uppercase italic">
-                  {item.combo_name || "Combo"}
+                <div className="flex items-center gap-2">
+                  <div className="text-white font-bold text-sm truncate font-createfuture uppercase italic">
+                    {item.combo_name || "Combo"}
+                  </div>
+                  {item.blade_type && (
+                    <span
+                      className={`text-[7px] font-black px-1.5 py-0.5 rounded uppercase ${item.blade_type === "Attack" ? "bg-red-500/10 text-red-400" : item.blade_type === "Defense" ? "bg-blue-500/10 text-blue-400" : item.blade_type === "Stamina" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}`}
+                    >
+                      {item.blade_type}
+                    </span>
+                  )}
                 </div>
                 <div className="text-white/40 text-[10px] truncate">
                   {getSublabel(item)}
@@ -163,23 +251,11 @@ export default function ComboLeaderboardPage() {
               </div>
               <div className="text-right shrink-0">
                 <div className="text-white font-black tabular-nums font-createfuture text-sm">
-                  {item[
-                    activeTab === "top_combo"
-                      ? "wins"
-                      : activeTab === "burst"
-                        ? "burst_count"
-                        : activeTab === "ko"
-                          ? "ko_count"
-                          : activeTab === "xtreme"
-                            ? "xtreme_count"
-                            : "spin_finish_count"
-                  ] || 0}
+                  {getValue(item)}
                 </div>
-                {activeTab === "top_combo" && (
-                  <div className="text-[9px] font-extrabold tracking-wider text-[#9b59b6]/70 font-createfuture">
-                    {item.win_rate}%
-                  </div>
-                )}
+                <div className="text-[9px] font-extrabold tracking-wider text-[#9b59b6]/70 font-createfuture">
+                  {getValueLabel()}
+                </div>
               </div>
             </motion.div>
           ))
