@@ -66,6 +66,11 @@ const NewMatchPage = lazy(() =>
     default: m.NewMatchPage,
   })),
 );
+const TestLabPage = lazy(() => import("./pages/TestLabPage"));
+const TestLabScontro = lazy(() => import("./pages/TestLabScontro"));
+const TestLabScontroMatch = lazy(() => import("./pages/TestLabScontroMatch"));
+const TestLabTorneo = lazy(() => import("./pages/TestLabTorneo"));
+const TestLabStorico = lazy(() => import("./pages/TestLabStorico"));
 const LiveMatchPage = lazy(() =>
   import("./pages/battle/LiveMatchPage").then((m) => ({
     default: m.LiveMatchPage,
@@ -222,6 +227,56 @@ function App() {
                       element={
                         profile?.is_admin ? (
                           <Admin />
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/test-lab"
+                      element={
+                        profile?.is_admin ? (
+                          <TestLabPage />
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/test-lab/scontro"
+                      element={
+                        profile?.is_admin ? (
+                          <TestLabScontro />
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/test-lab/scontro/match"
+                      element={
+                        profile?.is_admin ? (
+                          <TestLabScontroMatch />
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/test-lab/torneo"
+                      element={
+                        profile?.is_admin ? (
+                          <TestLabTorneo />
+                        ) : (
+                          <Navigate to="/" replace />
+                        )
+                      }
+                    />
+                    <Route
+                      path="/test-lab/storico"
+                      element={
+                        profile?.is_admin ? (
+                          <TestLabStorico />
                         ) : (
                           <Navigate to="/" replace />
                         )

@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, LayoutGrid, Layers, Trophy, User } from 'lucide-react';
+import { Home, LayoutGrid, Layers, Trophy, User, FlaskConical } from 'lucide-react';
 import { useUIStore } from '../store/useUIStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -19,13 +20,22 @@ const navItems = [
 
 export default function BottomNav() {
   const modalOpen = useUIStore(s => s.modalOpen);
+  const isAdmin = useAuthStore(s =>
+    s.user?.email === 'cr.96bc@gmail.com'
+    || s.user?.email === 'hcskso96@gmail.com'
+    || s.profile?.is_admin
+  );
 
   if (modalOpen) return null;
+
+  const allItems = isAdmin
+    ? [...navItems.slice(0, 4), { icon: FlaskConical, label: 'LAB', path: '/test-lab' }, navItems[4]]
+    : navItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 px-4 pb-6 pt-2">
       <div className="mx-auto max-w-lg glass-card flex items-center justify-around py-3 px-2">
-        {navItems.map(({ icon: Icon, label, path }) => (
+        {allItems.map(({ icon: Icon, label, path }) => (
           <NavLink
             key={path}
             to={path}
