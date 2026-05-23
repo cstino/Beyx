@@ -1,9 +1,178 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, TrendingUp, Zap, Target, Flame, RotateCcw, Shield, Sword, Wind } from 'lucide-react';
+import { motion } from 'framer-motion';
+import CountUp from 'react-countup';
+import { TrendingUp, Zap, Target, Flame, RotateCcw, Shield, Sword, Wind, Trophy, Swords, Skull } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PageContainer } from '../components/PageContainer';
 import { useUIStore } from '../store/useUIStore';
+
+const TYPE_COLORS = {
+  Attack: { hex: '#ef4444', icon: Zap },
+  Defense: { hex: '#3b82f6', icon: Shield },
+  Stamina: { hex: '#22c55e', icon: Wind },
+  Balance: { hex: '#eab308', icon: Sword },
+};
+
+const STAT_CARDS = [
+  { key: 'points', label: 'Punti', color: '#9b59b6', icon: Trophy },
+  { key: 'wins', label: 'Vittorie', color: '#22c55e', icon: Swords },
+  { key: 'losses', label: 'Sconfitte', color: '#ef4444', icon: Skull },
+  { key: 'winRate', label: 'Win Rate', color: '#3b82f6', icon: TrendingUp, suffix: '%' },
+];
+
+const BAR_COLORS = {
+  extreme: { hex: '#F5A623', glow: '#FFD166' },
+  ko: { hex: '#4361EE', glow: '#8194FF' },
+  burst: { hex: '#E94560', glow: '#FF6B81' },
+  spin: { hex: '#00D68F', glow: '#3DFFBF' },
+};
+
+const BAR_ICONS = {
+  extreme: Flame,
+  ko: Target,
+  burst: Zap,
+  spin: RotateCcw,
+};
+
+function StatCard({ label, value, color, icon: Icon, suffix, index }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, delay: index * 0.08 }}
+      className="rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 overflow-hidden"
+      style={{ borderTopColor: color, borderTopWidth: 2 }}
+    >
+      <div className="p-3 flex flex-col items-center gap-1">
+        <Icon size={16} style={{ color }} />
+        <CountUp
+          end={value}
+          suffix={suffix || ''}
+          duration={1.5}
+          delay={index * 0.1}
+          className="text-lg font-black text-white font-createfuture"
+        />
+        <span className="text-[8px] font-black text-white/30 uppercase tracking-widest">{label}</span>
+      </div>
+    </motion.div>
+  );
+}
+
+function CometBar({ label, count, max, color, glowColor, index, totalLabel }) {
+  const Icon = BAR_ICONS[label.toLowerCase()] || Flame;
+  const pct = max > 0 ? (count / max) * 100 : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, delay: index * 0.08 }}
+      className="flex items-center gap-2"
+    >
+      <Icon size={14} style={{ color }} className="shrink-0" />
+      <span className="text-[9px] font-black text-white/50 uppercase w-12 shrink-0">{label}</span>
+      <div className="flex-1 relative h-3">
+        <div className="absolute inset-0 bg-white/10 rounded-full" />
+        <motion.div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{
+            background: `linear-gradient(to right, ${color}cc, ${glowColor})`,
+            boxShadow: `0 0 8px ${glowColor}66`,
+          }}
+          initial={{ width: 0 }}
+          whileInView={{ width: `${pct}%` }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.3 + index * 0.08, ease: 'easeOut' }}
+        />
+        <motion.div
+          className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full blur-[2px]"
+          style={{
+            backgroundColor: glowColor,
+            boxShadow: `0 0 10px ${glowColor}`,
+          }}
+          initial={{ left: 0, opacity: 0 }}
+          whileInView={{ left: `calc(${pct}% - 5px)`, opacity: pct > 0 ? 1 : 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.3 + index * 0.08, ease: 'easeOut' }}
+        />
+      </div>
+      <span className="text-[10px] font-black text-white/60 tabular-nums w-5 text-right">{count}</span>
+    </motion.div>
+  );
+}
+
+function WinRateDonut({ value, color, glowColor }) {
+  const r = 58;
+  const circumference = 2 * Math.PI * r;
+  const [animated, setAnimated] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setAnimated(true), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative w-[156px] h-[156px]">
+        <svg viewBox="0 0 140 140" className="w-full h-full -rotate-90">
+          <defs>
+            <linearGradient id="donutGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={color} />
+              <stop offset="100%" stopColor={glowColor} />
+            </linearGradient>
+            <filter id="donutGlow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke="white"
+            strokeOpacity="0.08"
+            strokeWidth="10"
+          />
+          <circle
+            cx="70"
+            cy="70"
+            r={r}
+            fill="none"
+            stroke="url(#donutGradient)"
+            strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={animated ? circumference * (1 - value / 100) : circumference}
+            filter="url(#donutGlow)"
+            style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <CountUp
+            end={value}
+            suffix="%"
+            decimals={1}
+            duration={1.5}
+            delay={0.5}
+            className="text-2xl font-black text-white font-createfuture"
+          />
+          <span className="text-[8px] font-black text-white/30 uppercase tracking-widest mt-0.5">WIN RATE</span>
+        </div>
+      </div>
+      <div
+        className="absolute w-[156px] h-[156px] rounded-full blur-xl opacity-20 pointer-events-none"
+        style={{ background: `conic-gradient(${color}, ${glowColor}, ${color})` }}
+      />
+    </div>
+  );
+}
 
 export default function ComboStatsPage() {
   const { name } = useParams();
@@ -46,129 +215,199 @@ export default function ComboStatsPage() {
     </PageContainer>
   );
 
-  const typeColor = combo.blade_type === 'Attack' ? '#ef4444' : combo.blade_type === 'Defense' ? '#3b82f6' : combo.blade_type === 'Stamina' ? '#22c55e' : '#eab308';
+  const typeInfo = TYPE_COLORS[combo.blade_type] || TYPE_COLORS.Attack;
+  const typeColor = typeInfo.hex;
+  const glowColor = typeInfo.hex + '99';
+
   const totalWins = combo.wins || 0;
   const totalLosses = combo.losses || 0;
   const totalDraws = combo.draws || 0;
   const totalRounds = combo.total_rounds || 1;
+  const winRate = typeof combo.win_rate === 'number' ? combo.win_rate : parseFloat(combo.win_rate) || 0;
 
   const winBreakdown = [
-    { label: 'Xtreme', count: combo.extreme_wins || 0, color: '#F5A623', icon: Flame },
-    { label: 'KO', count: combo.ko_wins || 0, color: '#4361EE', icon: Target },
-    { label: 'Burst', count: combo.burst_wins || 0, color: '#E94560', icon: Zap },
-    { label: 'Spin', count: combo.spin_wins || 0, color: '#00D68F', icon: RotateCcw },
+    { key: 'extreme', label: 'Xtreme', count: combo.extreme_wins || 0 },
+    { key: 'ko', label: 'KO', count: combo.ko_wins || 0 },
+    { key: 'burst', label: 'Burst', count: combo.burst_wins || 0 },
+    { key: 'spin', label: 'Spin', count: combo.spin_wins || 0 },
   ];
 
   const lossBreakdown = [
-    { label: 'Xtreme', count: combo.extreme_losses || 0, color: '#F5A623', icon: Flame },
-    { label: 'KO', count: combo.ko_losses || 0, color: '#4361EE', icon: Target },
-    { label: 'Burst', count: combo.burst_losses || 0, color: '#E94560', icon: Zap },
-    { label: 'Spin', count: combo.spin_losses || 0, color: '#00D68F', icon: RotateCcw },
+    { key: 'extreme', label: 'Xtreme', count: combo.extreme_losses || 0 },
+    { key: 'ko', label: 'KO', count: combo.ko_losses || 0 },
+    { key: 'burst', label: 'Burst', count: combo.burst_losses || 0 },
+    { key: 'spin', label: 'Spin', count: combo.spin_losses || 0 },
   ];
 
   const maxWinCount = Math.max(...winBreakdown.map(w => w.count), 1);
   const maxLossCount = Math.max(...lossBreakdown.map(l => l.count), 1);
 
+  const TypeIcon = typeInfo.icon;
+
   return (
     <PageContainer>
-      <div className="px-4 mb-6 pt-4">
-        <button onClick={() => navigate('/combo-leaderboard')} className="flex items-center gap-1 text-[10px] font-black text-white/40 uppercase tracking-widest mb-4 hover:text-white/70 transition-colors">
-          <ChevronLeft size={14} /> Classifica
-        </button>
+      {/* Background radial glow */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: `radial-gradient(ellipse 60% 50% at 50% 20%, ${typeColor}0F, transparent 60%)` }}
+      />
 
-        {/* Hero Card */}
-        <div className="p-6 rounded-[32px] bg-gradient-to-br from-[#1A1A3A] to-[#0A0A1A] border-2 mb-4" style={{ borderColor: typeColor + '33' }}>
-          <div className="flex items-center gap-4 mb-4">
+      <div className="px-4 mb-6 pt-2 relative z-10">
+        {/* HERO SECTION */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7 }}
+          className="flex flex-col items-center pt-6 pb-10"
+        >
+          {/* Radial glow behind image */}
+          <div className="relative">
+            <div
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full animate-pulse-slow"
+              style={{ background: `radial-gradient(circle, ${typeColor}33, transparent 70%)` }}
+            />
             {combo.blade_image_url ? (
-              <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center p-2">
-                <img src={combo.blade_image_url} alt="" className="w-full h-full object-contain drop-shadow-lg" />
+              <img
+                src={combo.blade_image_url}
+                alt={combo.combo_name}
+                className="relative z-10 w-36 h-36 object-contain drop-shadow-[0_0_30px_#00000066] animate-float"
+              />
+            ) : (
+              <div className="relative z-10 w-36 h-36 rounded-full bg-white/5 flex items-center justify-center animate-float border border-white/10">
+                <TypeIcon size={56} style={{ color: typeColor, opacity: 0.5 }} />
               </div>
-            ) : null}
-            <div>
-              <h1 className="text-lg font-black text-white uppercase italic font-createfuture">{combo.combo_name}</h1>
-              <span className="text-[9px] font-black px-2 py-0.5 rounded uppercase mt-1 inline-block" style={{ backgroundColor: typeColor + '20', color: typeColor }}>
-                {combo.blade_type || 'Unknown'}
-              </span>
-            </div>
+            )}
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-4 gap-2">
-            <div className="bg-black/30 rounded-xl p-3 text-center">
-              <div className="text-lg font-black text-white">{combo.points || 0}</div>
-              <div className="text-[8px] font-black text-white/30 uppercase tracking-widest">Punti</div>
-            </div>
-            <div className="bg-black/30 rounded-xl p-3 text-center">
-              <div className="text-lg font-black text-green-400">{totalWins}</div>
-              <div className="text-[8px] font-black text-white/30 uppercase tracking-widest">Vittorie</div>
-            </div>
-            <div className="bg-black/30 rounded-xl p-3 text-center">
-              <div className="text-lg font-black text-red-400">{totalLosses}</div>
-              <div className="text-[8px] font-black text-white/30 uppercase tracking-widest">Sconfitte</div>
-            </div>
-            <div className="bg-black/30 rounded-xl p-3 text-center">
-              <div className="text-lg font-black text-white/50">{combo.win_rate}%</div>
-              <div className="text-[8px] font-black text-white/30 uppercase tracking-widest">Win Rate</div>
-            </div>
+          {/* Name */}
+          <h1 className="text-xl font-black text-white uppercase italic font-createfuture mt-4 text-center">
+            {combo.blade_name || combo.combo_name}
+          </h1>
+
+          {/* Type badge + Score pill */}
+          <div className="flex items-center gap-3 mt-3">
+            <span
+              className="text-[9px] font-black px-3 py-1 rounded-full uppercase flex items-center gap-1"
+              style={{ backgroundColor: typeColor + '20', color: typeColor, borderColor: typeColor + '40', borderWidth: 1 }}
+            >
+              <TypeIcon size={12} />
+              {combo.blade_type || 'Unknown'}
+            </span>
+            <span
+              className="text-[9px] font-black px-3 py-1 rounded-full uppercase"
+              style={{ backgroundColor: typeColor + '15', color: typeColor, borderColor: typeColor + '30', borderWidth: 1 }}
+            >
+              {combo.points || 0} PUNTI
+            </span>
           </div>
+        </motion.div>
+
+        {/* STATS CARDS */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="grid grid-cols-4 gap-2 mb-4"
+        >
+          <StatCard label="Punti" value={combo.points || 0} color="#9b59b6" icon={Trophy} index={0} />
+          <StatCard label="Vittorie" value={totalWins} color="#22c55e" icon={Swords} index={1} />
+          <StatCard label="Sconfitte" value={totalLosses} color="#ef4444" icon={Skull} index={2} />
+          <StatCard label="Win Rate" value={winRate} color="#3b82f6" icon={TrendingUp} suffix="%" index={3} />
+        </motion.div>
+
+        {/* WIN RATE DONUT + SUMMARY */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* Donut */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="rounded-[28px] bg-white/5 backdrop-blur-md border border-white/10 p-5 flex flex-col items-center justify-center relative"
+          >
+            <WinRateDonut value={winRate} color={typeColor} glowColor={glowColor} />
+          </motion.div>
+
+          {/* Summary */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+            className="rounded-[28px] bg-white/5 backdrop-blur-md border border-white/10 p-4"
+          >
+            <h3 className="text-[10px] font-black text-white/30 uppercase tracking-[0.2em] mb-3 font-createfuture">Riepilogo</h3>
+            <div className="grid grid-cols-1 gap-2">
+              {[
+                { label: 'Round Totali', value: totalRounds, color: '#ffffff' },
+                { label: 'Pareggi', value: totalDraws, color: '#eab308' },
+                { label: 'Win Rate', value: winRate, color: typeColor, suffix: '%' },
+                { label: 'Punteggio', value: combo.points || 0, color: '#9b59b6', suffix: ' pts' },
+              ].map((item, i) => (
+                <div key={item.label} className="flex justify-between items-center p-2 bg-white/[0.03] rounded-xl border border-white/5">
+                  <span className="text-[9px] font-bold text-white/40 uppercase">{item.label}</span>
+                  <span className="text-[11px] font-black font-createfuture" style={{ color: item.color }}>
+                    {item.suffix ? <>{item.value}{item.suffix}</> : item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
 
-        {/* Win Breakdown */}
-        <div className="bg-[#12122A] rounded-3xl border border-white/5 p-5 mb-4">
-          <h3 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-4 font-createfuture">Analisi Vittorie ({totalWins})</h3>
-          <div className="space-y-2">
-            {winBreakdown.map(w => (
-              <div key={w.label} className="flex items-center gap-3">
-                <w.icon size={14} style={{ color: w.color }} className="shrink-0" />
-                <span className="text-[9px] font-black text-white/60 uppercase w-12 shrink-0">{w.label}</span>
-                <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${(w.count / maxWinCount) * 100}%`, backgroundColor: w.color }} />
-                </div>
-                <span className="text-[10px] font-black text-white/40 tabular-nums w-6 text-right">{w.count}</span>
-              </div>
+        {/* VICTORY BREAKDOWN */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="bg-[#12122A] rounded-3xl border border-white/5 p-5 mb-4"
+        >
+          <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-4 font-createfuture">
+            Analisi Vittorie ({totalWins})
+          </h3>
+          <div className="space-y-3">
+            {winBreakdown.map((w, i) => (
+              <CometBar
+                key={w.key}
+                label={w.label}
+                count={w.count}
+                max={maxWinCount}
+                color={BAR_COLORS[w.key].hex}
+                glowColor={BAR_COLORS[w.key].glow}
+                index={i}
+              />
             ))}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Loss Breakdown */}
-        <div className="bg-[#12122A] rounded-3xl border border-white/5 p-5 mb-4">
-          <h3 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-4 font-createfuture">Analisi Sconfitte ({totalLosses})</h3>
-          <div className="space-y-2">
-            {lossBreakdown.map(l => (
-              <div key={l.label} className="flex items-center gap-3">
-                <l.icon size={14} style={{ color: l.color }} className="shrink-0 opacity-60" />
-                <span className="text-[9px] font-black text-white/60 uppercase w-12 shrink-0 opacity-60">{l.label}</span>
-                <div className="flex-1 h-2.5 bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all opacity-60" style={{ width: `${(l.count / maxLossCount) * 100}%`, backgroundColor: l.color }} />
-                </div>
-                <span className="text-[10px] font-black text-white/40 tabular-nums w-6 text-right">{l.count}</span>
-              </div>
+        {/* LOSS BREAKDOWN */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="bg-[#12122A] rounded-3xl border border-white/5 p-5"
+        >
+          <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] mb-4 font-createfuture">
+            Analisi Sconfitte ({totalLosses})
+          </h3>
+          <div className="space-y-3">
+            {lossBreakdown.map((l, i) => (
+              <CometBar
+                key={l.key}
+                label={l.label}
+                count={l.count}
+                max={maxLossCount}
+                color={BAR_COLORS[l.key].hex}
+                glowColor={BAR_COLORS[l.key].glow}
+                index={i}
+              />
             ))}
           </div>
-        </div>
-
-        {/* Summary */}
-        <div className="bg-[#12122A] rounded-3xl border border-white/5 p-5">
-          <h3 className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-3 font-createfuture">Riepilogo</h3>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
-            <div className="flex justify-between p-2 bg-white/[0.02] rounded-lg">
-              <span className="text-white/40">Round Totali</span>
-              <span className="text-white font-black">{totalRounds}</span>
-            </div>
-            <div className="flex justify-between p-2 bg-white/[0.02] rounded-lg">
-              <span className="text-white/40">Pareggi</span>
-              <span className="text-white font-black">{totalDraws}</span>
-            </div>
-            <div className="flex justify-between p-2 bg-white/[0.02] rounded-lg">
-              <span className="text-white/40">Win Rate</span>
-              <span className="text-green-400 font-black">{combo.win_rate}%</span>
-            </div>
-            <div className="flex justify-between p-2 bg-white/[0.02] rounded-lg">
-              <span className="text-white/40">Punteggio</span>
-              <span className="text-[#9b59b6] font-black">{combo.points || 0} pts</span>
-            </div>
-          </div>
-        </div>
+        </motion.div>
       </div>
     </PageContainer>
   );

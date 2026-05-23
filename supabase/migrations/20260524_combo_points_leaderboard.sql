@@ -71,8 +71,8 @@ RETURNS TABLE(
     bl.type AS blade_type,
     s.wins, s.losses, s.draws, s.total_rounds,
     ROUND(s.wins * 100.0 / NULLIF(s.total_rounds, 0), 1) AS win_rate,
-    (s.extreme_wins * 3 + s.ko_wins * 2 + s.burst_wins * 2 + s.spin_wins * 2
-     - s.extreme_losses * 3 - s.ko_losses * 2 - s.burst_losses * 2 - s.spin_losses * 2) AS points,
+    (s.extreme_wins * 3 + s.ko_wins * 2 + s.burst_wins * 2 + s.spin_wins * 1
+     - s.extreme_losses * 3 - s.ko_losses * 2 - s.burst_losses * 2 - s.spin_losses * 1) AS points,
     s.extreme_wins, s.ko_wins, s.burst_wins, s.spin_wins,
     s.extreme_losses, s.ko_losses, s.burst_losses, s.spin_losses
   FROM stats s

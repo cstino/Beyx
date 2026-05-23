@@ -7,7 +7,6 @@ import {
   Target,
   Flame,
   RotateCcw,
-  ChevronLeft,
   Filter,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
@@ -116,12 +115,6 @@ export default function ComboLeaderboardPage() {
   return (
     <PageContainer>
       <div className="px-4 mb-4 pt-4">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-1 text-[10px] font-black text-white/40 uppercase tracking-widest mb-3 hover:text-white/70 transition-colors"
-        >
-          <ChevronLeft size={14} /> Home
-        </button>
         <div className="text-[10px] font-bold tracking-[0.15em] text-[#9b59b6] mb-1 font-createfuture">
           ▲ CLASSIFICA BEYBLADE
         </div>
@@ -237,7 +230,7 @@ export default function ComboLeaderboardPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div className="text-white font-bold text-sm truncate font-createfuture uppercase italic">
-                    {item.combo_name || "Combo"}
+                    {item.blade_name || item.combo_name || "Combo"}
                   </div>
                   {item.blade_type && (
                     <span
