@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   -- Crea il profilo in-game per l'account Admin/Arbitro su iPad con flag di amministrazione attivo
-  IF NEW.email = 'hcskso96@gmail.com' THEN
+  IF NEW.email IN ('hcskso96@gmail.com', 'cr.96bc@gmail.com') THEN
     INSERT INTO public.profiles (id, username, avatar_id, xp, level, title, onboarding_done, is_admin)
     VALUES (NEW.id, 'Arbitro iPad', 'avatar-1', 0, 99, 'Arbitro Ufficiale', true, true);
     RETURN NEW;

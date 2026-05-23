@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
   RETURN (
-    (auth.jwt() ->> 'email' = 'hcskso96@gmail.com') OR
+    (auth.jwt() ->> 'email' IN ('hcskso96@gmail.com', 'cr.96bc@gmail.com')) OR
     EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid() AND is_admin = TRUE

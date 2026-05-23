@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import CountUp from 'react-countup';
-import { TrendingUp, Zap, Target, Flame, RotateCcw, Shield, Sword, Wind, Trophy, Swords, Skull } from 'lucide-react';
+import { TrendingUp, Zap, Target, Flame, RotateCcw, Shield, Sword, Wind, Trophy, Swords, Skull, Palette, Check } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { PageContainer } from '../components/PageContainer';
 import { useUIStore } from '../store/useUIStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 const TYPE_COLORS = {
   Attack: { hex: '#ef4444', icon: Zap },
@@ -180,6 +181,13 @@ export default function ComboStatsPage() {
   const { setHeader, clearHeader } = useUIStore();
   const [combo, setCombo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bladeInfo, setBladeInfo] = useState(null);
+
+  const isAdmin = useAuthStore(s =>
+    s.user?.email === 'cr.96bc@gmail.com'
+    || s.user?.email === 'hcskso96@gmail.com'
+    || s.profile?.is_admin
+  );
 
   const decodedName = decodeURIComponent(name || '');
 
@@ -197,6 +205,18 @@ export default function ComboStatsPage() {
     const { data } = await supabase.rpc('combo_points_leaderboard', { p_min_battles: 0 });
     const found = (data || []).find(c => c.combo_name === decodedName);
     setCombo(found || null);
+
+    if (found && found.blade_name) {
+      const { data: bData } = await supabase
+        .from('blades')
+        .select('id, variants, active_variant_index')
+        .eq('name', found.blade_name)
+        .single();
+      if (bData && bData.variants && Array.isArray(bData.variants) && bData.variants.length > 0) {
+        setBladeInfo(bData);
+      }
+    }
+
     setLoading(false);
   }
 
@@ -243,6 +263,21 @@ export default function ComboStatsPage() {
   const maxLossCount = Math.max(...lossBreakdown.map(l => l.count), 1);
 
   const TypeIcon = typeInfo.icon;
+  const variants = bladeInfo?.variants || [];
+  const activeIndex = bladeInfo?.active_variant_index ?? null;
+
+  async function setActiveVariant(index) {
+    if (!bladeInfo) return;
+    const { error } = await supabase
+      .from('blades')
+      .update({ active_variant_index: index })
+      .eq('id', bladeInfo.id);
+    if (!error) {
+      setBladeInfo({ ...bladeInfo, active_variant_index: index });
+      // Refresh combo data to get updated blade_image_url
+      loadCombo();
+    }
+  }
 
   return (
     <PageContainer>
@@ -302,6 +337,58 @@ export default function ComboStatsPage() {
             </span>
           </div>
         </motion.div>
+
+        {/* VARIANT SELECTOR (admin only) */}
+        {isAdmin && variants.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="mb-4"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Palette size={12} className="text-white/30" />
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] font-createfuture">Varianti</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+              <button
+                onClick={() => setActiveVariant(null)}
+                className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center border transition-all ${
+                  activeIndex === null
+                    ? 'border-' + typeColor + ' shadow-[0_0_12px_' + typeColor + '44] scale-105'
+                    : 'border-white/10 opacity-50 hover:opacity-80 hover:border-white/20'
+                }`}
+                style={activeIndex === null ? { borderColor: typeColor, boxShadow: `0 0 12px ${typeColor}44` } : {}}
+              >
+                <span className="text-[7px] font-black text-white/30 uppercase">Default</span>
+              </button>
+              {variants.map((v, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveVariant(i)}
+                  className={`shrink-0 w-14 h-14 rounded-xl overflow-hidden bg-white/5 flex items-center justify-center border transition-all relative ${
+                    activeIndex === i
+                      ? 'scale-105'
+                      : 'border-white/10 opacity-50 hover:opacity-80 hover:border-white/20'
+                  }`}
+                  style={activeIndex === i ? { borderColor: typeColor, boxShadow: `0 0 12px ${typeColor}44` } : {}}
+                >
+                  {v.image_url ? (
+                    <img src={v.image_url} alt={v.release_code} className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <span className="text-[7px] font-black text-white/20 uppercase px-1 text-center leading-tight">{v.release_code}</span>
+                  )}
+                  {activeIndex === i && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#22c55e] flex items-center justify-center">
+                      <Check size={10} className="text-white" strokeWidth={3} />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* STATS CARDS */}
         <motion.div

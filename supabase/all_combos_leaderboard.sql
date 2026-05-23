@@ -63,7 +63,15 @@ RETURNS TABLE(
   )
   SELECT
     t.combo_label AS combo_name,
-    bl.image_url AS blade_image_url,
+    COALESCE(
+      CASE
+        WHEN bl.active_variant_index IS NOT NULL
+             AND bl.variants IS NOT NULL
+             AND jsonb_array_length(bl.variants) > bl.active_variant_index
+        THEN bl.variants -> bl.active_variant_index ->> 'image_url'
+      END,
+      bl.image_url
+    ) AS blade_image_url,
     bl.name AS blade_name,
     COALESCE(w.wins, 0) AS wins,
     t.total_rounds,
