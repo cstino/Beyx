@@ -38,7 +38,7 @@ export default function TestLabTorneo() {
   const [tournament, setTournament] = useState(null);
   const [allMatches, setAllMatches] = useState([]);
   const [bracketRounds, setBracketRounds] = useState([]);
-  const [matches, setMatches] = useState([]);
+  const [rrRounds, setRrRounds] = useState([]);
   const [currentRound, setCurrentRound] = useState(0);
   const [currentMatchInRound, setCurrentMatchInRound] = useState(0);
   const [currWinner, setCurrWinner] = useState(null);
@@ -101,7 +101,7 @@ export default function TestLabTorneo() {
     const state = stateOverride || {
       format,
       bracketRounds,
-      matches,
+      rrRounds,
       currentRound,
       currentMatchInRound,
       allMatches,
@@ -120,7 +120,9 @@ export default function TestLabTorneo() {
       setCurrentRound(s.currentRound || 0);
       setCurrentMatchInRound(s.currentMatchInRound || 0);
     } else {
-      setMatches(s.matches || []);
+      setRrRounds(s.rrRounds || s.matches || []);
+      setCurrentRound(s.currentRound || 0);
+      setCurrentMatchInRound(s.currentMatchInRound || 0);
     }
     setAllMatches(s.allMatches || []);
     setTournament(s.tournament || { format: s.format, participants: t.participants || [] });
@@ -188,17 +190,44 @@ export default function TestLabTorneo() {
 
   async function generateRoundRobinTournament() {
     const shuffled = [...selected].sort(() => Math.random() - 0.5);
-    const generated = [];
-    for (let i = 0; i < shuffled.length - 1; i++) {
-      for (let j = i + 1; j < shuffled.length; j++) {
-        generated.push({ p1: shuffled[i], p2: shuffled[j], played: false, winner: null, matchRounds: [] });
+    const n = shuffled.length;
+    const isOdd = n % 2 !== 0;
+    const participants = [...shuffled];
+    if (isOdd) participants.push(null);
+
+    const total = participants.length;
+    const half = total / 2;
+    const generatedRounds = [];
+    const fixed = participants[0];
+    const circle = participants.slice(1);
+
+    for (let r = 0; r < total - 1; r++) {
+      const roundMatches = [];
+      const lastIdx = circle.length - 1;
+
+      if (fixed !== null && circle[lastIdx] !== null) {
+        roundMatches.push({ p1: fixed, p2: circle[lastIdx], played: false, winner: null, matchRounds: [] });
       }
+
+      for (let i = 0; i < half - 1; i++) {
+        const p1 = circle[i];
+        const p2 = circle[lastIdx - i];
+        if (p1 !== null && p2 !== null) {
+          roundMatches.push({ p1, p2, played: false, winner: null, matchRounds: [] });
+        }
+      }
+
+      generatedRounds.push(roundMatches);
+      circle.unshift(circle.pop());
     }
-    setMatches(generated);
+
+    setRrRounds(generatedRounds);
+    setCurrentRound(0);
+    setCurrentMatchInRound(0);
     setTournament({ format: 'round_robin', participants: selected });
     setStep('playing');
 
-    const stateData = { format: 'round_robin', matches: generated, allMatches: [], tournament: { format: 'round_robin', participants: selected } };
+    const stateData = { format: 'round_robin', rrRounds: generatedRounds, currentRound: 0, currentMatchInRound: 0, allMatches: [], tournament: { format: 'round_robin', participants: selected } };
     const { data } = await supabase.from('test_lab_tournaments').insert({
       name: `Torneo Round Robin - ${new Date().toLocaleDateString()}`,
       format: 'round_robin',
@@ -312,25 +341,40 @@ export default function TestLabTorneo() {
   }
 
   function completeRRMatch(winner, matchRounds) {
-    const idx = matches.findIndex(m => !m.played);
-    const updated = [...matches];
-    updated[idx] = { ...updated[idx], played: true, winner, matchRounds };
-    setMatches(updated);
+    const rounds = [...rrRounds];
+    const cr = currentRound;
+    const cm = currentMatchInRound;
+
+    rounds[cr][cm] = { ...rounds[cr][cm], played: true, winner, matchRounds };
+
+    setRrRounds(rounds);
     setCurrRounds([]);
     setCurrWinner(null);
     setCurrFinish(null);
 
-    const next = updated.findIndex(m => !m.played);
-    if (next === -1) {
-      finishRRTournament(updated);
+    const allDoneInRound = rounds[cr].every(m => m.played);
+    if (!allDoneInRound) {
+      const nextMatch = rounds[cr].findIndex(m => !m.played);
+      setCurrentMatchInRound(nextMatch);
+      persistState({ format: 'round_robin', rrRounds: rounds, currentRound: cr, currentMatchInRound: nextMatch, allMatches: [], tournament: { format: 'round_robin', participants: tournament?.participants || [] } });
+      return;
+    }
+
+    if (cr + 1 >= rounds.length) {
+      finishRRTournament(rounds);
     } else {
-      persistState({ format: 'round_robin', matches: updated, allMatches: [], tournament: { format: 'round_robin', participants: tournament?.participants || [] } });
+      const nextRound = cr + 1;
+      const firstMatch = rounds[nextRound].findIndex(m => !m.played);
+      setCurrentRound(nextRound);
+      setCurrentMatchInRound(firstMatch);
+      persistState({ format: 'round_robin', rrRounds: rounds, currentRound: nextRound, currentMatchInRound: firstMatch, allMatches: [], tournament: { format: 'round_robin', participants: tournament?.participants || [] } });
     }
   }
 
-  async function finishRRTournament(matchesArr) {
+  async function finishRRTournament(roundsArr) {
+    const allMatchesFlat = roundsArr.flat();
     const stats = {};
-    matchesArr.forEach(m => {
+    allMatchesFlat.forEach(m => {
       const p1 = m.p1.name, p2 = m.p2.name;
       if (!stats[p1]) stats[p1] = { name: p1, wins: 0, losses: 0 };
       if (!stats[p2]) stats[p2] = { name: p2, wins: 0, losses: 0 };
@@ -340,14 +384,14 @@ export default function TestLabTorneo() {
     const standings = Object.values(stats).sort((a, b) => b.wins - a.wins || a.losses - b.losses);
     const finalTournament = { ...tournament, standings, winner: standings[0].name, format: 'round_robin' };
     setTournament(finalTournament);
-    setAllMatches(matchesArr);
+    setAllMatches(allMatchesFlat);
     setStep('results');
 
     if (tournamentId) {
       await supabase.from('test_lab_tournaments').update({
         status: 'completed',
         winner_name: standings[0].name,
-        state_data: { format: 'round_robin', matches: matchesArr, allMatches: matchesArr, tournament: finalTournament },
+        state_data: { format: 'round_robin', rrRounds: roundsArr, allMatches: allMatchesFlat, tournament: finalTournament },
       }).eq('id', tournamentId);
     }
   }
@@ -388,14 +432,20 @@ export default function TestLabTorneo() {
       }
       return null;
     }
-    const idx = matches.findIndex(m => !m.played);
-    return idx >= 0 ? matches[idx] : null;
+    if (
+      rrRounds.length > 0
+      && currentRound < rrRounds.length
+      && currentMatchInRound < (rrRounds[currentRound]?.length || 0)
+    ) {
+      return rrRounds[currentRound][currentMatchInRound];
+    }
+    return null;
   }
 
   const activeMatch = getActiveMatch();
   const roundLabel = isBracket
     ? (bracketRounds.length > 1 && currentRound === bracketRounds.length - 1 ? 'Finale' : `Round ${currentRound + 1}`)
-    : '';
+    : `Turno ${currentRound + 1} di ${rrRounds.length}`;
 
   if (checkingActive) return (
     <PageContainer>
@@ -512,7 +562,7 @@ export default function TestLabTorneo() {
               <span>
                 {isBracket
                   ? `Match ${currentMatchInRound + 1}/${bracketRounds[currentRound]?.length || 0}`
-                  : `${matches.filter(m => m.played).length + 1}/${matches.length}`
+                  : `Match ${currentMatchInRound + 1}/${rrRounds[currentRound]?.length || 0}`
                 }
               </span>
             </div>
@@ -702,99 +752,107 @@ export default function TestLabTorneo() {
               </div>
             )}
 
-            {/* Round robin match list */}
+            {/* Round robin match list — grouped by rounds */}
             {!isBracket && (
-              <div className="mt-5 space-y-1.5">
-                {matches.map((m, i) => {
-                  const idx = matches.findIndex(mm => !mm.played);
-                  const isActive = i === idx;
-                  const p1Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p1' ? r.points : 0), 0) || 0;
-                  const p2Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p2' ? r.points : 0), 0) || 0;
-                  const p1Won = m.winner === 'p1';
-                  const p2Won = m.winner === 'p2';
+              <div className="mt-5 space-y-4">
+                {rrRounds.map((round, ri) => (
+                  <div key={ri}>
+                    <div className="text-[7px] font-black text-white/20 uppercase mb-1.5 font-createfuture text-center tracking-[0.15em]">
+                      Turno {ri + 1}
+                    </div>
+                    <div className="space-y-1.5">
+                      {round.map((m, mi) => {
+                        const isActive = ri === currentRound && mi === currentMatchInRound;
+                        const p1Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p1' ? r.points : 0), 0) || 0;
+                        const p2Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p2' ? r.points : 0), 0) || 0;
+                        const p1Won = m.winner === 'p1';
+                        const p2Won = m.winner === 'p2';
 
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={m.played ? { opacity: 0, y: 12 } : false}
-                      animate={m.played ? { opacity: 1, y: 0 } : {}}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className={`rounded-2xl border transition-all ${
-                        isActive
-                          ? 'border-[#F5A623]/60 bg-[#F5A623]/8 shadow-[0_0_30px_rgba(245,166,35,0.12)] p-3'
-                          : m.played
-                            ? 'border-white/[0.06] bg-white/[0.02] p-2'
-                            : 'border-white/[0.08] bg-white/[0.01] p-2'
-                      }`}
-                    >
-                      {m.played ? (
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-0.5 self-stretch rounded-full shrink-0"
-                              style={{ backgroundColor: p1Won ? '#22c55e' : '#4361EE', minHeight: '2.25rem' }}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className={`text-[10px] font-black uppercase truncate leading-tight ${p1Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
-                                {m.p1.name}
-                              </div>
-                              <div className={`text-[10px] font-black uppercase truncate leading-tight ${p2Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
-                                {m.p2.name}
-                              </div>
-                            </div>
-                            <div className="flex flex-col items-end shrink-0 gap-0.5">
-                              <span className="text-[13px] font-black text-white/80 tracking-wider tabular-nums font-createfuture leading-none">
-                                {p1Score}<span className="text-white/15 mx-0.5">-</span>{p2Score}
-                              </span>
-                              <div className="flex items-center gap-0.5">
-                                {m.matchRounds?.map((r, ri) => {
-                                  const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
-                                  return (
-                                    <div
-                                      key={ri}
-                                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                                      style={{ backgroundColor: ft?.color || '#fff' }}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                          {m.matchRounds?.length > 0 && (
-                            <div className="mt-1.5 pt-1.5 border-t border-white/[0.04]">
-                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                {m.matchRounds.map((r, ri) => {
-                                  const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
-                                  if (!ft) return null;
-                                  const Icon = ft.icon;
-                                  return (
-                                    <span key={ri} className="inline-flex items-center gap-0.5">
-                                      {ri === 2 && m.matchRounds.length > 2 && (
-                                        <span className="text-[6px] font-black text-[#F5A623]/50 mr-0.5 px-0.5 border-l border-white/10">OT</span>
-                                      )}
-                                      <Icon size={9} color={ft.color} />
-                                      <span className="text-[7px] font-black uppercase" style={{ color: ft.color }}>
-                                        {r.winner === 'p1' ? m.p1.name : m.p2.name}
-                                      </span>
+                        return (
+                          <motion.div
+                            key={mi}
+                            initial={m.played ? { opacity: 0, y: 12 } : false}
+                            animate={m.played ? { opacity: 1, y: 0 } : {}}
+                            transition={{ duration: 0.35, ease: 'easeOut' }}
+                            className={`rounded-2xl border transition-all ${
+                              isActive
+                                ? 'border-[#F5A623]/60 bg-[#F5A623]/8 shadow-[0_0_30px_rgba(245,166,35,0.12)] p-3'
+                                : m.played
+                                  ? 'border-white/[0.06] bg-white/[0.02] p-2'
+                                  : 'border-white/[0.08] bg-white/[0.01] p-2'
+                            }`}
+                          >
+                            {m.played ? (
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-0.5 self-stretch rounded-full shrink-0"
+                                    style={{ backgroundColor: p1Won ? '#22c55e' : '#4361EE', minHeight: '2.25rem' }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className={`text-[10px] font-black uppercase truncate leading-tight ${p1Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                      {m.p1.name}
+                                    </div>
+                                    <div className={`text-[10px] font-black uppercase truncate leading-tight ${p2Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                      {m.p2.name}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end shrink-0 gap-0.5">
+                                    <span className="text-[13px] font-black text-white/80 tracking-wider tabular-nums font-createfuture leading-none">
+                                      {p1Score}<span className="text-white/15 mx-0.5">-</span>{p2Score}
                                     </span>
-                                  );
-                                })}
+                                    <div className="flex items-center gap-0.5">
+                                      {m.matchRounds?.map((r, ri) => {
+                                        const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                        return (
+                                          <div
+                                            key={ri}
+                                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: ft?.color || '#fff' }}
+                                          />
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                                {m.matchRounds?.length > 0 && (
+                                  <div className="mt-1.5 pt-1.5 border-t border-white/[0.04]">
+                                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                      {m.matchRounds.map((r, ri) => {
+                                        const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                        if (!ft) return null;
+                                        const Icon = ft.icon;
+                                        return (
+                                          <span key={ri} className="inline-flex items-center gap-0.5">
+                                            {ri === 2 && m.matchRounds.length > 2 && (
+                                              <span className="text-[6px] font-black text-[#F5A623]/50 mr-0.5 px-0.5 border-l border-white/10">OT</span>
+                                            )}
+                                            <Icon size={9} color={ft.color} />
+                                            <span className="text-[7px] font-black uppercase" style={{ color: ft.color }}>
+                                              {r.winner === 'p1' ? m.p1.name : m.p2.name}
+                                            </span>
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p1.name}</div>
-                            <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p2.name}</div>
-                          </div>
-                          <Swords size={14} className="text-white/12 shrink-0" />
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p1.name}</div>
+                                  <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p2.name}</div>
+                                </div>
+                                <Swords size={14} className="text-white/12 shrink-0" />
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
