@@ -586,72 +586,213 @@ export default function TestLabTorneo() {
 
             {/* Bracket view */}
             {isBracket && (
-              <div className="mt-4 space-y-3">
-                {bracketRounds.map((round, ri) => (
-                  <div key={ri}>
-                    <div className="text-[8px] font-black text-white/20 uppercase mb-1.5 font-createfuture text-center">
-                      {bracketRounds.length > 1 && ri === bracketRounds.length - 1 ? 'Finale' : ri === bracketRounds.length - 2 ? 'Semifinali' : `Turno ${ri + 1}`}
+              <div className="mt-5 space-y-4">
+                {bracketRounds.map((round, ri) => {
+                  const displayMatches = round.filter(m => m.p2 !== null || round.length === 1);
+                  if (displayMatches.length === 0) return null;
+                  return (
+                    <div key={ri}>
+                      <div className="text-[7px] font-black text-white/20 uppercase mb-1.5 font-createfuture text-center tracking-[0.15em]">
+                        {bracketRounds.length > 1 && ri === bracketRounds.length - 1 ? 'Finale' : ri === bracketRounds.length - 2 && bracketRounds.length > 2 ? 'Semifinali' : `Turno ${ri + 1}`}
+                      </div>
+                      <div className="space-y-1.5">
+                        {displayMatches.map((m, mi) => {
+                          const realIdx = round.indexOf(m);
+                          const isActive = ri === currentRound && realIdx === currentMatchInRound;
+                          const isBye = !m.p2;
+                          const p1Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p1' ? r.points : 0), 0) || 0;
+                          const p2Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p2' ? r.points : 0), 0) || 0;
+                          const p1Won = m.winner === 'p1';
+                          const p2Won = m.winner === 'p2';
+
+                          if (isBye) {
+                            return (
+                              <div key={mi} className="py-1 px-2 rounded-lg border border-white/[0.03] bg-white/[0.005] text-center">
+                                <span className="text-[7px] font-black text-white/8 uppercase">{m.p1?.name} → bye</span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <motion.div
+                              key={mi}
+                              initial={m.played ? { opacity: 0, y: 12 } : false}
+                              animate={m.played ? { opacity: 1, y: 0 } : {}}
+                              transition={{ duration: 0.35, ease: 'easeOut' }}
+                              className={`rounded-2xl border transition-all ${
+                                isActive
+                                  ? 'border-[#F5A623]/60 bg-[#F5A623]/8 shadow-[0_0_30px_rgba(245,166,35,0.12)] p-3'
+                                  : m.played
+                                    ? 'border-white/[0.06] bg-white/[0.02] p-2'
+                                    : 'border-white/[0.08] bg-white/[0.01] p-2'
+                              }`}
+                            >
+                              {m.played ? (
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-0.5 self-stretch rounded-full shrink-0"
+                                      style={{ backgroundColor: p1Won ? '#22c55e' : '#4361EE', minHeight: '2.25rem' }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className={`text-[10px] font-black uppercase truncate leading-tight ${p1Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                        {m.p1.name}
+                                      </div>
+                                      <div className={`text-[10px] font-black uppercase truncate leading-tight ${p2Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                        {m.p2.name}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col items-end shrink-0 gap-0.5">
+                                      <span className="text-[13px] font-black text-white/80 tracking-wider tabular-nums font-createfuture leading-none">
+                                        {p1Score}<span className="text-white/15 mx-0.5">-</span>{p2Score}
+                                      </span>
+                                      <div className="flex items-center gap-0.5">
+                                        {m.matchRounds?.map((r, ri) => {
+                                          const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                          return (
+                                            <div
+                                              key={ri}
+                                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                                              style={{ backgroundColor: ft?.color || '#fff' }}
+                                            />
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {m.matchRounds?.length > 0 && (
+                                    <div className="mt-1.5 pt-1.5 border-t border-white/[0.04]">
+                                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                        {m.matchRounds.map((r, ri) => {
+                                          const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                          if (!ft) return null;
+                                          const Icon = ft.icon;
+                                          return (
+                                            <span key={ri} className="inline-flex items-center gap-0.5">
+                                              {ri === 2 && m.matchRounds.length > 2 && (
+                                                <span className="text-[6px] font-black text-[#F5A623]/50 mr-0.5 px-0.5 border-l border-white/10">OT</span>
+                                              )}
+                                              <Icon size={9} color={ft.color} />
+                                              <span className="text-[7px] font-black uppercase" style={{ color: ft.color }}>
+                                                {r.winner === 'p1' ? m.p1.name : m.p2.name}
+                                              </span>
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p1.name}</div>
+                                    <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p2.name}</div>
+                                  </div>
+                                  <Swords size={14} className="text-white/12 shrink-0" />
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      {round.map((m, mi) => {
-                        const isActive = ri === currentRound && mi === currentMatchInRound;
-                        return (
-                          <div
-                            key={mi}
-                            className={`p-2 rounded-xl text-[7px] font-black uppercase text-center border flex items-center ${
-                              isActive
-                                ? 'border-[#F5A623]/50 bg-[#F5A623]/10 text-[#F5A623]'
-                                : m.played
-                                  ? 'border-[#22c55e]/20 bg-[#22c55e]/5 text-[#22c55e]'
-                                  : 'border-white/10 bg-white/5 text-white/30'
-                            }`}
-                          >
-                            <span className={`truncate flex-1 text-right ${m.played ? (m.winner === 'p1' ? 'text-[#22c55e]' : 'text-white/20') : ''}`}>
-                              {m.p1?.name}
-                            </span>
-                            <span className="w-8 text-center text-white/20 shrink-0">vs</span>
-                            <span className={`truncate flex-1 text-left ${m.played ? (m.winner === 'p2' ? 'text-[#22c55e]' : 'text-white/20') : ''}`}>
-                              {m.p2?.name || 'BYE'}
-                            </span>
-                            {m.played && (
-                              <span className="w-4 text-center shrink-0 text-[8px] text-[#22c55e]">✓</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             {/* Round robin match list */}
             {!isBracket && (
-              <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className="mt-5 space-y-1.5">
                 {matches.map((m, i) => {
                   const idx = matches.findIndex(mm => !mm.played);
                   const isActive = i === idx;
+                  const p1Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p1' ? r.points : 0), 0) || 0;
+                  const p2Score = m.matchRounds?.reduce((a, r) => a + (r.winner === 'p2' ? r.points : 0), 0) || 0;
+                  const p1Won = m.winner === 'p1';
+                  const p2Won = m.winner === 'p2';
+
                   return (
-                    <div
+                    <motion.div
                       key={i}
-                      className={`p-2 rounded-xl text-[8px] font-black uppercase text-center border ${
+                      initial={m.played ? { opacity: 0, y: 12 } : false}
+                      animate={m.played ? { opacity: 1, y: 0 } : {}}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      className={`rounded-2xl border transition-all ${
                         isActive
-                          ? 'border-[#F5A623]/50 bg-[#F5A623]/10 text-[#F5A623]'
+                          ? 'border-[#F5A623]/60 bg-[#F5A623]/8 shadow-[0_0_30px_rgba(245,166,35,0.12)] p-3'
                           : m.played
-                            ? 'border-[#22c55e]/20 bg-[#22c55e]/5 text-[#22c55e]'
-                            : 'border-white/10 bg-white/5 text-white/30'
+                            ? 'border-white/[0.06] bg-white/[0.02] p-2'
+                            : 'border-white/[0.08] bg-white/[0.01] p-2'
                       }`}
                     >
                       {m.played ? (
-                        <>
-                          <span className={m.winner === 'p1' ? 'text-[#22c55e]' : 'text-white/20'}>{m.p1.name}</span>
-                          <span className="text-white/10 mx-1">vs</span>
-                          <span className={m.winner === 'p2' ? 'text-[#22c55e]' : 'text-white/20'}>{m.p2.name}</span>
-                        </>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-0.5 self-stretch rounded-full shrink-0"
+                              style={{ backgroundColor: p1Won ? '#22c55e' : '#4361EE', minHeight: '2.25rem' }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-[10px] font-black uppercase truncate leading-tight ${p1Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                {m.p1.name}
+                              </div>
+                              <div className={`text-[10px] font-black uppercase truncate leading-tight ${p2Won ? 'text-[#22c55e]' : 'text-white/12'}`}>
+                                {m.p2.name}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0 gap-0.5">
+                              <span className="text-[13px] font-black text-white/80 tracking-wider tabular-nums font-createfuture leading-none">
+                                {p1Score}<span className="text-white/15 mx-0.5">-</span>{p2Score}
+                              </span>
+                              <div className="flex items-center gap-0.5">
+                                {m.matchRounds?.map((r, ri) => {
+                                  const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                  return (
+                                    <div
+                                      key={ri}
+                                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                                      style={{ backgroundColor: ft?.color || '#fff' }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          {m.matchRounds?.length > 0 && (
+                            <div className="mt-1.5 pt-1.5 border-t border-white/[0.04]">
+                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                {m.matchRounds.map((r, ri) => {
+                                  const ft = FINISH_TYPES.find(f => f.key === r.finish_type);
+                                  if (!ft) return null;
+                                  const Icon = ft.icon;
+                                  return (
+                                    <span key={ri} className="inline-flex items-center gap-0.5">
+                                      {ri === 2 && m.matchRounds.length > 2 && (
+                                        <span className="text-[6px] font-black text-[#F5A623]/50 mr-0.5 px-0.5 border-l border-white/10">OT</span>
+                                      )}
+                                      <Icon size={9} color={ft.color} />
+                                      <span className="text-[7px] font-black uppercase" style={{ color: ft.color }}>
+                                        {r.winner === 'p1' ? m.p1.name : m.p2.name}
+                                      </span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <>{m.p1.name} vs {m.p2.name}</>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p1.name}</div>
+                            <div className="text-[10px] font-black text-white/40 uppercase truncate leading-tight">{m.p2.name}</div>
+                          </div>
+                          <Swords size={14} className="text-white/12 shrink-0" />
+                        </div>
                       )}
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
