@@ -71,6 +71,7 @@ const TestLabScontro = lazy(() => import("./pages/TestLabScontro"));
 const TestLabScontroMatch = lazy(() => import("./pages/TestLabScontroMatch"));
 const TestLabTorneo = lazy(() => import("./pages/TestLabTorneo"));
 const TestLabStorico = lazy(() => import("./pages/TestLabStorico"));
+const PlayerProfilePage = lazy(() => import("./pages/PlayerProfilePage"));
 const LiveMatchPage = lazy(() =>
   import("./pages/battle/LiveMatchPage").then((m) => ({
     default: m.LiveMatchPage,
@@ -204,6 +205,7 @@ function App() {
                     />
                     <Route path="/account" element={<Account />} />
                     <Route path="/leaderboard" element={<LeaderboardPage />} />
+                    <Route path="/player/:userId" element={<PlayerProfilePage />} />
                     <Route
                       path="/combo-leaderboard"
                       element={<ComboLeaderboardPage />}

@@ -115,7 +115,8 @@ export default function LeaderboardPage() {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5"
+                onClick={() => item.userId && navigate(`/player/${item.userId}`)}
+                className="flex items-center gap-3 p-3 rounded-xl bg-[#12122A] border border-white/5 cursor-pointer hover:border-white/15 hover:bg-[#1A1A3A] transition-all active:scale-[0.98]"
               >
                 <div
                   className={`w-7 text-center font-black tabular-nums font-createfuture ${i === 0 ? "text-[#F5A623] text-lg" : i === 1 ? "text-[#94A3B8] text-base" : i === 2 ? "text-[#A16207] text-base" : "text-white/30 text-sm"}`}
