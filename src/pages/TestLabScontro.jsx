@@ -24,7 +24,7 @@ export default function TestLabScontro() {
   useEffect(() => {
     if (!userId) return;
     supabase.from('combos')
-      .select('blade:blade_id(name, image_url, type)')
+      .select('blade:blade_id(name, image_url, type, variants, active_variant_index)')
       .eq('user_id', userId)
       .then(({ data }) => {
         if (data) {
@@ -33,7 +33,11 @@ export default function TestLabScontro() {
           data.forEach(c => {
             if (c.blade && !seen.has(c.blade.name)) {
               seen.add(c.blade.name);
-              uniqueBlades.push(c.blade);
+              const b = { ...c.blade };
+              if (b.active_variant_index != null && Array.isArray(b.variants) && b.variants[b.active_variant_index]?.image_url) {
+                b.image_url = b.variants[b.active_variant_index].image_url;
+              }
+              uniqueBlades.push(b);
             }
           });
           setBlades(uniqueBlades.sort((a, b) => a.name.localeCompare(b.name)));
