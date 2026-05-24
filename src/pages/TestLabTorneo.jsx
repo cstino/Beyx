@@ -211,7 +211,7 @@ export default function TestLabTorneo() {
 
       for (let i = 0; i < half - 1; i++) {
         const p1 = circle[i];
-        const p2 = circle[lastIdx - i];
+        const p2 = circle[lastIdx - 1 - i];
         if (p1 !== null && p2 !== null) {
           roundMatches.push({ p1, p2, played: false, winner: null, matchRounds: [] });
         }
