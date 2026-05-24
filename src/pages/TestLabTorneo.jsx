@@ -487,7 +487,7 @@ export default function TestLabTorneo() {
               })}
             </div>
 
-            <motion.div className="fixed bottom-0 left-0 right-0 z-40 px-4 pb-6 pt-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}>
+            <motion.div className="fixed bottom-0 left-0 right-0 z-40 px-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)' }}>
               <div className="mx-auto max-w-lg">
                 <button
                   onClick={generateTournament}
