@@ -154,14 +154,35 @@ export function PoolBustePlayerView({
 
   const handleContinueAfterReveal = async () => {
     if (!sealedBid?.currentAuction) return;
-    const newSealedBidState = { ...sealedBid, currentAuction: null };
+    
+    const pendingDecks = sealedBid.currentAuction.pendingDecks || sealedBid.playerDecks;
+    const pendingCredits = sealedBid.currentAuction.pendingCredits || sealedBid.playerCredits;
+    
+    const newSealedBidState = {
+      ...sealedBid,
+      playerDecks: pendingDecks,
+      playerCredits: pendingCredits,
+      currentAuction: null,
+    };
+    
     const updated = {
       ...tournament,
       structure: { ...tournament.structure, sealed_bid: newSealedBidState },
     };
+
+    // Check if tournament draft is actually complete (all decks full or all packs opened)
+    const allDecksFull = sealedBid.turnOrder.every(
+      (pId) => (pendingDecks[pId] || []).length >= sealedBid.deckSize,
+    );
+    const allPacksOpened = newSealedBidState.availablePacks.every((p) => p.isOpened);
+    const isComplete = allDecksFull || allPacksOpened;
+    
+    if (isComplete) {
+      updated.status = "draft_complete";
+    }
+
     setTournament(updated);
     await updateTournamentDB(updated);
-    setRevealStep(0);
     setRevealStep(0);
   };
 
@@ -230,7 +251,12 @@ export function PoolBustePlayerView({
       p.user_id === currentTurnParticipantId ||
       p.username === currentTurnParticipantId,
   );
-  const isMyNominationTurn = currentParticipant?.user_id === user.id;
+  const isMyNominationTurn = currentParticipant?.user_id === user.id || (!currentParticipant?.user_id && isOrganizer);
+  const activeTurnParticipantId = currentParticipant?.user_id || currentTurnParticipantId;
+  const activeTurnCredits = sealedBid.playerCredits[activeTurnParticipantId] || 0;
+  const activeTurnDeck = sealedBid.playerDecks[activeTurnParticipantId] || [];
+  const isActiveTurnDeckFull = activeTurnDeck.length >= sealedBid.deckSize;
+
   const myCredits = sealedBid.playerCredits[user.id] || 0;
   const myDeck = sealedBid.playerDecks[user.id] || [];
   const isMyDeckFull = myDeck.length >= sealedBid.deckSize;
@@ -240,7 +266,7 @@ export function PoolBustePlayerView({
       !isMyNominationTurn ||
       pack.isOpened ||
       sealedBid.currentAuction ||
-      isMyDeckFull
+      isActiveTurnDeckFull
     )
       return;
     const ctuid = currentParticipant?.user_id || currentTurnParticipantId;
@@ -443,6 +469,11 @@ export function PoolBustePlayerView({
             <h3 className="text-2xl font-black italic uppercase text-white mt-2">
               {activeBlade?.name || "Combo"}
             </h3>
+            {activeBlade && (
+              <div className="text-[10px] font-black uppercase text-purple-400 mt-1">
+                {activeBlade.topRank ? `TOP ${activeBlade.topRank}` : 'TOP -'}
+              </div>
+            )}
           </div>
           <div className="bg-black/40 p-4 rounded-2xl border border-white/5 space-y-3">
             {sealedBid.currentAuction.bids &&
@@ -541,6 +572,11 @@ export function PoolBustePlayerView({
             <h3 className="text-xl md:text-2xl font-black italic uppercase text-white tracking-wide text-center">
               {activeBlade?.name || "Combo Sconosciuta"}
             </h3>
+            {activeBlade && (
+              <div className="text-[10px] font-black uppercase text-purple-400 mt-1 text-center">
+                {activeBlade.topRank ? `TOP ${activeBlade.topRank}` : 'TOP -'}
+              </div>
+            )}
             <span
               className="text-[10px] font-bold uppercase px-3 py-1 rounded-full border mt-2"
               style={{
@@ -727,7 +763,7 @@ export function PoolBustePlayerView({
               return (
                 <div
                   key={pack.id}
-                  className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? "is-opened opacity-40" : ""} ${!isMyNominationTurn || isMyDeckFull ? "opacity-60 cursor-not-allowed" : "cursor-pointer active:scale-95 transition-transform"}`}
+                  className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? "is-opened opacity-40" : ""} ${!isMyNominationTurn || isActiveTurnDeckFull ? "opacity-60 cursor-not-allowed" : "cursor-pointer active:scale-95 transition-transform"}`}
                   style={{ "--glow-color": glowColor }}
                   onClick={() => handleNominatePack(pack)}
                 >
@@ -778,6 +814,11 @@ export function PoolBustePlayerView({
                         <div className="text-xs font-black opacity-40">
                           {index + 1}
                         </div>
+                        {blade && (
+                          <div className="text-[9px] font-black uppercase text-purple-400 mt-1">
+                            {blade.topRank ? `TOP ${blade.topRank}` : 'TOP -'}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="draft-card-front">

@@ -40,7 +40,13 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
       supabase.from('ratchets').select('*').order('name'),
       supabase.from('bits').select('*').order('name')
     ]);
-    setBlades(b.data || []);
+    const resolvedBlades = (b.data || []).map(blade => {
+      if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+        return { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+      }
+      return blade;
+    });
+    setBlades(resolvedBlades);
     setRatchets(r.data || []);
     setBits(t.data || []);
   }
@@ -60,7 +66,8 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
       blade_id: combo.blade_id,
       is_stock: combo.is_stock ?? false,
       ratchet_id: combo.ratchet_id || '',
-      bit_id: combo.bit_id || ''
+      bit_id: combo.bit_id || '',
+      override_image_url: combo.override_image_url
     };
     setDeck(newDeck);
     updateMatch(newDeck);
@@ -157,7 +164,7 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
                     {bey.blade_id && openDropdownSlot !== i ? (
                       <>
                         <img 
-                          src={blades.find(b => b.id === bey.blade_id)?.image_url} 
+                          src={bey.override_image_url || blades.find(b => b.id === bey.blade_id)?.image_url} 
                           className="w-10 h-10 object-contain drop-shadow-lg shrink-0" 
                           alt="" 
                         />
@@ -304,7 +311,7 @@ export function DeckPicker({ match, onChange, onStart, isPlayer2 = false }) {
                     className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-left hover:bg-primary/5 hover:border-primary/20 transition-all"
                   >
                     <div className="flex items-center gap-4">
-                      <img src={c.blade?.image_url} className="w-12 h-12 object-contain" alt="" />
+                      <img src={c.override_image_url || c.blade?.image_url} className="w-12 h-12 object-contain" alt="" />
                       <div>
                         <div className="text-sm font-black text-white uppercase italic">{c.name || c.blade?.name}</div>
                         <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{c.ratchet?.name} {c.bit?.name}</div>

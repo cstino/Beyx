@@ -109,8 +109,16 @@ export default function TournamentDisplayView() {
       const enrichedTourney = await enrichParticipants(tourneyRes.data);
       currentTournament = enrichedTourney;
       setTournament(enrichedTourney);
+
+      const resolvedBlades = (bladesRes.data || []).map(blade => {
+        if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+          return { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+        }
+        return blade;
+      });
+
       setParts({
-        blades: bladesRes.data || [],
+        blades: resolvedBlades,
         ratchets: ratchetsRes.data || [],
         bits: bitsRes.data || [],
       });
@@ -1292,6 +1300,10 @@ export default function TournamentDisplayView() {
                         const p2Blade = parts.blades?.find(
                           (b) => b.id === r.p2_blade_id,
                         );
+                        const p1Combo = allCombos.find((c) => c.id === r.p1_combo_id);
+                        const p1ImageUrl = p1Combo?.override_image_url || p1Blade?.image_url;
+                        const p2Combo = allCombos.find((c) => c.id === r.p2_combo_id);
+                        const p2ImageUrl = p2Combo?.override_image_url || p2Blade?.image_url;
                         const isP1Win = r.winner_side === "p1";
                         const isP2Win = r.winner_side === "p2";
                         const isDraw = r.winner_side === "draw";
@@ -1303,9 +1315,9 @@ export default function TournamentDisplayView() {
                           >
                             {/* Left side: P1 Bey */}
                             <div className="flex items-center gap-3 flex-1 min-w-0 pr-1">
-                              {p1Blade?.image_url ? (
+                              {p1ImageUrl ? (
                                 <img
-                                  src={p1Blade.image_url}
+                                  src={p1ImageUrl}
                                   alt=""
                                   className="w-10 h-10 object-contain shrink-0 drop-shadow-md"
                                 />
@@ -1346,9 +1358,9 @@ export default function TournamentDisplayView() {
                               >
                                 {r.p2_combo_label || p2Blade?.name || "Bey P2"}
                               </span>
-                              {p2Blade?.image_url ? (
+                              {p2ImageUrl ? (
                                 <img
-                                  src={p2Blade.image_url}
+                                  src={p2ImageUrl}
                                   alt=""
                                   className="w-10 h-10 object-contain shrink-0 drop-shadow-md"
                                 />

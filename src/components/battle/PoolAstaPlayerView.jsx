@@ -55,7 +55,12 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   const isOrganizer = tournament.created_by === user.id;
   
   const currentParticipant = tournament.participants.find(p => p.id === currentTurnParticipantId || p.user_id === currentTurnParticipantId || p.username === currentTurnParticipantId);
-  const isMyNominationTurn = currentParticipant?.user_id === user.id;
+  const isMyNominationTurn = currentParticipant?.user_id === user.id || (!currentParticipant?.user_id && isOrganizer);
+  const activeTurnParticipantId = currentParticipant?.user_id || currentTurnParticipantId;
+  const activeTurnCredits = auction.playerCredits[activeTurnParticipantId] || 0;
+  const activeTurnDeck = auction.playerDecks[activeTurnParticipantId] || [];
+  const isActiveTurnDeckFull = activeTurnDeck.length >= auction.deckSize;
+
   const myCredits = auction.playerCredits[user.id] || 0;
   const myDeck = auction.playerDecks[user.id] || [];
   const isMyDeckFull = myDeck.length >= auction.deckSize;
@@ -65,12 +70,12 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
     if (!isMyNominationTurn) return;
     if (pack.isOpened) return;
     if (auction.currentAuction) return; // Asta già in corso
-    if (isMyDeckFull) {
-      useToastStore.getState().error("Hai già completato il tuo Deck!");
+    if (isActiveTurnDeckFull) {
+      useToastStore.getState().error("Il giocatore ha già completato il suo Deck!");
       return;
     }
-    if (myCredits < 1) {
-      useToastStore.getState().error("Non hai abbastanza crediti per la base d'asta!");
+    if (activeTurnCredits < 1) {
+      useToastStore.getState().error("Il giocatore non ha abbastanza crediti per la base d'asta!");
       return;
     }
 
@@ -333,6 +338,11 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
             <h3 className="text-2xl md:text-3xl font-black italic uppercase text-white tracking-wide text-center">
               {activeAuctionBlade?.name || 'Combo Sconosciuta'}
             </h3>
+            {activeAuctionBlade && (
+              <div className="text-[10px] font-black uppercase text-purple-400 mt-1">
+                {activeAuctionBlade.topRank ? `TOP ${activeAuctionBlade.topRank}` : 'TOP -'}
+              </div>
+            )}
             <span className="text-[10px] font-bold uppercase px-3 py-1 rounded-full border mt-2" style={{ borderColor: getGlowColor(activeAuctionPack.type), color: getGlowColor(activeAuctionPack.type) }}>
               {activeAuctionPack.type}
             </span>
@@ -429,7 +439,7 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
               return (
                 <div
                   key={pack.id}
-                  className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? 'is-opened opacity-40' : ''} ${!isMyNominationTurn || isMyDeckFull ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-95 transition-transform'}`}
+                  className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? 'is-opened opacity-40' : ''} ${!isMyNominationTurn || isActiveTurnDeckFull ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-95 transition-transform'}`}
                   style={{ '--glow-color': glowColor }}
                   onClick={() => handleNominatePack(pack)}
                 >
@@ -450,6 +460,11 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
                           </>
                         )}
                         <div className="text-xs font-black opacity-40">{index + 1}</div>
+                        {blade && (
+                          <div className="text-[9px] font-black uppercase text-purple-400 mt-1">
+                            {blade.topRank ? `TOP ${blade.topRank}` : 'TOP -'}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="draft-card-front">

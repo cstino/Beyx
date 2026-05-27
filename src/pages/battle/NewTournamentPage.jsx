@@ -58,12 +58,26 @@ export default function NewTournamentPage() {
   }, []);
 
   async function fetchParts() {
-    const [b, r, t] = await Promise.all([
+    const [b, r, t, leaderboard] = await Promise.all([
       supabase.from("blades").select("*"),
       supabase.from("ratchets").select("*"),
       supabase.from("bits").select("*"),
+      supabase.rpc("combo_points_leaderboard", { p_min_battles: 5 })
     ]);
-    setBlades(b.data || []);
+    const ranks = {};
+    if (leaderboard.data) {
+      leaderboard.data.forEach((item, index) => {
+        ranks[item.blade_name] = index + 1;
+      });
+    }
+    const resolvedBlades = (b.data || []).map(blade => {
+      let resolved = blade;
+      if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+        resolved = { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+      }
+      return { ...resolved, topRank: ranks[blade.name] || null };
+    });
+    setBlades(resolvedBlades);
     setRatchets(r.data || []);
     setBits(t.data || []);
   }
@@ -210,17 +224,33 @@ export default function NewTournamentPage() {
 
         // FETCH ADDITIONAL DATA FOR DETAILS
         const tid = data.id;
-        const [bladesRes, ratchetsRes, bitsRes, battlesRes] = await Promise.all(
+        const [bladesRes, ratchetsRes, bitsRes, battlesRes, leaderboard] = await Promise.all(
           [
             supabase.from("blades").select("*"),
             supabase.from("ratchets").select("*"),
             supabase.from("bits").select("*"),
             supabase.from("battles").select("*").eq("tournament_id", tid),
+            supabase.rpc("combo_points_leaderboard", { p_min_battles: 5 })
           ],
         );
 
+        const ranks = {};
+        if (leaderboard.data) {
+          leaderboard.data.forEach((item, index) => {
+            ranks[item.blade_name] = index + 1;
+          });
+        }
+
+        const resolvedBladesDetail = (bladesRes.data || []).map(blade => {
+          let resolved = blade;
+          if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+            resolved = { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+          }
+          return { ...resolved, topRank: ranks[blade.name] || null };
+        });
+
         setParts({
-          blades: bladesRes.data || [],
+          blades: resolvedBladesDetail,
           ratchets: ratchetsRes.data || [],
           bits: bitsRes.data || [],
         });
@@ -300,6 +330,45 @@ export default function NewTournamentPage() {
       return () => supabase.removeChannel(channel);
     }
   }, [user, profile, tournamentId, location.state?.tournamentId]);
+
+  // Sincronizzazione automatica dello stage del torneo per i client in tempo reale
+  useEffect(() => {
+    if (!tournament) return;
+    
+    if (tournament.status === "drafting") {
+      const targetStage = tournament.assignment_mode === "asta"
+        ? "auctioning"
+        : tournament.assignment_mode === "a_buste"
+          ? "sealed_bidding"
+          : "drafting";
+      if (stage !== targetStage) {
+        setStage(targetStage);
+      }
+    } else if (tournament.status === "auctioning") {
+      if (stage !== "auctioning") setStage("auctioning");
+    } else if (tournament.status === "draft_complete") {
+      const targetStage = tournament.assignment_mode === "asta"
+        ? "auctioning"
+        : tournament.assignment_mode === "a_buste"
+          ? "sealed_bidding"
+          : "drafting";
+      if (stage !== targetStage) {
+        setStage(targetStage);
+      }
+    } else if (tournament.status === "setup") {
+      if (
+        tournament.beyblade_mode === "pool" &&
+        (!tournament.structure?.pool || tournament.structure.pool.length === 0) &&
+        tournament.created_by === user?.id
+      ) {
+        if (stage !== "pool_setup") setStage("pool_setup");
+      } else {
+        if (stage !== "active") setStage("active");
+      }
+    } else {
+      if (stage !== "active") setStage("active");
+    }
+  }, [tournament?.status, tournament?.assignment_mode, tournament?.beyblade_mode, tournament?.structure?.pool]);
 
   function calculateStandings(t) {
     const participants = t.participants || [];

@@ -88,7 +88,13 @@ export default function TournamentJoinPage() {
       supabase.from('ratchets').select('*').order('name'),
       supabase.from('bits').select('*').order('name')
     ]);
-    setBlades(b.data || []);
+    const resolvedBlades = (b.data || []).map(blade => {
+      if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+        return { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+      }
+      return blade;
+    });
+    setBlades(resolvedBlades);
     setRatchets(r.data || []);
     setBits(t.data || []);
   }
@@ -116,7 +122,8 @@ export default function TournamentJoinPage() {
       blade_id: combo.blade_id,
       is_stock: combo.is_stock ?? false,
       ratchet_id: combo.ratchet_id || '',
-      bit_id: combo.bit_id || ''
+      bit_id: combo.bit_id || '',
+      override_image_url: combo.override_image_url
     };
     setDeck(newDeck);
   };
@@ -124,9 +131,9 @@ export default function TournamentJoinPage() {
   const applySavedDeck = (savedDeck) => {
     setSelectedDeckId(savedDeck.id);
     const newDeck = [];
-    if (savedDeck.combo1) newDeck.push({ blade_id: savedDeck.combo1.blade_id, is_stock: savedDeck.combo1.is_stock ?? false, ratchet_id: savedDeck.combo1.ratchet_id || '', bit_id: savedDeck.combo1.bit_id || '' });
-    if (savedDeck.combo2) newDeck.push({ blade_id: savedDeck.combo2.blade_id, is_stock: savedDeck.combo2.is_stock ?? false, ratchet_id: savedDeck.combo2.ratchet_id || '', bit_id: savedDeck.combo2.bit_id || '' });
-    if (savedDeck.combo3) newDeck.push({ blade_id: savedDeck.combo3.blade_id, is_stock: savedDeck.combo3.is_stock ?? false, ratchet_id: savedDeck.combo3.ratchet_id || '', bit_id: savedDeck.combo3.bit_id || '' });
+    if (savedDeck.combo1) newDeck.push({ blade_id: savedDeck.combo1.blade_id, is_stock: savedDeck.combo1.is_stock ?? false, ratchet_id: savedDeck.combo1.ratchet_id || '', bit_id: savedDeck.combo1.bit_id || '', override_image_url: savedDeck.combo1.override_image_url });
+    if (savedDeck.combo2) newDeck.push({ blade_id: savedDeck.combo2.blade_id, is_stock: savedDeck.combo2.is_stock ?? false, ratchet_id: savedDeck.combo2.ratchet_id || '', bit_id: savedDeck.combo2.bit_id || '', override_image_url: savedDeck.combo2.override_image_url });
+    if (savedDeck.combo3) newDeck.push({ blade_id: savedDeck.combo3.blade_id, is_stock: savedDeck.combo3.is_stock ?? false, ratchet_id: savedDeck.combo3.ratchet_id || '', bit_id: savedDeck.combo3.bit_id || '', override_image_url: savedDeck.combo3.override_image_url });
     
     // Fill remaining if needed
     const targetCount = (tournament?.starter_beys_count || (tournament?.battle_type === '3v3' ? 3 : 1)) + (tournament?.reserve_beys_count || 0);
@@ -303,7 +310,7 @@ export default function TournamentJoinPage() {
                                   {bey.blade_id && openDropdownSlot !== i ? (
                                     <>
                                       <img 
-                                        src={blades.find(b => b.id === bey.blade_id)?.image_url} 
+                                        src={bey.override_image_url || blades.find(b => b.id === bey.blade_id)?.image_url} 
                                         className="w-10 h-10 object-contain drop-shadow-glow shrink-0" 
                                         alt="blade"
                                       />
@@ -447,7 +454,7 @@ export default function TournamentJoinPage() {
                       className="w-full p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between text-left hover:bg-primary/5 hover:border-primary/20 transition-all"
                     >
                       <div className="flex items-center gap-4">
-                        <img src={c.blade?.image_url} className="w-12 h-12 object-contain" alt="" />
+                        <img src={c.override_image_url || c.blade?.image_url} className="w-12 h-12 object-contain" alt="" />
                         <div>
                           <div className="text-sm font-black text-white uppercase italic">{c.name || c.blade?.name}</div>
                           <div className="text-[10px] font-bold text-white/40 uppercase tracking-widest">{c.ratchet?.name} {c.bit?.name}</div>

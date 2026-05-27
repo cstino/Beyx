@@ -27,7 +27,7 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
   
   // Find current participant's user_id or identifier
   const currentParticipant = tournament.participants.find(p => p.id === currentTurnParticipantId || p.user_id === currentTurnParticipantId || p.username === currentTurnParticipantId);
-  const isMyTurn = currentParticipant?.user_id === user.id;
+  const isMyTurn = currentParticipant?.user_id === user.id || (!currentParticipant?.user_id && isOrganizer);
 
   const handlePickPack = async (pack) => {
     if (!isMyTurn) return;
@@ -161,6 +161,11 @@ export function PoolDraftPlayerView({ tournament, setTournament, updateTournamen
                       </>
                     )}
                     <div className="text-xs md:text-sm font-black opacity-40">{index + 1}</div>
+                    {isVisibleDraft && blade && (
+                      <div className="text-[9px] font-black uppercase text-purple-400 mt-1">
+                        {blade.topRank ? `TOP ${blade.topRank}` : 'TOP -'}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="draft-card-front">

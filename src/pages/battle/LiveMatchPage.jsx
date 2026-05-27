@@ -114,7 +114,13 @@ export function LiveMatchPage() {
         supabase.from('ratchets').select('*'),
         supabase.from('bits').select('*')
       ]);
-      const partsData = { blades: b.data || [], ratchets: r.data || [], bits: t.data || [] };
+      const resolvedBlades = (b.data || []).map(blade => {
+        if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
+          return { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+        }
+        return blade;
+      });
+      const partsData = { blades: resolvedBlades, ratchets: r.data || [], bits: t.data || [] };
       setParts(partsData);
 
       // Load combos from config
@@ -630,6 +636,7 @@ export function LiveMatchPage() {
 function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyName, blades, usedIds = [] }) {
   const [open, setOpen] = useState(false);
   const selectedBlade = selected ? blades.find(b => b.id === selected.blade_id) : null;
+  const displayImageUrl = selected?.override_image_url || selectedBlade?.image_url;
 
   return (
     <div className="relative">
@@ -640,8 +647,8 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
         className="w-full p-3 rounded-[24px] bg-[#12122A] border border-white/10 text-left min-h-[70px] flex items-center gap-3 active:scale-95 transition-all"
       >
         <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
-          {selectedBlade ? (
-            <img src={selectedBlade.image_url} className="w-10 h-10 object-contain drop-shadow-glow" alt="" />
+          {displayImageUrl ? (
+            <img src={displayImageUrl} className="w-10 h-10 object-contain drop-shadow-glow" alt="" />
           ) : (
             <Plus size={18} className="text-white/20" />
           )}
@@ -678,6 +685,7 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
                 {combos.map((c, idx) => {
                   const blade = blades.find(b => b.id === c.blade_id);
                   const isSelected = selected?.localId === c.localId;
+                  const cImageUrl = c.override_image_url || blade?.image_url;
                   return (
                     <button 
                       key={c.id || idx} 
@@ -689,7 +697,7 @@ function ComboSelector({ label, combos, selected, onSelect, accentColor, getBeyN
                       <div className="flex items-center gap-4">
                         <div className={`w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center p-2 transition-all
                           ${usedIds.includes(c.id || c.blade_id) ? 'grayscale-[0.8] opacity-50' : ''}`}>
-                           <img src={blade?.image_url} className="w-full h-full object-contain drop-shadow-glow" alt="" />
+                           <img src={cImageUrl} className="w-full h-full object-contain drop-shadow-glow" alt="" />
                         </div>
                         <div>
                           <div className="text-sm font-black text-white uppercase italic leading-tight mb-1">{getBeyName(c)}</div>
