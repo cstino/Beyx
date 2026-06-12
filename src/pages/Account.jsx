@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit3, Trophy, LogOut, Settings, Award, Shield } from 'lucide-react';
+import { Edit3, Trophy, LogOut, Settings, Award, Shield, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -171,6 +171,12 @@ export default function AccountPage() {
             <h2 className="text-[11px] font-black text-white tracking-[0.2em] uppercase">Rendimento</h2>
           </div>
           <StatGrid stats={stats} userId={user?.id} />
+          <button
+            onClick={() => navigate('/account/analysis')}
+            className="w-full mt-3 py-4 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center gap-3 text-primary text-[10px] font-black tracking-[0.2em] uppercase hover:bg-primary/20 transition-all shadow-lg shadow-primary/5 font-createfuture"
+          >
+            <TrendingUp size={16} /> Analisi Rendimento Completa
+          </button>
         </section>
 
         {/* Achievements */}

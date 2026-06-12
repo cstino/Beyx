@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, Sword, Wind, X, Plus, Minus, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useToastStore } from '../../store/useToastStore';
@@ -10,6 +10,54 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   const auction = tournament?.structure?.auction;
   
   const [timeLeft, setTimeLeft] = useState(10);
+  const [simulatedPlayerId, setSimulatedPlayerId] = useState("");
+
+  const getFirstPendingPlayerId = useCallback(() => {
+    if (!auction) return "";
+    const ca = auction.currentAuction;
+    if (!ca) {
+      const currentTurnParticipantId = auction.turnOrder[auction.currentTurnIndex];
+      return currentTurnParticipantId || "";
+    }
+    for (const pId of auction.turnOrder) {
+      if (pId === ca.highestBidder) continue;
+      const deckFull = (auction.playerDecks[pId] || []).length >= auction.deckSize;
+      if (deckFull) continue;
+      const hasFolded = ca.foldedPlayers?.includes(pId);
+      if (hasFolded) continue;
+      return pId;
+    }
+    return auction.turnOrder[0] || "";
+  }, [auction]);
+
+  const isTest = tournament.structure?.is_test || false;
+
+  useEffect(() => {
+    if (isTest && auction) {
+      const ca = auction.currentAuction;
+      if (!ca) {
+        const currentTurnParticipantId = auction.turnOrder[auction.currentTurnIndex];
+        setSimulatedPlayerId(currentTurnParticipantId || "");
+        return;
+      }
+      
+      const isCurrentSimulatedDone = (() => {
+        if (!simulatedPlayerId) return true;
+        if (simulatedPlayerId === ca.highestBidder) return true;
+        const deckFull = (auction.playerDecks[simulatedPlayerId] || []).length >= auction.deckSize;
+        if (deckFull) return true;
+        const hasFolded = ca.foldedPlayers?.includes(simulatedPlayerId);
+        return !!hasFolded;
+      })();
+
+      if (isCurrentSimulatedDone) {
+        const pendingPlayer = getFirstPendingPlayerId();
+        if (pendingPlayer) {
+          setSimulatedPlayerId(pendingPlayer);
+        }
+      }
+    }
+  }, [isTest, auction, getFirstPendingPlayerId, simulatedPlayerId]);
 
   // Realtime countdown timer calculation
   useEffect(() => {
@@ -61,8 +109,9 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   const activeTurnDeck = auction.playerDecks[activeTurnParticipantId] || [];
   const isActiveTurnDeckFull = activeTurnDeck.length >= auction.deckSize;
 
-  const myCredits = auction.playerCredits[user.id] || 0;
-  const myDeck = auction.playerDecks[user.id] || [];
+  const activeUserId = (isTest && simulatedPlayerId) ? simulatedPlayerId : user.id;
+  const myCredits = auction.playerCredits[activeUserId] || 0;
+  const myDeck = auction.playerDecks[activeUserId] || [];
   const isMyDeckFull = myDeck.length >= auction.deckSize;
 
   // 1. Iniziare l'asta di un pacchetto (Nomination)
@@ -118,8 +167,8 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
     if (!auction.currentAuction) return;
     const { currentBid, highestBidder, foldedPlayers } = auction.currentAuction;
     
-    if (highestBidder === user.id) return; // Già in testa
-    if (foldedPlayers.includes(user.id)) return; // Ritirato
+    if (highestBidder === activeUserId) return; // Già in testa
+    if (foldedPlayers.includes(activeUserId)) return; // Ritirato
     if (isMyDeckFull) return;
 
     const newBid = currentBid + amount;
@@ -130,7 +179,7 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
 
     const updatedCurrentAuction = {
       ...auction.currentAuction,
-      highestBidder: user.id,
+      highestBidder: activeUserId,
       currentBid: newBid,
       timerExpiresAt: Date.now() + 10000 // Reset timer a 10 secondi
     };
@@ -141,7 +190,7 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
       lastAction: {
         type: 'bid',
         amount: newBid,
-        participantId: user.id,
+        participantId: activeUserId,
         timestamp: Date.now()
       }
     };
@@ -161,11 +210,11 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   // 3. Ritirarsi dall'asta (Fold)
   const handleFold = async () => {
     if (!auction.currentAuction) return;
-    if (auction.currentAuction.foldedPlayers.includes(user.id)) return;
+    if (auction.currentAuction.foldedPlayers.includes(activeUserId)) return;
 
     const updatedCurrentAuction = {
       ...auction.currentAuction,
-      foldedPlayers: [...auction.currentAuction.foldedPlayers, user.id]
+      foldedPlayers: [...auction.currentAuction.foldedPlayers, activeUserId]
     };
 
     const newAuctionState = {
@@ -297,6 +346,36 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
         </div>
       </div>
 
+      {/* Selettore Simulatore per Test Tournament */}
+      {isTest && (
+        <div className="bg-[#12122A] p-4 rounded-[24px] border border-[#F5A623]/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_15px_rgba(245,166,35,0.1)]">
+          <span className="text-xs font-black uppercase text-amber-300 tracking-wider flex items-center gap-1.5">
+            ⚙️ Simula come:
+          </span>
+          <select
+            value={simulatedPlayerId}
+            onChange={(e) => setSimulatedPlayerId(e.target.value)}
+            className="bg-black/50 border border-white/10 text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-[#F5A623] cursor-pointer w-full sm:w-auto"
+          >
+            {tournament.participants.map((p) => {
+              const pId = p.id || p.user_id || p.username;
+              const isHighestBidder = auction.currentAuction?.highestBidder === pId;
+              const hasFolded = auction.currentAuction?.foldedPlayers?.includes(pId);
+              const deckCount = (auction.playerDecks[pId] || []).length;
+              let suffix = "";
+              if (deckCount >= auction.deckSize) suffix = " (Deck Pieno)";
+              else if (isHighestBidder) suffix = " (In Testa)";
+              else if (hasFolded) suffix = " (Foldato)";
+              return (
+                <option key={pId} value={pId}>
+                  {p.username}{suffix}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
+
       {tournament.status === 'draft_complete' ? (
         <div className="bg-[#12122A] p-8 rounded-[32px] border border-green-500/30 text-center space-y-4">
           <div className="text-green-400 font-bold uppercase tracking-widest animate-pulse text-lg">
@@ -366,11 +445,11 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
               <div className="p-3 bg-white/5 rounded-xl text-center text-xs font-bold text-white/40 uppercase">
                 Hai già completato il tuo Deck
               </div>
-            ) : auction.currentAuction.highestBidder === user.id ? (
+            ) : auction.currentAuction.highestBidder === activeUserId ? (
               <div className="p-3 bg-[#F5A623]/20 border border-[#F5A623]/40 rounded-xl text-center text-xs font-black text-[#F5A623] uppercase tracking-wider animate-pulse">
                 Sei in testa!
               </div>
-            ) : auction.currentAuction.foldedPlayers?.includes(user.id) ? (
+            ) : auction.currentAuction.foldedPlayers?.includes(activeUserId) ? (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-xs font-bold text-red-400 uppercase">
                 Ti sei ritirato da quest'asta
               </div>
@@ -501,8 +580,10 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
         
         {(() => {
           const sortedParticipants = [...tournament.participants].sort((a, b) => {
-            if (a.user_id === user.id) return -1;
-            if (b.user_id === user.id) return 1;
+            const aId = a.id || a.user_id || a.username;
+            const bId = b.id || b.user_id || b.username;
+            if (aId === activeUserId) return -1;
+            if (bId === activeUserId) return 1;
             return 0;
           });
 

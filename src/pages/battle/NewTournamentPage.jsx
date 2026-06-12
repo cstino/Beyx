@@ -721,6 +721,7 @@ export default function NewTournamentPage() {
           rounds: [],
           assignment_mode: config.assignmentMode,
           beyblade_mode: config.beybladeMode || "personali",
+          is_test: config.isTest || false,
           settings: {
             rrCycles: config.rrCycles || 1,
             rrWinnerMode: config.rrWinnerMode || "points",
@@ -813,7 +814,7 @@ export default function NewTournamentPage() {
         .from("battles")
         .insert({
           format: "tournament",
-          is_official: true,
+          is_official: !tournament.structure?.is_test,
           tournament_id: tournament.id,
           player1_user_id: match.p1.user_id || null,
           player1_guest_name: match.p1.user_id ? null : match.p1.username,
@@ -1124,7 +1125,7 @@ export default function NewTournamentPage() {
         ...p,
         elo: p.elo !== undefined ? p.elo : 1000,
         seed: 0,
-        deck: null, // Creator will handle guest beys during match
+        deck: p.deck || null,
       }));
 
     const finalParticipants = [...approved, ...guests];

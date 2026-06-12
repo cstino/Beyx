@@ -11,8 +11,23 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export function TournamentSetup({ onConfirm }) {
+  const { user, profile } = useAuthStore();
+  const isAdmin =
+    user?.email === "cr.96bc@gmail.com" ||
+    user?.email === "hcskso96@gmail.com" ||
+    profile?.is_admin;
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const isTestQuery = queryParams.get("is_test") === "true";
+  const [isTestTournament, setIsTestTournament] = useState(isTestQuery);
+
+  const [blades, setBlades] = useState([]);
+  const [ratchets, setRatchets] = useState([]);
+  const [bits, setBits] = useState([]);
+
   const [name, setName] = useState("");
   const [format, setFormat] = useState("bracket");
   const [starterBeysCount, setStarterBeysCount] = useState(1);
@@ -40,7 +55,71 @@ export function TournamentSetup({ onConfirm }) {
       .from("profiles")
       .select("id, username, avatar_id, avatar_color")
       .then(({ data }) => setActiveUsers(data || []));
+
+    // Fetch parts for mock deck generation
+    supabase.from("blades").select("id, name, stock_ratchet, stock_bit").then(({ data }) => setBlades(data || []));
+    supabase.from("ratchets").select("id, name").then(({ data }) => setRatchets(data || []));
+    supabase.from("bits").select("id, name").then(({ data }) => setBits(data || []));
   }, []);
+
+  useEffect(() => {
+    if (isTestQuery) {
+      setName(`[TEST] Torneo Mock - ${new Date().toLocaleDateString()}`);
+    }
+  }, [isTestQuery]);
+
+  function generateMockDecks(count) {
+    if (blades.length === 0) return;
+
+    const mockNames = [
+      "Ginga", "Kyoya", "Ryuga", "Kenta", "Benkei", "Tsubasa", "Yu", "Masamune", 
+      "King", "Chris", "Dynamis", "Tithi", "Aguma", "Bago", "Yuki", "Jigsaw"
+    ];
+
+    const generated = Array.from({ length: count }).map((_, idx) => {
+      const pName = mockNames[idx % mockNames.length] + ` (Mock)`;
+      
+      const totalBeys = starterBeysCount + reserveBeysCount;
+      const beys = Array.from({ length: totalBeys }).map(() => {
+        const blade = blades[Math.floor(Math.random() * blades.length)];
+        const isStock = Math.random() > 0.3; // 70% stock
+        const ratchet = ratchets[Math.floor(Math.random() * ratchets.length)];
+        const bit = bits[Math.floor(Math.random() * bits.length)];
+
+        let ratchetId = isStock ? "" : ratchet?.id;
+        let bitId = isStock ? "" : bit?.id;
+
+        if (isStock && blade.stock_ratchet) {
+          const matchR = ratchets.find(r => r.name.toLowerCase() === blade.stock_ratchet.toLowerCase());
+          if (matchR) ratchetId = matchR.id;
+        }
+        if (isStock && blade.stock_bit) {
+          const matchB = bits.find(b => b.name.toLowerCase() === blade.stock_bit.toLowerCase());
+          if (matchB) bitId = matchB.id;
+        }
+
+        return {
+          blade_id: blade.id,
+          is_stock: isStock,
+          ratchet_id: ratchetId || "",
+          bit_id: bitId || "",
+        };
+      });
+
+      return {
+        guest_name: pName,
+        username: pName,
+        seed: idx + 1,
+        elo: 1000 + Math.floor(Math.random() * 200),
+        deck: { beys }
+      };
+    });
+
+    setParticipants(generated);
+    setEntryMode("invitation");
+    setName(prev => prev || `[TEST] Torneo Mock - ${new Date().toLocaleDateString()}`);
+    setIsTestTournament(true);
+  }
 
   function addParticipant(user) {
     if (participants.find((p) => p.user_id === user.id)) return;
@@ -76,6 +155,49 @@ export function TournamentSetup({ onConfirm }) {
 
   return (
     <div className="space-y-8 pb-32">
+      {/* LAB ADMIN Section */}
+      {isAdmin && (
+        <div className="p-5 rounded-3xl bg-purple-500/5 border border-purple-500/20 space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy size={14} className="text-purple-400" />
+            <span className="text-[10px] font-black text-purple-400 tracking-[0.2em] uppercase font-createfuture">
+              LAB ADMIN: SIMULATORE TEST
+            </span>
+          </div>
+          
+          <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+            <div>
+              <div className="text-[10px] font-black text-white uppercase tracking-wider">Nascondi Torneo</div>
+              <div className="text-[8px] text-white/40 uppercase font-bold mt-0.5">Non sarà visibile ai normali blader</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isTestTournament} 
+                onChange={(e) => setIsTestTournament(e.target.checked)} 
+                className="sr-only peer"
+              />
+              <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/40 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 peer-checked:after:bg-white peer-checked:after:shadow-md"></div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => generateMockDecks(8)}
+              className="py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 hover:bg-purple-500/20 active:scale-95 transition-all text-[9px] font-black uppercase tracking-widest"
+            >
+              Popola 8 Bot (Mock)
+            </button>
+            <button
+              onClick={() => generateMockDecks(16)}
+              className="py-3 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-300 hover:bg-purple-500/20 active:scale-95 transition-all text-[9px] font-black uppercase tracking-widest"
+            >
+              Popola 16 Bot (Mock)
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="text-white/60 text-sm font-medium italic opacity-50">
         Configura la tua competizione
       </div>
@@ -784,6 +906,7 @@ export function TournamentSetup({ onConfirm }) {
                 : null,
             beybladeMode,
             assignmentMode: beybladeMode === "pool" ? assignmentMode : null,
+            isTest: isTestTournament,
           })
         }
         disabled={!canStart}

@@ -159,7 +159,12 @@ export default function BattlePage() {
       .eq('registration_open', true)
       .eq('status', 'setup')
       .order('created_at', { ascending: false });
-    setOpenTournaments(data || []);
+    
+    const filtered = (data || []).filter(t => {
+      const struct = typeof t.structure === 'string' ? JSON.parse(t.structure) : t.structure;
+      return !struct?.is_test;
+    });
+    setOpenTournaments(filtered);
   }
 
   async function fetchMyTournaments() {
@@ -192,7 +197,11 @@ export default function BattlePage() {
       .neq('status', 'completed')
       .order('created_at', { ascending: false });
     
-    setMyTournaments(tourneys || []);
+    const filtered = (tourneys || []).filter(t => {
+      const struct = typeof t.structure === 'string' ? JSON.parse(t.structure) : t.structure;
+      return !struct?.is_test;
+    });
+    setMyTournaments(filtered);
   }
 
   async function fetchPendingInvitations() {

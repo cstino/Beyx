@@ -82,6 +82,7 @@ const AcceptChallengePage = lazy(() =>
     default: m.AcceptChallengePage,
   })),
 );
+const AccountAnalysisPage = lazy(() => import("./pages/AccountAnalysisPage"));
 
 function App() {
   const { user, profile, setUser, fetchProfile, setLoading, loading } =
@@ -204,6 +205,10 @@ function App() {
                       element={<BattleHistoryPage />}
                     />
                     <Route path="/account" element={<Account />} />
+                    <Route
+                      path="/account/analysis"
+                      element={<AccountAnalysisPage />}
+                    />
                     <Route path="/leaderboard" element={<LeaderboardPage />} />
                     <Route path="/player/:userId" element={<PlayerProfilePage />} />
                     <Route

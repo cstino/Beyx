@@ -135,3 +135,10 @@
   border-radius: 5px;
   text-align: center;
 }
+
+/* Display view adjustments to prevent text/image overlap and distribute content */
+.draft-card.is-display .draft-card-back-content {
+  justify-content: space-between;
+  padding: 5px 3px 3px 3px;
+}
+

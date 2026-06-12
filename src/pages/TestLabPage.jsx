@@ -42,6 +42,13 @@ export default function TestLabPage() {
       path: '/test-lab/torneo',
     },
     {
+      icon: Trophy,
+      label: 'Simulatore Torneo Reale',
+      desc: 'Crea un torneo reale di test (nascosto) con bot fittizi',
+      color: '#A855F7',
+      path: '/battle/new/tournament?is_test=true',
+    },
+    {
       icon: History,
       label: 'Storico Test',
       desc: 'Leaderboard e statistiche dei match test',

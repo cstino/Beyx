@@ -72,7 +72,12 @@ export default function Dashboard() {
       .select("*")
       .eq("registration_open", true)
       .eq("status", "setup");
-    setOpenTournaments(data || []);
+    
+    const filtered = (data || []).filter(t => {
+      const struct = typeof t.structure === 'string' ? JSON.parse(t.structure) : t.structure;
+      return !struct?.is_test;
+    });
+    setOpenTournaments(filtered);
   }
 
   const { blader, parts, combos, topBladers, loading } = useHomeData(userId);

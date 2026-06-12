@@ -32,6 +32,51 @@ export function PoolBustePlayerView({
   const [bidAmount, setBidAmount] = useState("1");
   const [revealStep, setRevealStep] = useState(0);
   const [revealDelay, setRevealDelay] = useState(false);
+  const [simulatedPlayerId, setSimulatedPlayerId] = useState("");
+
+  const getFirstPendingPlayerId = useCallback(() => {
+    if (!sealedBid) return "";
+    const ca = sealedBid.currentAuction;
+    for (const pId of sealedBid.turnOrder) {
+      const deckFull = (sealedBid.playerDecks[pId] || []).length >= sealedBid.deckSize;
+      if (deckFull) continue;
+      if (ca) {
+        const hasBid = ca.bids?.[pId];
+        const hasPassed = ca.passedPlayers?.includes(pId);
+        if (hasBid || hasPassed) continue;
+      }
+      return pId;
+    }
+    return sealedBid.turnOrder[0] || "";
+  }, [sealedBid]);
+
+  const isTest = tournament.structure?.is_test || false;
+
+  useEffect(() => {
+    if (isTest && sealedBid) {
+      const ca = sealedBid.currentAuction;
+      if (!ca) {
+        const currentTurnParticipantId = sealedBid.turnOrder[sealedBid.currentTurnIndex];
+        setSimulatedPlayerId(currentTurnParticipantId || "");
+        return;
+      }
+      const isCurrentSimulatedDone = (() => {
+        if (!simulatedPlayerId) return true;
+        const deckFull = (sealedBid.playerDecks[simulatedPlayerId] || []).length >= sealedBid.deckSize;
+        if (deckFull) return true;
+        const hasBid = ca.bids?.[simulatedPlayerId];
+        const hasPassed = ca.passedPlayers?.includes(simulatedPlayerId);
+        return !!(hasBid || hasPassed);
+      })();
+
+      if (isCurrentSimulatedDone) {
+        const pendingPlayer = getFirstPendingPlayerId();
+        if (pendingPlayer) {
+          setSimulatedPlayerId(pendingPlayer);
+        }
+      }
+    }
+  }, [isTest, sealedBid, getFirstPendingPlayerId, simulatedPlayerId]);
 
   const getGlowColor = (type) => {
     if (type === "attack") return "#ef4444";
@@ -257,8 +302,9 @@ export function PoolBustePlayerView({
   const activeTurnDeck = sealedBid.playerDecks[activeTurnParticipantId] || [];
   const isActiveTurnDeckFull = activeTurnDeck.length >= sealedBid.deckSize;
 
-  const myCredits = sealedBid.playerCredits[user.id] || 0;
-  const myDeck = sealedBid.playerDecks[user.id] || [];
+  const activeUserId = (isTest && simulatedPlayerId) ? simulatedPlayerId : user.id;
+  const myCredits = sealedBid.playerCredits[activeUserId] || 0;
+  const myDeck = sealedBid.playerDecks[activeUserId] || [];
   const isMyDeckFull = myDeck.length >= sealedBid.deckSize;
 
   const handleNominatePack = async (pack) => {
@@ -307,8 +353,8 @@ export function PoolBustePlayerView({
     if (
       !ca ||
       ca.status !== "bidding" ||
-      ca.bids?.[user.id] ||
-      ca.passedPlayers?.includes(user.id) ||
+      ca.bids?.[activeUserId] ||
+      ca.passedPlayers?.includes(activeUserId) ||
       isMyDeckFull
     )
       return;
@@ -321,7 +367,7 @@ export function PoolBustePlayerView({
       ...ca,
       bids: {
         ...(ca.bids || {}),
-        [user.id]: { amount, timestamp: Date.now() },
+        [activeUserId]: { amount, timestamp: Date.now() },
       },
     };
     const nsbs = {
@@ -329,7 +375,7 @@ export function PoolBustePlayerView({
       currentAuction: uca,
       lastAction: {
         type: "bid",
-        participantId: user.id,
+        participantId: activeUserId,
         amount,
         timestamp: Date.now(),
       },
@@ -354,14 +400,14 @@ export function PoolBustePlayerView({
     if (
       !ca ||
       ca.status !== "bidding" ||
-      ca.bids?.[user.id] ||
-      ca.passedPlayers?.includes(user.id) ||
+      ca.bids?.[activeUserId] ||
+      ca.passedPlayers?.includes(activeUserId) ||
       isMyDeckFull
     )
       return;
     const uca = {
       ...ca,
-      passedPlayers: [...(ca.passedPlayers || []), user.id],
+      passedPlayers: [...(ca.passedPlayers || []), activeUserId],
     };
     const nsbs = { ...sealedBid, currentAuction: uca };
     const up = {
@@ -395,10 +441,10 @@ export function PoolBustePlayerView({
           p.username === winnerId,
       )
     : null;
-  const hasSubmitted = sealedBid.currentAuction?.bids?.[user.id];
-  const hasPassed = sealedBid.currentAuction?.passedPlayers?.includes(user.id);
+  const hasSubmitted = sealedBid.currentAuction?.bids?.[activeUserId];
+  const hasPassed = sealedBid.currentAuction?.passedPlayers?.includes(activeUserId);
   const myBidAmount = hasSubmitted
-    ? sealedBid.currentAuction.bids[user.id].amount
+    ? sealedBid.currentAuction.bids[activeUserId].amount
     : 0;
 
   return (
@@ -424,6 +470,36 @@ export function PoolBustePlayerView({
           </span>
         </div>
       </div>
+
+      {/* Selettore Simulatore per Test Tournament */}
+      {isTest && (
+        <div className="bg-[#12122A] p-4 rounded-[24px] border border-[#9b59b6]/30 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_15px_rgba(155,89,182,0.1)]">
+          <span className="text-xs font-black uppercase text-purple-300 tracking-wider flex items-center gap-1.5">
+            ⚙️ Simula come:
+          </span>
+          <select
+            value={simulatedPlayerId}
+            onChange={(e) => setSimulatedPlayerId(e.target.value)}
+            className="bg-black/50 border border-white/10 text-white rounded-xl px-3 py-1.5 text-xs outline-none focus:border-[#9b59b6] cursor-pointer w-full sm:w-auto"
+          >
+            {tournament.participants.map((p) => {
+              const pId = p.id || p.user_id || p.username;
+              const hasBid = sealedBid.currentAuction?.bids?.[pId];
+              const hasPassed = sealedBid.currentAuction?.passedPlayers?.includes(pId);
+              const deckCount = (sealedBid.playerDecks[pId] || []).length;
+              let suffix = "";
+              if (deckCount >= sealedBid.deckSize) suffix = " (Deck Pieno)";
+              else if (hasBid) suffix = " (Offerta Inviata)";
+              else if (hasPassed) suffix = " (Passato)";
+              return (
+                <option key={pId} value={pId}>
+                  {p.username}{suffix}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      )}
 
       {tournament.status === "draft_complete" ? (
         <div className="bg-[#12122A] p-8 rounded-[32px] border border-green-500/30 text-center space-y-4">
@@ -868,8 +944,11 @@ export function PoolBustePlayerView({
         </h3>
         {(() => {
           const sortedParticipants = [...tournament.participants].sort(
-            (a, b) =>
-              a.user_id === user.id ? -1 : b.user_id === user.id ? 1 : 0,
+            (a, b) => {
+              const aId = a.id || a.user_id || a.username;
+              const bId = b.id || b.user_id || b.username;
+              return aId === activeUserId ? -1 : bId === activeUserId ? 1 : 0;
+            }
           );
           return sortedParticipants.map((participant) => {
             const pId =

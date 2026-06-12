@@ -38,6 +38,65 @@ const FINISH_TYPES = [
   { id: "draw", name: "Draw", points: 0, icon: Minus, color: "#6B7280" },
 ];
 
+const getCardDims = (totalPacks) => {
+  if (totalPacks > 32) {
+    return {
+      width: "min(125px, 5.8vw)",
+      height: "min(165px, 15vh)",
+      logoSize: "w-8 h-8",
+      iconSize: 16,
+      typeSize: "text-[6.5px]",
+      numSize: "text-[8.5px]",
+      bladeImgSize: "w-10 h-10",
+      nameSize: "text-[7.5px]"
+    };
+  } else if (totalPacks > 24) {
+    return {
+      width: "min(130px, 6.2vw)",
+      height: "min(175px, 17vh)",
+      logoSize: "w-10 h-10",
+      iconSize: 20,
+      typeSize: "text-[7.5px]",
+      numSize: "text-[9.5px]",
+      bladeImgSize: "w-12 h-12",
+      nameSize: "text-[8.5px]"
+    };
+  } else if (totalPacks > 16) {
+    return {
+      width: "min(150px, 8.8vw)",
+      height: "min(215px, 21vh)",
+      logoSize: "w-12 h-12",
+      iconSize: 24,
+      typeSize: "text-[8.5px]",
+      numSize: "text-[11px]",
+      bladeImgSize: "w-16 h-16",
+      nameSize: "text-[9.5px]"
+    };
+  } else if (totalPacks > 12) {
+    return {
+      width: "min(180px, 11vw)",
+      height: "min(250px, 24vh)",
+      logoSize: "w-16 h-16",
+      iconSize: 32,
+      typeSize: "text-[10px]",
+      numSize: "text-xs",
+      bladeImgSize: "w-20 h-20",
+      nameSize: "text-[11px]"
+    };
+  } else {
+    return {
+      width: "min(230px, 14vw)",
+      height: "min(300px, 28vh)",
+      logoSize: "w-20 h-20",
+      iconSize: 40,
+      typeSize: "text-xs",
+      numSize: "text-sm",
+      bladeImgSize: "w-24 h-24",
+      nameSize: "text-xs"
+    };
+  }
+};
+
 export default function TournamentDisplayView() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -664,7 +723,7 @@ export default function TournamentDisplayView() {
 
                   <div className="relative w-56 h-56 md:w-64 md:h-64 mb-6">
                     <img
-                      src={blade.image_url}
+                      src={combo?.override_image_url || blade.image_url}
                       alt="Blade"
                       className="absolute inset-0 w-full h-full object-contain z-30 drop-shadow-[0_0_20px_rgba(255,255,255,0.4)] animate-[float_3s_ease-in-out_infinite]"
                     />
@@ -732,38 +791,38 @@ export default function TournamentDisplayView() {
       : null;
 
     return (
-      <div className="min-h-screen bg-[#0A0A1A] p-4 md:p-8 flex flex-col justify-between overflow-y-auto">
-        <div className="text-center mb-6 md:mb-8 shrink-0">
-          <h1 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-3">
+      <div className="h-screen max-h-screen bg-[#0A0A1A] p-3 md:p-6 flex flex-col justify-between overflow-hidden select-none font-sans">
+        <div className="text-center mb-2 shrink-0">
+          <h1 className="text-lg md:text-2xl font-black italic uppercase text-white tracking-[0.05em] mb-1">
             {tournament.name} - Fase di Draft
           </h1>
           {currentParticipant ? (
-            <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-6 py-2.5 md:px-8 md:py-4 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
-              <span className="text-base md:text-xl text-white/70 font-bold uppercase mr-3 tracking-[0.05em]">
+            <div className="inline-block bg-[#4361EE]/20 border border-[#4361EE] px-4 py-1.5 rounded-full shadow-[0_0_20px_rgba(67,97,238,0.2)]">
+              <span className="text-xs md:text-sm text-white/70 font-bold uppercase mr-2 tracking-[0.05em]">
                 Turno di:
               </span>
-              <span className="text-2xl md:text-4xl text-white font-black italic uppercase tracking-[0.05em]">
+              <span className="text-xl md:text-2xl text-white font-black italic uppercase tracking-[0.05em]">
                 {currentParticipant.username}
               </span>
             </div>
           ) : (
-            <div className="text-xl md:text-2xl text-green-400 font-black italic uppercase animate-pulse">
+            <div className="text-lg md:text-xl text-green-400 font-black italic uppercase animate-pulse">
               Draft Completato! In attesa della generazione del tabellone...
             </div>
           )}
         </div>
 
         <div
-          className="flex-1 flex flex-wrap justify-center items-center max-w-7xl mx-auto w-full content-center my-auto"
+          className="flex-1 flex flex-wrap justify-center items-center max-w-[96vw] mx-auto w-full content-center my-auto"
           style={{
             gap:
               draft.availablePacks.length > 24
-                ? "10px"
+                ? "6px"
                 : draft.availablePacks.length > 16
-                  ? "12px"
+                  ? "10px"
                   : draft.availablePacks.length > 12
-                    ? "16px"
-                    : "24px",
+                    ? "12px"
+                    : "16px",
           }}
         >
           {draft.availablePacks.map((pack, index) => {
@@ -794,43 +853,7 @@ export default function TournamentDisplayView() {
 
             // Dynamic size mapping based on pack count
             const totalPacks = draft.availablePacks.length;
-            let cardDims = {
-              width: "190px",
-              height: "254px",
-              logoSize: "w-20 h-20", // The user requested a bigger logo!
-              iconSize: 48,
-              typeSize: "text-sm",
-              numSize: "text-xl",
-            };
-
-            if (totalPacks > 24) {
-              cardDims = {
-                width: "105px",
-                height: "140px",
-                logoSize: "w-10 h-10",
-                iconSize: 22,
-                typeSize: "text-[8px]",
-                numSize: "text-xs",
-              };
-            } else if (totalPacks > 16) {
-              cardDims = {
-                width: "125px",
-                height: "167px",
-                logoSize: "w-12 h-12",
-                iconSize: 28,
-                typeSize: "text-[9px]",
-                numSize: "text-xs",
-              };
-            } else if (totalPacks > 12) {
-              cardDims = {
-                width: "150px",
-                height: "200px",
-                logoSize: "w-16 h-16",
-                iconSize: 36,
-                typeSize: "text-xs",
-                numSize: "text-sm",
-              };
-            }
+            const cardDims = getCardDims(totalPacks);
 
             return (
               <div
@@ -1828,31 +1851,31 @@ function AuctionDisplaySubView({ tournament, parts }) {
     : null;
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] p-4 md:p-8 flex flex-col justify-between overflow-y-auto select-none font-sans">
+    <div className="h-screen max-h-screen bg-[#0A0A1A] p-3 md:p-6 flex flex-col justify-between overflow-hidden select-none font-sans">
       {/* Intestazione */}
-      <div className="text-center mb-6 shrink-0">
-        <h1 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-3">
+      <div className="text-center mb-2 shrink-0">
+        <h1 className="text-lg md:text-2xl font-black italic uppercase text-white tracking-[0.05em] mb-1">
           {tournament.name} - Modalità Asta
         </h1>
         {isAuctionComplete ? (
-          <div className="text-xl md:text-2xl text-green-400 font-black italic uppercase animate-pulse">
+          <div className="text-lg md:text-xl text-green-400 font-black italic uppercase animate-pulse">
             Asta Completata! In attesa della generazione del tabellone...
           </div>
         ) : auction.currentAuction && activeAuctionPack ? (
-          <div className="inline-flex items-center gap-6 bg-[#F5A623]/20 border-2 border-[#F5A623] px-8 py-3 rounded-full shadow-[0_0_40px_rgba(245,166,35,0.3)] animate-pulse">
-            <span className="text-xl text-[#F5A623] font-black uppercase tracking-widest">
+          <div className="inline-flex items-center gap-4 bg-[#F5A623]/20 border border-[#F5A623] px-6 py-2 rounded-full shadow-[0_0_20px_rgba(245,166,35,0.2)] animate-pulse">
+            <span className="text-sm text-[#F5A623] font-black uppercase tracking-widest">
               ASTA IN CORSO
             </span>
-            <span className="text-3xl font-black text-white">
+            <span className="text-xl font-black text-white">
               ⏱️ {timeLeft}s
             </span>
           </div>
         ) : currentParticipant ? (
-          <div className="inline-block bg-[#4361EE]/20 border-2 border-[#4361EE] px-8 py-3 rounded-full shadow-[0_0_30px_rgba(67,97,238,0.3)]">
-            <span className="text-xl text-white/70 font-bold uppercase mr-3 tracking-[0.05em]">
+          <div className="inline-block bg-[#4361EE]/20 border border-[#4361EE] px-6 py-1.5 rounded-full shadow-[0_0_20px_rgba(67,97,238,0.2)]">
+            <span className="text-xs text-white/70 font-bold uppercase mr-2 tracking-[0.05em]">
               Turno di Nomina:
             </span>
-            <span className="text-3xl text-white font-black italic uppercase tracking-[0.05em]">
+            <span className="text-xl text-white font-black italic uppercase tracking-[0.05em]">
               {currentParticipant.username}
             </span>
           </div>
@@ -1860,7 +1883,7 @@ function AuctionDisplaySubView({ tournament, parts }) {
       </div>
 
       {/* Area Principale: Bidding Feature o Griglia Pacchetti */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto my-auto py-4">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[96vw] mx-auto my-auto py-2">
         {auction.currentAuction && activeAuctionPack ? (
           <div className="flex flex-col md:flex-row items-center justify-center gap-12 bg-gradient-to-b from-[#151525] to-[#0D0D1A] border-2 border-[#F5A623] rounded-[48px] p-8 md:p-12 w-full max-w-5xl shadow-[0_0_80px_rgba(245,166,35,0.2)]">
             {/* Immagine Gigante del Beyblade */}
@@ -1868,7 +1891,7 @@ function AuctionDisplaySubView({ tournament, parts }) {
               <div className="absolute inset-0 bg-[#F5A623]/20 blur-[60px] rounded-full"></div>
               {activeAuctionBlade ? (
                 <img
-                  src={activeAuctionBlade.image_url}
+                  src={activeAuctionCombo?.override_image_url || activeAuctionBlade.image_url}
                   alt={activeAuctionBlade.name}
                   className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,255,255,0.4)] animate-[float_3s_ease-in-out_infinite]"
                 />
@@ -1916,124 +1939,127 @@ function AuctionDisplaySubView({ tournament, parts }) {
           </div>
         ) : (
           /* Griglia di tutti i pack disponibili */
-          <div className="flex flex-wrap justify-center items-center gap-4 w-full content-center">
-            {auction.availablePacks.map((pack, index) => {
-              const glowColor = getGlowColor(pack.type);
-              const icon = getPackIcon(pack.type);
-              let displayType = pack.type;
-              if (pack.type === "balance" || pack.type === "stamina")
-                displayType = "STAMINA";
+          <div className="flex flex-wrap justify-center items-center gap-2 w-full content-center">
+            {(() => {
+              const cardDims = getCardDims(auction.availablePacks.length);
+              return auction.availablePacks.map((pack, index) => {
+                const glowColor = getGlowColor(pack.type);
+                const icon = getPackIcon(pack.type);
+                let displayType = pack.type;
+                if (pack.type === "balance" || pack.type === "stamina")
+                  displayType = "STAMINA";
 
-              const poolCombo = tournament.structure?.pool?.find(
-                (c) => c.id === pack.combo_id,
-              );
-              const blade = poolCombo
-                ? parts?.blades?.find((b) => b.id === poolCombo.blade_id)
-                : null;
-              const owner = pack.isOpened
-                ? tournament.participants?.find(
-                    (p) =>
-                      p.id === pack.owner ||
-                      p.user_id === pack.owner ||
-                      p.username === pack.owner,
-                  )
-                : null;
+                const poolCombo = tournament.structure?.pool?.find(
+                  (c) => c.id === pack.combo_id,
+                );
+                const blade = poolCombo
+                  ? parts?.blades?.find((b) => b.id === poolCombo.blade_id)
+                  : null;
+                const owner = pack.isOpened
+                  ? tournament.participants?.find(
+                      (p) =>
+                        p.id === pack.owner ||
+                        p.user_id === pack.owner ||
+                        p.username === pack.owner,
+                    )
+                  : null;
 
-              return (
-                <div
-                  key={pack.id}
-                  className={`draft-card is-display shrink-0 ${pack.isOpened ? "is-opened opacity-50" : ""} transition-all duration-500`}
-                  style={{
-                    "--glow-color": glowColor,
-                    width: "130px",
-                    height: "180px",
-                  }}
-                >
-                  <div className="draft-card-content">
-                    <div className="draft-card-back">
-                      <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-2 flex flex-col items-center justify-between h-full">
-                        {blade ? (
-                          <>
-                            <img
-                              src={blade.image_url}
-                              alt={blade.name}
-                              className="w-12 h-12 object-contain drop-shadow-md mb-1"
-                            />
-                            <div className="text-[10px] font-black uppercase text-center truncate w-full text-white">
-                              {blade.name}
-                            </div>
-                            <div
-                              className="text-[8px] font-bold uppercase opacity-80"
-                              style={{ color: glowColor }}
-                            >
-                              {displayType}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src="/beyx.svg"
-                              alt="BeyX Logo"
-                              className="w-10 h-10 mb-1 opacity-50 drop-shadow-md"
-                            />
-                            <div
-                              className="opacity-80 text-xl"
-                              style={{ color: glowColor }}
-                            >
-                              {icon}
-                            </div>
-                            <div
-                              className="text-[8px] font-black uppercase opacity-80 text-center"
-                              style={{ color: glowColor }}
-                            >
-                              {displayType}
-                            </div>
-                          </>
-                        )}
-                        <div className="text-xs font-black opacity-40 leading-none">
-                          {index + 1}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="draft-card-front">
-                      <div
-                        className="circle"
-                        id="bottom-circle"
-                        style={{ "--glow-color": glowColor }}
-                      ></div>
-                      <div className="circle" id="right-circle"></div>
-                      <div className="draft-card-front-content">
-                        <div className="draft-card-description font-createfuture tracking-[0.05em]">
-                          {pack.isOpened ? (
+                return (
+                  <div
+                    key={pack.id}
+                    className={`draft-card is-display shrink-0 ${pack.isOpened ? "is-opened opacity-50" : ""} transition-all duration-500`}
+                    style={{
+                      "--glow-color": glowColor,
+                      width: cardDims.width,
+                      height: cardDims.height,
+                    }}
+                  >
+                    <div className="draft-card-content">
+                      <div className="draft-card-back">
+                        <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-1 flex flex-col items-center justify-between h-full">
+                          {blade ? (
                             <>
-                              <div className="text-xl mb-1">❌</div>
-                              <div className="flex flex-col items-center justify-center w-full">
-                                <span className="text-[8px] font-black text-white text-center uppercase tracking-[0.05em]">
-                                  AGGIUDICATO
-                                </span>
-                                <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 tracking-[0.05em] truncate max-w-[90%]">
-                                  {owner?.username}
-                                </span>
-                                <span className="text-[6px] font-black text-[#F5A623] mt-0.5">
-                                  {pack.price} CRD
-                                </span>
+                              <img
+                                src={poolCombo?.override_image_url || blade.image_url}
+                                alt={blade.name}
+                                className={`${cardDims.bladeImgSize} object-contain drop-shadow-md mb-0.5`}
+                              />
+                              <div className={`${cardDims.nameSize} font-black uppercase text-center truncate w-full text-white px-1 leading-none`}>
+                                {blade.name}
+                              </div>
+                              <div
+                                className={`${cardDims.typeSize} font-bold uppercase opacity-80 leading-none`}
+                                style={{ color: glowColor }}
+                              >
+                                {displayType}
                               </div>
                             </>
-                          ) : null}
+                          ) : (
+                            <>
+                              <img
+                                src="/beyx.svg"
+                                alt="BeyX Logo"
+                                className={`${cardDims.logoSize} mb-1 opacity-50 drop-shadow-md`}
+                              />
+                              <div
+                                className="opacity-80"
+                                style={{ color: glowColor, fontSize: `${cardDims.iconSize * 0.7}px`, lineHeight: 1 }}
+                              >
+                                {icon}
+                              </div>
+                              <div
+                                className={`${cardDims.typeSize} font-black uppercase opacity-80 text-center`}
+                                style={{ color: glowColor }}
+                              >
+                                {displayType}
+                              </div>
+                            </>
+                          )}
+                          <div className={`${cardDims.numSize} font-black opacity-40 leading-none`}>
+                            {index + 1}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="draft-card-front">
+                        <div
+                          className="circle"
+                          id="bottom-circle"
+                          style={{ "--glow-color": glowColor }}
+                        ></div>
+                        <div className="circle" id="right-circle"></div>
+                        <div className="draft-card-front-content">
+                          <div className="draft-card-description font-createfuture tracking-[0.05em] p-1 w-[95%]">
+                            {pack.isOpened ? (
+                              <>
+                                <div className={`${cardDims.numSize} mb-0.5`}>❌</div>
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <span className="text-[7px] font-black text-white text-center uppercase tracking-[0.05em] leading-none">
+                                    AGGIUDICATO
+                                  </span>
+                                  <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 truncate max-w-[90%] leading-none">
+                                    {owner?.username}
+                                  </span>
+                                  <span className="text-[6px] font-black text-[#F5A623] mt-0.5 leading-none">
+                                    {pack.price} CRD
+                                  </span>
+                                </div>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
       </div>
 
       {/* Griglia Inferiore: Fondi Rimasti e Status Deck */}
-      <div className="mt-6 pt-6 border-t border-white/10 w-full shrink-0 font-createfuture">
-        <div className="flex flex-wrap justify-center gap-4 max-w-7xl mx-auto">
+      <div className="mt-2 pt-2 border-t border-white/10 w-full shrink-0 font-createfuture">
+        <div className="flex flex-wrap justify-center gap-2 max-w-[96vw] mx-auto">
           {tournament.participants?.map((participant) => {
             const pId =
               participant.id || participant.user_id || participant.username;
@@ -2044,17 +2070,17 @@ function AuctionDisplaySubView({ tournament, parts }) {
             return (
               <div
                 key={pId}
-                className={`flex-1 min-w-[180px] p-4 rounded-3xl border transition-all ${isFull ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/5"}`}
+                className={`flex-1 min-w-[120px] max-w-[200px] p-2 rounded-2xl border transition-all ${isFull ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/5"}`}
               >
-                <div className="text-xs font-black uppercase text-white/60 tracking-wider truncate mb-2 text-center">
+                <div className="text-[10px] font-black uppercase text-white/60 tracking-wider truncate mb-1 text-center">
                   {participant.username}
                 </div>
-                <div className="flex justify-between items-center px-2">
-                  <div className="text-lg font-black text-[#F5A623]">
+                <div className="flex justify-between items-center px-1">
+                  <div className="text-sm font-black text-[#F5A623] flex items-center gap-0.5">
                     🪙 {remainingCredits}
                   </div>
                   <div
-                    className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? "bg-green-500 text-white" : "bg-white/10 text-white/60"}`}
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded ${isFull ? "bg-green-500 text-white" : "bg-white/10 text-white/60"}`}
                   >
                     {acquiredDeck.length} / {auction.deckSize}
                   </div>
@@ -2238,53 +2264,53 @@ function SealedBidDisplaySubView({ tournament, parts }) {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[#0A0A1A] p-4 md:p-8 flex flex-col justify-between overflow-y-auto select-none font-sans">
-      <div className="text-center mb-6 shrink-0">
-        <h1 className="text-3xl md:text-5xl font-black italic uppercase text-white tracking-[0.05em] mb-3">
+    <div className="h-screen max-h-screen bg-[#0A0A1A] p-3 md:p-6 flex flex-col justify-between overflow-hidden select-none font-sans">
+      <div className="text-center mb-2 shrink-0">
+        <h1 className="text-lg md:text-2xl font-black italic uppercase text-white tracking-[0.05em] mb-1">
           {tournament.name} - Modalità A Buste
         </h1>
         {isComplete ? (
-          <div className="text-xl md:text-2xl text-green-400 font-black italic uppercase animate-pulse">
+          <div className="text-lg md:text-xl text-green-400 font-black italic uppercase animate-pulse">
             Asta Completata! In attesa della generazione del tabellone...
           </div>
         ) : isBidding && activePack ? (
-          <div className="inline-flex items-center gap-6 bg-[#9b59b6]/20 border-2 border-[#9b59b6] px-8 py-3 rounded-full shadow-[0_0_40px_rgba(155,89,182,0.3)] animate-pulse">
-            <span className="text-xl text-[#9b59b6] font-black uppercase tracking-widest">
+          <div className="inline-flex items-center gap-4 bg-[#9b59b6]/20 border border-[#9b59b6] px-6 py-2 rounded-full shadow-[0_0_20px_rgba(155,89,182,0.2)] animate-pulse">
+            <span className="text-sm text-[#9b59b6] font-black uppercase tracking-widest">
               OFFERTE SEGRETE
             </span>
-            <span className="text-3xl font-black text-white flex items-center gap-1">
-              <Clock size={24} /> {timeLeft}s
+            <span className="text-xl font-black text-white flex items-center gap-1">
+              <Clock size={20} /> {timeLeft}s
             </span>
-            <span className="text-sm font-black text-white/60">
-              <EyeOff size={18} /> {submittedCount}/{totalPlayers}
+            <span className="text-xs font-black text-white/60">
+              <EyeOff size={14} /> {submittedCount}/{totalPlayers}
             </span>
           </div>
         ) : isRevealed && activePack ? (
-          <div className="inline-flex items-center gap-6 bg-[#9b59b6]/20 border-2 border-[#9b59b6] px-8 py-3 rounded-full shadow-[0_0_40px_rgba(155,89,182,0.3)]">
-            <span className="text-xl text-[#9b59b6] font-black uppercase tracking-widest">
+          <div className="inline-flex items-center gap-4 bg-[#9b59b6]/20 border border-[#9b59b6] px-6 py-2 rounded-full shadow-[0_0_20px_rgba(155,89,182,0.2)]">
+            <span className="text-sm text-[#9b59b6] font-black uppercase tracking-widest">
               RISULTATO
             </span>
           </div>
         ) : currentParticipant ? (
-          <div className="inline-block bg-[#9b59b6]/20 border-2 border-[#9b59b6] px-8 py-3 rounded-full shadow-[0_0_30px_rgba(155,89,182,0.3)]">
-            <span className="text-xl text-white/70 font-bold uppercase mr-3 tracking-[0.05em]">
+          <div className="inline-block bg-[#9b59b6]/20 border border-[#9b59b6] px-6 py-1.5 rounded-full shadow-[0_0_20px_rgba(155,89,182,0.3)]">
+            <span className="text-xs text-white/70 font-bold uppercase mr-2 tracking-[0.05em]">
               Turno di Nomina:
             </span>
-            <span className="text-3xl text-white font-black italic uppercase tracking-[0.05em]">
+            <span className="text-xl text-white font-black italic uppercase tracking-[0.05em]">
               {currentParticipant.username}
             </span>
           </div>
         ) : null}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto my-auto py-4">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[96vw] mx-auto my-auto py-2">
         {isRevealed && sealedBid.currentAuction ? (
           <div className="flex flex-col items-center gap-8 bg-gradient-to-b from-[#151525] to-[#0D0D1A] border-2 border-[#9b59b6] rounded-[48px] p-8 md:p-12 w-full max-w-5xl shadow-[0_0_80px_rgba(155,89,182,0.2)]">
             <div className="relative w-48 h-48 flex items-center justify-center">
               <div className="absolute inset-0 bg-[#9b59b6]/20 blur-[60px] rounded-full"></div>
               {activeBlade ? (
                 <img
-                  src={activeBlade.image_url}
+                  src={activeCombo?.override_image_url || activeBlade.image_url}
                   alt={activeBlade.name}
                   className="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]"
                 />
@@ -2396,7 +2422,7 @@ function SealedBidDisplaySubView({ tournament, parts }) {
               <div className="absolute inset-0 bg-[#9b59b6]/20 blur-[60px] rounded-full"></div>
               {activeBlade ? (
                 <img
-                  src={activeBlade.image_url}
+                  src={activeCombo?.override_image_url || activeBlade.image_url}
                   alt={activeBlade.name}
                   className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_30px_rgba(255,255,255,0.4)] animate-[float_3s_ease-in-out_infinite]"
                 />
@@ -2433,121 +2459,124 @@ function SealedBidDisplaySubView({ tournament, parts }) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap justify-center items-center gap-4 w-full content-center">
-            {sealedBid.availablePacks.map((pack, index) => {
-              const glowColor = getGlowColor(pack.type);
-              let displayType = pack.type;
-              if (pack.type === "balance" || pack.type === "stamina")
-                displayType = "STAMINA";
-              const poolCombo = tournament.structure?.pool?.find(
-                (c) => c.id === pack.combo_id,
-              );
-              const blade = poolCombo
-                ? parts?.blades?.find((b) => b.id === poolCombo.blade_id)
-                : null;
-              const owner = pack.isOpened
-                ? tournament.participants?.find(
-                    (p) =>
-                      p.id === pack.owner ||
-                      p.user_id === pack.owner ||
-                      p.username === pack.owner,
-                  )
-                : null;
+          <div className="flex flex-wrap justify-center items-center gap-2 w-full content-center">
+            {(() => {
+              const cardDims = getCardDims(sealedBid.availablePacks.length);
+              return sealedBid.availablePacks.map((pack, index) => {
+                const glowColor = getGlowColor(pack.type);
+                let displayType = pack.type;
+                if (pack.type === "balance" || pack.type === "stamina")
+                  displayType = "STAMINA";
+                const poolCombo = tournament.structure?.pool?.find(
+                  (c) => c.id === pack.combo_id,
+                );
+                const blade = poolCombo
+                  ? parts?.blades?.find((b) => b.id === poolCombo.blade_id)
+                  : null;
+                const owner = pack.isOpened
+                  ? tournament.participants?.find(
+                      (p) =>
+                        p.id === pack.owner ||
+                        p.user_id === pack.owner ||
+                        p.username === pack.owner,
+                    )
+                  : null;
 
-              return (
-                <div
-                  key={pack.id}
-                  className={`draft-card is-display shrink-0 ${pack.isOpened ? "is-opened opacity-50" : ""} transition-all duration-500`}
-                  style={{
-                    "--glow-color": glowColor,
-                    width: "130px",
-                    height: "180px",
-                  }}
-                >
-                  <div className="draft-card-content">
-                    <div className="draft-card-back">
-                      <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-2 flex flex-col items-center justify-between h-full">
-                        {blade ? (
-                          <>
-                            <img
-                              src={blade.image_url}
-                              alt={blade.name}
-                              className="w-12 h-12 object-contain drop-shadow-md mb-1"
-                            />
-                            <div className="text-[10px] font-black uppercase text-center truncate w-full text-white">
-                              {blade.name}
-                            </div>
-                            <div
-                              className="text-[8px] font-bold uppercase opacity-80"
-                              style={{ color: glowColor }}
-                            >
-                              {displayType}
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <img
-                              src="/beyx.svg"
-                              alt="BeyX Logo"
-                              className="w-10 h-10 mb-1 opacity-50 drop-shadow-md"
-                            />
-                            <div
-                              className="opacity-80 text-xl"
-                              style={{ color: glowColor }}
-                            >
-                              <Gem size={20} className="text-[#9b59b6]" />
-                            </div>
-                            <div
-                              className="text-[8px] font-black uppercase opacity-80 text-center"
-                              style={{ color: glowColor }}
-                            >
-                              {displayType}
-                            </div>
-                          </>
-                        )}
-                        <div className="text-xs font-black opacity-40 leading-none">
-                          {index + 1}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="draft-card-front">
-                      <div
-                        className="circle"
-                        id="bottom-circle"
-                        style={{ "--glow-color": glowColor }}
-                      ></div>
-                      <div className="circle" id="right-circle"></div>
-                      <div className="draft-card-front-content">
-                        <div className="draft-card-description font-createfuture tracking-[0.05em]">
-                          {pack.isOpened ? (
+                return (
+                  <div
+                    key={pack.id}
+                    className={`draft-card is-display shrink-0 ${pack.isOpened ? "is-opened opacity-50" : ""} transition-all duration-500`}
+                    style={{
+                      "--glow-color": glowColor,
+                      width: cardDims.width,
+                      height: cardDims.height,
+                    }}
+                  >
+                    <div className="draft-card-content">
+                      <div className="draft-card-back">
+                        <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-1 flex flex-col items-center justify-between h-full">
+                          {blade ? (
                             <>
-                              <div className="text-xl mb-1">{"\u274C"}</div>
-                              <div className="flex flex-col items-center justify-center w-full">
-                                <span className="text-[8px] font-black text-white text-center uppercase tracking-[0.05em]">
-                                  AGGIUDICATO
-                                </span>
-                                <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 truncate max-w-[90%]">
-                                  {owner?.username}
-                                </span>
-                                <span className="text-[6px] font-black text-[#9b59b6] mt-0.5">
-                                  {pack.price} CRD
-                                </span>
+                              <img
+                                src={poolCombo?.override_image_url || blade.image_url}
+                                alt={blade.name}
+                                className={`${cardDims.bladeImgSize} object-contain drop-shadow-md mb-0.5`}
+                              />
+                              <div className={`${cardDims.nameSize} font-black uppercase text-center truncate w-full text-white px-1 leading-none`}>
+                                {blade.name}
+                              </div>
+                              <div
+                                className={`${cardDims.typeSize} font-bold uppercase opacity-80 leading-none`}
+                                style={{ color: glowColor }}
+                              >
+                                {displayType}
                               </div>
                             </>
-                          ) : null}
+                          ) : (
+                            <>
+                              <img
+                                src="/beyx.svg"
+                                alt="BeyX Logo"
+                                className={`${cardDims.logoSize} mb-1 opacity-50 drop-shadow-md`}
+                              />
+                              <div
+                                className="opacity-80"
+                                style={{ color: glowColor, fontSize: `${cardDims.iconSize * 0.7}px`, lineHeight: 1 }}
+                              >
+                                <Gem size={cardDims.iconSize} className="text-[#9b59b6]" />
+                              </div>
+                              <div
+                                className={`${cardDims.typeSize} font-black uppercase opacity-80 text-center`}
+                                style={{ color: glowColor }}
+                              >
+                                {displayType}
+                              </div>
+                            </>
+                          )}
+                          <div className={`${cardDims.numSize} font-black opacity-40 leading-none`}>
+                            {index + 1}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="draft-card-front">
+                        <div
+                          className="circle"
+                          id="bottom-circle"
+                          style={{ "--glow-color": glowColor }}
+                        ></div>
+                        <div className="circle" id="right-circle"></div>
+                        <div className="draft-card-front-content">
+                          <div className="draft-card-description font-createfuture tracking-[0.05em] p-1 w-[95%]">
+                            {pack.isOpened ? (
+                              <>
+                                <div className={`${cardDims.numSize} mb-0.5`}>❌</div>
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <span className="text-[7px] font-black text-white text-center uppercase tracking-[0.05em] leading-none">
+                                    AGGIUDICATO
+                                  </span>
+                                  <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 truncate max-w-[90%] leading-none">
+                                    {owner?.username}
+                                  </span>
+                                  <span className="text-[6px] font-black text-[#9b59b6] mt-0.5 leading-none">
+                                    {pack.price} CRD
+                                  </span>
+                                </div>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
       </div>
 
-      <div className="mt-6 pt-6 border-t border-white/10 w-full shrink-0 font-createfuture">
-        <div className="flex flex-wrap justify-center gap-4 max-w-7xl mx-auto">
+      <div className="mt-2 pt-2 border-t border-white/10 w-full shrink-0 font-createfuture">
+        <div className="flex flex-wrap justify-center gap-2 max-w-[96vw] mx-auto">
           {tournament.participants?.map((participant) => {
             const pId =
               participant.id || participant.user_id || participant.username;
@@ -2557,17 +2586,17 @@ function SealedBidDisplaySubView({ tournament, parts }) {
             return (
               <div
                 key={pId}
-                className={`flex-1 min-w-[180px] p-4 rounded-3xl border transition-all ${isFull ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/5"}`}
+                className={`flex-1 min-w-[120px] max-w-[200px] p-2 rounded-2xl border transition-all ${isFull ? "bg-green-500/10 border-green-500/30" : "bg-white/5 border-white/5"}`}
               >
-                <div className="text-xs font-black uppercase text-white/60 tracking-wider truncate mb-2 text-center">
+                <div className="text-[10px] font-black uppercase text-white/60 tracking-wider truncate mb-1 text-center">
                   {participant.username}
                 </div>
-                <div className="flex justify-between items-center px-2">
-                  <div className="text-lg font-black text-[#9b59b6] flex items-center gap-1">
-                    <Gem size={16} /> {remainingCredits}
+                <div className="flex justify-between items-center px-1">
+                  <div className="text-sm font-black text-[#9b59b6] flex items-center gap-0.5">
+                    <Gem size={12} /> {remainingCredits}
                   </div>
                   <div
-                    className={`text-xs font-black px-2 py-0.5 rounded ${isFull ? "bg-green-500 text-white" : "bg-white/10 text-white/60"}`}
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded ${isFull ? "bg-green-500 text-white" : "bg-white/10 text-white/60"}`}
                   >
                     {acquiredDeck.length} / {sealedBid.deckSize}
                   </div>
