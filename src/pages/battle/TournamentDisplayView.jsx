@@ -156,24 +156,33 @@ export default function TournamentDisplayView() {
     };
 
     const fetchTournament = async () => {
-      const [tourneyRes, bladesRes, ratchetsRes, bitsRes, battlesRes] =
+      const [tourneyRes, bladesRes, ratchetsRes, bitsRes, battlesRes, leaderboard] =
         await Promise.all([
           supabase.from("tournaments").select("*").eq("id", id).single(),
           supabase.from("blades").select("*"),
           supabase.from("ratchets").select("*"),
           supabase.from("bits").select("*"),
           supabase.from("battles").select("*").eq("tournament_id", id),
+          supabase.rpc("combo_points_leaderboard", { p_min_battles: 5 })
         ]);
 
       const enrichedTourney = await enrichParticipants(tourneyRes.data);
       currentTournament = enrichedTourney;
       setTournament(enrichedTourney);
 
+      const ranks = {};
+      if (leaderboard.data) {
+        leaderboard.data.forEach((item, index) => {
+          ranks[item.blade_name] = index + 1;
+        });
+      }
+
       const resolvedBlades = (bladesRes.data || []).map(blade => {
+        let resolved = blade;
         if (blade.active_variant_index != null && Array.isArray(blade.variants) && blade.variants[blade.active_variant_index]?.image_url) {
-          return { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
+          resolved = { ...blade, image_url: blade.variants[blade.active_variant_index].image_url };
         }
-        return blade;
+        return { ...resolved, topRank: ranks[blade.name] || null };
       });
 
       setParts({
@@ -867,29 +876,43 @@ export default function TournamentDisplayView() {
               >
                 <div className="draft-card-content">
                   <div className="draft-card-back">
-                    <div className="draft-card-back-content font-createfuture tracking-[0.05em]">
-                      <img
-                        src="/beyx.svg"
-                        alt="BeyX Logo"
-                        className={`${cardDims.logoSize} mb-2 opacity-60 drop-shadow-md transition-all`}
-                      />
-                      <div
-                        className="mb-2 opacity-80"
-                        style={{ color: glowColor }}
-                      >
-                        <Icon size={cardDims.iconSize} />
-                      </div>
-                      <div
-                        className={`${cardDims.typeSize} font-black uppercase opacity-80 mb-1 text-center`}
-                        style={{ color: glowColor }}
-                      >
-                        {displayType}
-                      </div>
-                      <div
-                        className={`${cardDims.numSize} font-black opacity-40 leading-none`}
-                      >
-                        {index + 1}
-                      </div>
+                    <div className="draft-card-back-content">
+                      {isVisibleDraft && blade ? (
+                        <>
+                          <div className="draft-card-header">
+                            <div className="draft-card-name" style={{ fontSize: cardDims.nameSize }}>{blade.name}</div>
+                          </div>
+                          <div className="draft-card-body">
+                            <img src={blade.image_url} alt={blade.name} className="draft-card-img animate-[float_3s_ease-in-out_infinite]" />
+                          </div>
+                          <div className="draft-card-footer">
+                            <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                              {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                            </span>
+                            <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>
+                              {blade.topRank ? `${blade.topRank}°` : "-"}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="draft-card-header">
+                            <div className="draft-card-name" style={{ opacity: 0.4, fontSize: cardDims.nameSize }}>BEYX MYSTERY</div>
+                          </div>
+                          <div className="draft-card-body flex-col gap-1">
+                            <img src="/beyx.svg" alt="BeyX Logo" className={`${cardDims.logoSize} opacity-40`} />
+                            <div style={{ color: glowColor }} className="opacity-80">
+                              <Icon size={cardDims.iconSize} />
+                            </div>
+                          </div>
+                          <div className="draft-card-footer">
+                            <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                              {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                            </span>
+                            <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>-</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="draft-card-front">
@@ -1976,48 +1999,43 @@ function AuctionDisplaySubView({ tournament, parts }) {
                   >
                     <div className="draft-card-content">
                       <div className="draft-card-back">
-                        <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-1 flex flex-col items-center justify-between h-full">
+                        <div className="draft-card-back-content">
                           {blade ? (
                             <>
-                              <img
-                                src={poolCombo?.override_image_url || blade.image_url}
-                                alt={blade.name}
-                                className={`${cardDims.bladeImgSize} object-contain drop-shadow-md mb-0.5`}
-                              />
-                              <div className={`${cardDims.nameSize} font-black uppercase text-center truncate w-full text-white px-1 leading-none`}>
-                                {blade.name}
+                              <div className="draft-card-header">
+                                <div className="draft-card-name" style={{ fontSize: cardDims.nameSize }}>{blade.name}</div>
                               </div>
-                              <div
-                                className={`${cardDims.typeSize} font-bold uppercase opacity-80 leading-none`}
-                                style={{ color: glowColor }}
-                              >
-                                {displayType}
+                              <div className="draft-card-body">
+                                <img src={poolCombo?.override_image_url || blade.image_url} alt={blade.name} className="draft-card-img animate-[float_3s_ease-in-out_infinite]" />
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                                  {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                                </span>
+                                <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>
+                                  {blade.topRank ? `${blade.topRank}°` : "-"}
+                                </span>
                               </div>
                             </>
                           ) : (
                             <>
-                              <img
-                                src="/beyx.svg"
-                                alt="BeyX Logo"
-                                className={`${cardDims.logoSize} mb-1 opacity-50 drop-shadow-md`}
-                              />
-                              <div
-                                className="opacity-80"
-                                style={{ color: glowColor, fontSize: `${cardDims.iconSize * 0.7}px`, lineHeight: 1 }}
-                              >
-                                {icon}
+                              <div className="draft-card-header">
+                                <div className="draft-card-name" style={{ opacity: 0.4, fontSize: cardDims.nameSize }}>BEYX MYSTERY</div>
                               </div>
-                              <div
-                                className={`${cardDims.typeSize} font-black uppercase opacity-80 text-center`}
-                                style={{ color: glowColor }}
-                              >
-                                {displayType}
+                              <div className="draft-card-body flex-col gap-1">
+                                <img src="/beyx.svg" alt="BeyX Logo" className={`${cardDims.logoSize} opacity-40`} />
+                                <div style={{ color: glowColor }} className="opacity-80">
+                                  {icon}
+                                </div>
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                                  {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                                </span>
+                                <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>-</span>
                               </div>
                             </>
                           )}
-                          <div className={`${cardDims.numSize} font-black opacity-40 leading-none`}>
-                            {index + 1}
-                          </div>
                         </div>
                       </div>
                       <div className="draft-card-front">
@@ -2494,48 +2512,43 @@ function SealedBidDisplaySubView({ tournament, parts }) {
                   >
                     <div className="draft-card-content">
                       <div className="draft-card-back">
-                        <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-1 flex flex-col items-center justify-between h-full">
+                        <div className="draft-card-back-content">
                           {blade ? (
                             <>
-                              <img
-                                src={poolCombo?.override_image_url || blade.image_url}
-                                alt={blade.name}
-                                className={`${cardDims.bladeImgSize} object-contain drop-shadow-md mb-0.5`}
-                              />
-                              <div className={`${cardDims.nameSize} font-black uppercase text-center truncate w-full text-white px-1 leading-none`}>
-                                {blade.name}
+                              <div className="draft-card-header">
+                                <div className="draft-card-name" style={{ fontSize: cardDims.nameSize }}>{blade.name}</div>
                               </div>
-                              <div
-                                className={`${cardDims.typeSize} font-bold uppercase opacity-80 leading-none`}
-                                style={{ color: glowColor }}
-                              >
-                                {displayType}
+                              <div className="draft-card-body">
+                                <img src={poolCombo?.override_image_url || blade.image_url} alt={blade.name} className="draft-card-img animate-[float_3s_ease-in-out_infinite]" />
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                                  {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                                </span>
+                                <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>
+                                  {blade.topRank ? `${blade.topRank}°` : "-"}
+                                </span>
                               </div>
                             </>
                           ) : (
                             <>
-                              <img
-                                src="/beyx.svg"
-                                alt="BeyX Logo"
-                                className={`${cardDims.logoSize} mb-1 opacity-50 drop-shadow-md`}
-                              />
-                              <div
-                                className="opacity-80"
-                                style={{ color: glowColor, fontSize: `${cardDims.iconSize * 0.7}px`, lineHeight: 1 }}
-                              >
-                                <Gem size={cardDims.iconSize} className="text-[#9b59b6]" />
+                              <div className="draft-card-header">
+                                <div className="draft-card-name" style={{ opacity: 0.4, fontSize: cardDims.nameSize }}>BEYX MYSTERY</div>
                               </div>
-                              <div
-                                className={`${cardDims.typeSize} font-black uppercase opacity-80 text-center`}
-                                style={{ color: glowColor }}
-                              >
-                                {displayType}
+                              <div className="draft-card-body flex-col gap-1">
+                                <img src="/beyx.svg" alt="BeyX Logo" className={`${cardDims.logoSize} opacity-40`} />
+                                <div style={{ color: glowColor }} className="opacity-80">
+                                  <Gem size={cardDims.iconSize} className="text-[#9b59b6]" />
+                                </div>
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor, fontSize: cardDims.typeSize }}>
+                                  {pack.type === "attack" ? "ATT" : pack.type === "defense" ? "DEF" : "STA"}
+                                </span>
+                                <span className="draft-card-rank" style={{ fontSize: cardDims.typeSize }}>-</span>
                               </div>
                             </>
                           )}
-                          <div className={`${cardDims.numSize} font-black opacity-40 leading-none`}>
-                            {index + 1}
-                          </div>
                         </div>
                       </div>
                       <div className="draft-card-front">

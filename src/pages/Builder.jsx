@@ -18,14 +18,14 @@ export default function Builder() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { blade, ratchet, bit, archetype, select, setArchetype, reset, getScore } = useBuilderStore();
-  
+
   const [parts, setParts] = useState({ blades: [], ratchets: [], bits: [] });
   const [ownedIds, setOwnedIds] = useState(new Set());
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('blades');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   const [isBuilding, setIsBuilding] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -33,11 +33,11 @@ export default function Builder() {
   const initialView = searchParams.get('view') === 'build' ? 'build' : 'saved';
   const [view, setView] = useState(initialView);
   const [savedCombos, setSavedCombos] = useState([]);
-  
+
   // Sorting & Filtering state for saved combos
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' or 'asc'
   const [filterType, setFilterType] = useState('ALL');
-  
+
   const [comboToDelete, setComboToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,7 +46,7 @@ export default function Builder() {
 
   useEffect(() => {
     setHeader('DECK', '');
-    
+
     async function fetchData() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -63,10 +63,10 @@ export default function Builder() {
         `).eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('user_collections').select('part_id, is_wishlist').eq('user_id', user.id)
       ]);
-      
+
       setParts({ blades: b.data || [], ratchets: r.data || [], bits: bt.data || [] });
       setSavedCombos(sc.data || []);
-      
+
       // Filtriamo solo ciò che è effettivamente posseduto (is_wishlist = false)
       const owned = new Set();
       const wish = new Set();
@@ -74,7 +74,7 @@ export default function Builder() {
         if (c.is_wishlist) wish.add(c.part_id);
         else owned.add(c.part_id);
       });
-      
+
       setOwnedIds(owned);
       setWishlistIds(wish); // Aggiungiamo stato locale per wishlist se serve
       setLoading(false);
@@ -121,7 +121,7 @@ export default function Builder() {
         override_image_url: blade.image_url,
         override_release_code: blade.release_code
       }).select('*, blade:blades(*), ratchet:ratchets(*), bit:bits(*)').single();
-      
+
       if (error) throw error;
       setSavedCombos([data, ...savedCombos]);
       setView('saved');
@@ -175,17 +175,15 @@ export default function Builder() {
           <div className="flex gap-2 p-1 bg-[#12122A] rounded-xl border border-white/5">
             <button
               onClick={() => setView('saved')}
-              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
-                view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
-              }`}
+              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${view === 'saved' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
+                }`}
             >
               IL MIO DECK
             </button>
             <button
               onClick={() => setView('build')}
-              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${
-                view === 'build' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
-              }`}
+              className={`flex-1 py-3 text-[10px] font-black tracking-widest rounded-lg transition-all ${view === 'build' ? 'bg-[#E94560] text-white shadow-glow-primary' : 'text-slate-500'
+                }`}
             >
               BUILDER
             </button>
@@ -197,7 +195,7 @@ export default function Builder() {
         <>
           {!isBuilding && !blade ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 mt-20">
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="w-24 h-24 bg-[#E94560]/10 rounded-full flex items-center justify-center mb-6 border border-[#E94560]/20"
@@ -208,7 +206,7 @@ export default function Builder() {
               </motion.div>
               <h2 className="text-xl font-black text-white uppercase italic tracking-tighter mb-2 text-center font-createfuture">Nuova Combinazione</h2>
               <p className="text-slate-400 text-xs text-center mb-8 max-w-[200px]">Inizia a costruire il tuo bey partendo dalla Blade.</p>
-              <button 
+              <button
                 onClick={() => {
                   setIsBuilding(true);
                   setActiveTab('blades');
@@ -229,12 +227,12 @@ export default function Builder() {
                       {!blade ? 'Seleziona Blade' : !ratchet ? 'Scegli Ratchet' : !bit ? 'Ultimo tocco: Bit' : 'Analisi Finita'}
                     </p>
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       reset();
                       setIsBuilding(false);
                       setDrawerOpen(false);
-                    }} 
+                    }}
                     className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all border border-white/5 active:scale-95"
                   >
                     <RotateCcw size={20} className="text-slate-400" />
@@ -247,14 +245,13 @@ export default function Builder() {
                     { part: ratchet, label: 'Ratchet', type: 'ratchets' },
                     { part: bit, label: 'Bit', type: 'bits' }
                   ].map((item, idx) => (
-                    <button 
+                    <button
                       key={idx}
                       onClick={() => setActiveTab(item.type)}
-                      className={`p-2.5 rounded-xl border text-left transition-all ${
-                        activeTab === item.type 
-                          ? 'bg-[#4361EE]/10 border-[#4361EE]/50 ring-1 ring-[#4361EE]/20' 
+                      className={`p-2.5 rounded-xl border text-left transition-all ${activeTab === item.type
+                          ? 'bg-[#4361EE]/10 border-[#4361EE]/50 ring-1 ring-[#4361EE]/20'
                           : 'bg-white/5 border-white/5 opacity-60'
-                      }`}
+                        }`}
                     >
                       <span className="text-[8px] uppercase font-black text-slate-500 block leading-none mb-1.5">{item.label}</span>
                       <span className="text-[11px] font-black truncate block text-white uppercase italic">
@@ -272,9 +269,8 @@ export default function Builder() {
                         setActiveTab(type);
                         setSearchQuery('');
                       }}
-                      className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                        activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
-                      }`}
+                      className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${activeTab === type ? 'bg-[#4361EE] text-white shadow-glow-primary' : 'text-white/30'
+                        }`}
                     >
                       {type.slice(0, -1)}
                     </button>
@@ -294,7 +290,7 @@ export default function Builder() {
                     className="w-full bg-[#12122A] border border-white/5 rounded-xl py-3 pl-10 pr-4 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-[#4361EE]/50 focus:ring-1 focus:ring-[#4361EE]/20 transition-all font-bold uppercase tracking-wider"
                   />
                   {searchQuery && (
-                    <button 
+                    <button
                       onClick={() => setSearchQuery('')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-500 hover:text-white uppercase px-2"
                     >
@@ -308,36 +304,36 @@ export default function Builder() {
               <div className="px-4 py-3">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 mt-2">
                   {parts[activeTab]
-                    .filter(p => 
-                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    .filter(p =>
+                      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                       (p.release_code && p.release_code.toLowerCase().includes(searchQuery.toLowerCase()))
                     )
                     .map((p) => (
-                    <PartCard 
-                      key={p.id} 
-                      part={p} 
-                      owned={ownedIds.has(p.id)}
-                      wishlisted={wishlistIds.has(p.id)}
-                      onClick={(effectivePart) => {
-                        const target = effectivePart || p;
-                        setSearchQuery(''); // Clear search when a part is selected
-                        if (activeTab === 'blades') {
-                          const stockRatchet = parts.ratchets.find(r => r.name === target.stock_ratchet);
-                          const stockBit = parts.bits.find(b => b.name === target.stock_bit);
-                          select('blade', target);
-                          if (stockRatchet) select('ratchet', stockRatchet);
-                          if (stockBit) select('bit', stockBit);
-                          setActiveTab('ratchets');
-                        } else {
-                          select(activeTab.slice(0, -1), target);
-                        }
-                      }}
-                      className={`
+                      <PartCard
+                        key={p.id}
+                        part={p}
+                        owned={ownedIds.has(p.id)}
+                        wishlisted={wishlistIds.has(p.id)}
+                        onClick={(effectivePart) => {
+                          const target = effectivePart || p;
+                          setSearchQuery(''); // Clear search when a part is selected
+                          if (activeTab === 'blades') {
+                            const stockRatchet = parts.ratchets.find(r => r.name === target.stock_ratchet);
+                            const stockBit = parts.bits.find(b => b.name === target.stock_bit);
+                            select('blade', target);
+                            if (stockRatchet) select('ratchet', stockRatchet);
+                            if (stockBit) select('bit', stockBit);
+                            setActiveTab('ratchets');
+                          } else {
+                            select(activeTab.slice(0, -1), target);
+                          }
+                        }}
+                        className={`
                         ${((activeTab === 'blades' && blade?.id === p.id) || (activeTab === 'ratchets' && ratchet?.id === p.id) || (activeTab === 'bits' && bit?.id === p.id)) ? 'ring-2 ring-[#4361EE] border-[#4361EE]' : ''}
                         ${wishlistIds.has(p.id) && !ownedIds.has(p.id) ? 'border-[#4361EE]/40' : ''}
                       `}
-                    />
-                  ))}
+                      />
+                    ))}
                 </div>
               </div>
 
@@ -361,57 +357,56 @@ export default function Builder() {
         <div className="px-4 mt-6">
           {/* Filtering & Sorting Controls */}
           <div className="mb-8 space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">
-                   VISTA FILTRATA ({filteredAndSortedCombos.length})
-                </h2>
-                <button 
-                   onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                   className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[9px] font-black text-white/40 active:scale-95 transition-all uppercase tracking-widest"
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">
+                VISTA FILTRATA ({filteredAndSortedCombos.length})
+              </h2>
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-[9px] font-black text-white/40 active:scale-95 transition-all uppercase tracking-widest"
+              >
+                <ArrowUpDown size={12} className="text-primary" /> {sortOrder === 'desc' ? 'High Rating' : 'Low Rating'}
+              </button>
+            </div>
+
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 px-1">
+              {TYPES.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type)}
+                  className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${filterType === type
+                      ? 'bg-primary border-primary text-white shadow-glow-primary-sm'
+                      : 'bg-[#12122A] border-white/5 text-white/30 hover:border-white/10'
+                    }`}
                 >
-                   <ArrowUpDown size={12} className="text-primary" /> {sortOrder === 'desc' ? 'High Rating' : 'Low Rating'}
+                  {type}
                 </button>
-              </div>
-             
-             <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 px-1">
-                {TYPES.map(type => (
-                   <button
-                      key={type}
-                      onClick={() => setFilterType(type)}
-                      className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border whitespace-nowrap ${
-                         filterType === type 
-                           ? 'bg-primary border-primary text-white shadow-glow-primary-sm' 
-                           : 'bg-[#12122A] border-white/5 text-white/30 hover:border-white/10'
-                      }`}
-                   >
-                      {type}
-                   </button>
-                ))}
-             </div>
+              ))}
+            </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-3 pb-32">
             {filteredAndSortedCombos.length === 0 ? (
-                <div className="py-20 text-center bg-[#12122A]/50 rounded-[40px] border border-dashed border-white/10 mx-2">
-                   <p className="text-xs text-white/20 font-black uppercase tracking-[0.2em] leading-relaxed">
-                       Nessuna combo trovata.<br/>{filterType !== 'ALL' ? 'Prova con un altro filtro.' : 'Crea subito la prima!'}
-                   </p>
-                </div>
+              <div className="py-20 text-center bg-[#12122A]/50 rounded-[40px] border border-dashed border-white/10 mx-2">
+                <p className="text-xs text-white/20 font-black uppercase tracking-[0.2em] leading-relaxed">
+                  Nessuna combo trovata.<br />{filterType !== 'ALL' ? 'Prova con un altro filtro.' : 'Crea subito la prima!'}
+                </p>
+              </div>
             ) : (
-                filteredAndSortedCombos.map(c => (
-                <SavedComboCard 
-                    key={c.id} 
-                    combo={c} 
-                    onClick={(combo) => navigate(`/combo/${combo.id}`)} 
-                    onDelete={(combo) => setComboToDelete(combo)}
+              filteredAndSortedCombos.map(c => (
+                <SavedComboCard
+                  key={c.id}
+                  combo={c}
+                  onClick={(combo) => navigate(`/combo/${combo.id}`)}
+                  onDelete={(combo) => setComboToDelete(combo)}
                 />
-                ))
+              ))
             )}
           </div>
         </div>
       )}
 
-      <ComboResultDrawer 
+      <ComboResultDrawer
         isOpen={drawerOpen}
         combo={{ blade, ratchet, bit }}
         score={score}
@@ -431,7 +426,7 @@ export default function Builder() {
               onClick={() => setComboToDelete(null)}
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -439,17 +434,17 @@ export default function Builder() {
               className="relative w-full max-w-sm bg-[#12122A] border border-white/10 rounded-[32px] p-8 shadow-2xl overflow-hidden"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 blur-[50px] -mr-16 -mt-16" />
-              
+
               <div className="relative z-10 text-center">
                 <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
                   <Trash2 size={28} className="text-red-500" />
                 </div>
-                
+
                 <h3 className="text-xl font-black text-white uppercase italic tracking-tighter mb-2">Elimina Combo?</h3>
                 <p className="text-slate-400 text-sm font-medium leading-relaxed mb-8">
                   Sei sicuro di voler eliminare <span className="text-white font-bold">"{comboToDelete.name}"</span>? Questa azione è irreversibile.
                 </p>
-                
+
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={confirmDelete}
@@ -479,21 +474,21 @@ export default function Builder() {
  */
 function determineType(stats, defaultType) {
   if (!stats || Object.keys(stats).length === 0) return defaultType?.toLowerCase() || 'balance';
-  
+
   const { attack, defense, stamina } = stats;
-  
+
   // If stats are completely balanced/default, fallback to original type
   if ((!attack && !defense && !stamina) || (attack === defense && defense === stamina)) {
     return defaultType?.toLowerCase() || 'balance';
   }
-  
+
   const max = Math.max(attack || 0, defense || 0, stamina || 0);
   if (max < 40) return defaultType?.toLowerCase() || 'balance';
-  
+
   // Must be strictly greater to override the official type
   if (attack === max && attack > defense && attack > stamina) return 'attack';
   if (defense === max && defense > attack && defense > stamina) return 'defense';
   if (stamina === max && stamina > attack && stamina > defense) return 'stamina';
-  
+
   return defaultType?.toLowerCase() || 'balance';
 }

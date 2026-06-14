@@ -3,6 +3,7 @@ import { Shield, Sword, Wind, X, Plus, Minus, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useToastStore } from '../../store/useToastStore';
 import './DraftCard.css';
+import StatsModal from './StatsModal';
 
 export function PoolAstaPlayerView({ tournament, setTournament, updateTournamentDB, onAuctionComplete, onDelete, parts }) {
   const { user } = useAuthStore();
@@ -10,6 +11,47 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   const auction = tournament?.structure?.auction;
   
   const [timeLeft, setTimeLeft] = useState(10);
+  const [modalBlade, setModalBlade] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const longPressTimeout = React.useRef(null);
+  const isLongPress = React.useRef(false);
+  const touchStartRef = React.useRef(0);
+  const startPos = React.useRef({ x: 0, y: 0 });
+
+  const handlePointerDown = (e, blade) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    isLongPress.current = false;
+    touchStartRef.current = Date.now();
+    startPos.current = { x: e.clientX, y: e.clientY };
+
+    longPressTimeout.current = setTimeout(() => {
+      isLongPress.current = true;
+      setModalBlade(blade);
+      setIsModalOpen(true);
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }, 600);
+  };
+
+  const handlePointerUp = (e, pack, isDisabled) => {
+    clearTimeout(longPressTimeout.current);
+    if (isLongPress.current) {
+      isLongPress.current = false;
+      return;
+    }
+    const duration = Date.now() - touchStartRef.current;
+    const dist = Math.hypot(e.clientX - startPos.current.x, e.clientY - startPos.current.y);
+
+    if (duration < 500 && dist < 10 && !isDisabled) {
+      handleNominatePack(pack);
+    }
+  };
+
+  const handlePointerCancel = () => {
+    clearTimeout(longPressTimeout.current);
+    isLongPress.current = false;
+  };
   const [simulatedPlayerId, setSimulatedPlayerId] = useState("");
 
   const getFirstPendingPlayerId = useCallback(() => {
@@ -411,7 +453,7 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
             <div className="relative w-36 h-36 md:w-44 md:h-44 mb-3">
               <div className="absolute inset-0 bg-[#F5A623]/10 blur-xl rounded-full"></div>
               {activeAuctionBlade && (
-                <img src={activeAuctionBlade.image_url} alt={activeAuctionBlade.name} className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-[float_3s_ease-in-out_infinite]" />
+                <img src={activeAuctionCombo?.override_image_url || activeAuctionBlade.image_url} alt={activeAuctionBlade.name} className="absolute inset-0 w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] animate-[float_3s_ease-in-out_infinite]" />
               )}
             </div>
             <h3 className="text-2xl md:text-3xl font-black italic uppercase text-white tracking-wide text-center">
@@ -505,71 +547,112 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
 
           {/* Griglia Pacchetti Disponibili */}
           <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-            {auction.availablePacks.map((pack, index) => {
-              const glowColor = getGlowColor(pack.type);
-              const icon = getPackIcon(pack.type);
-              let displayType = pack.type;
-              if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
+            {(() => {
+              const sortedPacks = [...auction.availablePacks].sort((a, b) => {
+                const comboA = tournament.structure?.pool?.find(c => c.id === a.combo_id);
+                const bladeA = comboA ? parts?.blades?.find(part => part.id === comboA.blade_id) : null;
+                
+                const comboB = tournament.structure?.pool?.find(c => c.id === b.combo_id);
+                const bladeB = comboB ? parts?.blades?.find(part => part.id === comboB.blade_id) : null;
+                
+                const rankA = bladeA?.topRank ?? Infinity;
+                const rankB = bladeB?.topRank ?? Infinity;
+                
+                if (rankA !== rankB) {
+                  return rankA - rankB;
+                }
+                
+                const nameA = bladeA?.name || '';
+                const nameB = bladeB?.name || '';
+                return nameA.localeCompare(nameB);
+              });
 
-              const poolCombo = tournament.structure?.pool?.find(c => c.id === pack.combo_id);
-              const blade = poolCombo ? parts?.blades?.find(b => b.id === poolCombo.blade_id) : null;
-              const owner = pack.isOpened ? tournament.participants?.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
+              return sortedPacks.map((pack, index) => {
+                const glowColor = getGlowColor(pack.type);
+                const icon = getPackIcon(pack.type);
+                let displayType = pack.type;
+                if (pack.type === 'balance' || pack.type === 'stamina') displayType = 'STAMINA';
 
-              return (
-                <div
-                  key={pack.id}
-                  className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? 'is-opened opacity-40' : ''} ${!isMyNominationTurn || isActiveTurnDeckFull ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-95 transition-transform'}`}
-                  style={{ '--glow-color': glowColor }}
-                  onClick={() => handleNominatePack(pack)}
-                >
-                  <div className="draft-card-content">
-                    <div className="draft-card-back">
-                      <div className="draft-card-back-content font-createfuture tracking-[0.05em] p-2">
-                        {blade ? (
-                          <>
-                            <img src={blade.image_url} alt={blade.name} className="w-10 h-10 md:w-14 md:h-14 object-contain drop-shadow-[0_0_10px_rgba(255,255,255,0.2)] mb-1" />
-                            <div className="text-[8px] md:text-[10px] font-black uppercase text-center px-1 truncate w-full mb-0.5 text-white">{blade.name}</div>
-                            <div className="text-[7px] md:text-[8px] font-bold uppercase opacity-80 mb-1 text-center px-1 border rounded-md py-0.5" style={{ color: glowColor, borderColor: `${glowColor}44` }}>{displayType}</div>
-                          </>
-                        ) : (
-                          <>
-                            <img src="/beyx.svg" alt="BeyX Logo" className="w-8 h-8 mb-2 opacity-50" />
-                            <div className="mb-1 opacity-80" style={{ color: glowColor }}>{icon}</div>
-                            <div className="text-[8px] font-black uppercase opacity-80 mb-1 text-center" style={{ color: glowColor }}>{displayType}</div>
-                          </>
-                        )}
-                        <div className="text-xs font-black opacity-40">{index + 1}</div>
-                        {blade && (
-                          <div className="text-[9px] font-black uppercase text-purple-400 mt-1">
-                            {blade.topRank ? `TOP ${blade.topRank}` : 'TOP -'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="draft-card-front">
-                      <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
-                      <div className="circle" id="right-circle"></div>
-                      <div className="draft-card-front-content">
-                        <div className="draft-card-description font-createfuture tracking-[0.05em]">
-                          {pack.isOpened ? (
+                const poolCombo = tournament.structure?.pool?.find(c => c.id === pack.combo_id);
+                const blade = poolCombo ? parts?.blades?.find(b => b.id === poolCombo.blade_id) : null;
+                const owner = pack.isOpened ? tournament.participants?.find(p => p.id === pack.owner || p.user_id === pack.owner || p.username === pack.owner) : null;
+
+                const isDisabled = !isMyNominationTurn || isActiveTurnDeckFull || pack.isOpened;
+
+                return (
+                  <div
+                    key={pack.id}
+                    className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? 'is-opened opacity-40' : ''} ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-95 transition-transform'}`}
+                    style={{ '--glow-color': glowColor }}
+                    onPointerDown={(e) => handlePointerDown(e, blade)}
+                    onPointerUp={(e) => handlePointerUp(e, pack, isDisabled)}
+                    onPointerCancel={handlePointerCancel}
+                    onContextMenu={(e) => e.preventDefault()}
+                  >
+                    <div className="draft-card-content">
+                      <div className="draft-card-back">
+                        <div className="draft-card-back-content">
+                          {blade ? (
                             <>
-                              <div className="text-xl mb-1">❌</div>
-                              <div className="flex flex-col items-center justify-center w-full">
-                                <span className="text-[8px] font-black text-white text-center uppercase tracking-[0.05em]">AGGIUDICATO</span>
-                                <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 tracking-[0.05em] truncate max-w-[90%]">{owner?.username}</span>
-                                <span className="text-[6px] font-black text-[#F5A623] mt-0.5">{pack.price} CRD</span>
+                              <div className="draft-card-header">
+                                <div className="draft-card-name">{blade.name}</div>
+                              </div>
+                              <div className="draft-card-body">
+                                <img src={poolCombo?.override_image_url || blade.image_url} alt={blade.name} className="draft-card-img" draggable={false} />
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor }}>
+                                  {pack.type === 'attack' ? 'ATT' : pack.type === 'defense' ? 'DEF' : 'STA'}
+                                </span>
+                                <span className="draft-card-rank">
+                                  {blade.topRank ? `${blade.topRank}°` : '-'}
+                                </span>
                               </div>
                             </>
                           ) : (
-                            <div className="text-[10px] font-black text-white text-center uppercase">Nomina</div>
+                            <>
+                              <div className="draft-card-header">
+                                <div className="draft-card-name" style={{ opacity: 0.4 }}>BEYX MYSTERY</div>
+                              </div>
+                              <div className="draft-card-body flex-col gap-1">
+                                <img src="/beyx.svg" alt="BeyX Logo" className="w-8 h-8 opacity-40" draggable={false} />
+                                <div className="text-sm" style={{ color: glowColor }}>{icon}</div>
+                              </div>
+                              <div className="draft-card-footer">
+                                <span className="draft-card-type-label" style={{ backgroundColor: glowColor }}>
+                                  {pack.type === 'attack' ? 'ATT' : pack.type === 'defense' ? 'DEF' : 'STA'}
+                                </span>
+                                <span className="draft-card-rank">-</span>
+                              </div>
+                            </>
                           )}
+                        </div>
+                      </div>
+                      <div className="draft-card-front">
+                        <div className="circle" id="bottom-circle" style={{ '--glow-color': glowColor }}></div>
+                        <div className="circle" id="right-circle"></div>
+                        <div className="draft-card-front-content">
+                          <div className="draft-card-description font-createfuture tracking-[0.05em]">
+                            {pack.isOpened ? (
+                              <>
+                                <div className="text-xl mb-1">❌</div>
+                                <div className="flex flex-col items-center justify-center w-full">
+                                  <span className="text-[8px] font-black text-white text-center uppercase tracking-[0.05em]">AGGIUDICATO</span>
+                                  <span className="text-[7px] text-white/70 text-center uppercase mt-0.5 tracking-[0.05em] truncate max-w-[90%]">{owner?.username}</span>
+                                  <span className="text-[6px] font-black text-[#F5A623] mt-0.5">{pack.price} CRD</span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-[10px] font-black text-white text-center uppercase">Nomina</div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </div>
       )}
@@ -619,7 +702,7 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
                       const poolCombo = tournament.structure.pool?.find(c => c.id === comboId);
                       if (poolCombo) {
                         const blade = parts.blades.find(b => b.id === poolCombo.blade_id);
-                        if (blade) bladeImage = blade.image_url;
+                        if (blade) bladeImage = poolCombo.override_image_url || blade.image_url;
                       }
                     }
 
@@ -665,6 +748,12 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
            </button>
         </div>
       )}
+
+      <StatsModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        blade={modalBlade} 
+      />
     </div>
   );
 }
