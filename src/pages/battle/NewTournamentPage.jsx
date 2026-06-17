@@ -42,7 +42,6 @@ export default function NewTournamentPage() {
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [stage, setStage] = useState("setup"); // 'setup' | 'active'
-  const [ignoreActive, setIgnoreActive] = useState(false);
   const [tournament, setTournament] = useState(null);
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [battles, setBattles] = useState([]);
@@ -225,25 +224,6 @@ export default function NewTournamentPage() {
           setTournament(null);
           setStage("setup");
         }
-      } else if (!ignoreActive) {
-        // Se non c'è un ID specifico, cerchiamo l'ultimo creato dall'utente non concluso
-        const { data: res } = await supabase
-          .from("tournaments")
-          .select("*")
-          .eq("created_by", user.id)
-          .neq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        data = res;
-
-        if (data) {
-          setTournament(data);
-          setStage("setup"); // Mostra il banner di ripresa
-        } else {
-          setTournament(null);
-          setStage("setup");
-        }
       } else {
         setTournament(null);
         setStage("setup");
@@ -354,7 +334,7 @@ export default function NewTournamentPage() {
 
       return () => supabase.removeChannel(channel);
     }
-  }, [user, profile, tournamentId, location.state?.tournamentId, ignoreActive]);
+  }, [user, profile, tournamentId, location.state?.tournamentId]);
 
   // Sincronizzazione automatica dello stage del torneo per i client in tempo reale
   useEffect(() => {
@@ -1439,7 +1419,6 @@ export default function NewTournamentPage() {
   }
 
   async function archiveCurrentAndNew() {
-    setIgnoreActive(true);
     setTournament(null);
     setStage("setup");
     navigate("/battle/new/tournament");
