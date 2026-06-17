@@ -42,6 +42,7 @@ export default function NewTournamentPage() {
 
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [stage, setStage] = useState("setup"); // 'setup' | 'active'
+  const [ignoreActive, setIgnoreActive] = useState(false);
   const [tournament, setTournament] = useState(null);
   const [loadingTournament, setLoadingTournament] = useState(true);
   const [battles, setBattles] = useState([]);
@@ -93,6 +94,112 @@ export default function NewTournamentPage() {
     return "";
   };
 
+  function resumeTournamentStage(data) {
+    if (!data) return;
+    const isAdminUser =
+      user?.email === "hcskso96@gmail.com" || profile?.is_admin;
+    setIsReadOnly(!(isAdminUser || data.created_by === user.id));
+    const structure =
+      typeof data.structure === "string"
+        ? JSON.parse(data.structure)
+        : data.structure;
+    data.structure = structure || {};
+    data.assignment_mode =
+      data.assignment_mode || data.structure?.assignment_mode;
+    data.beyblade_mode =
+      data.beyblade_mode || data.structure?.beyblade_mode;
+
+    const rounds = data.structure.rounds || [];
+    const finalRound = rounds[rounds.length - 1];
+    const finalMatch = finalRound?.matches[0];
+
+    const isPlayoffFinal =
+      finalRound?.isPlayoff && finalRound?.matches.length === 1;
+    const isBracketFinal = data.format === "bracket" && finalMatch?.winner;
+    const isRRFinal =
+      data.format === "round_robin" && isPlayoffFinal && finalMatch?.winner;
+
+    if (
+      (isBracketFinal || isRRFinal) &&
+      data.status === "active" &&
+      data.created_by === user.id
+    ) {
+      const winner =
+        finalMatch.winner === "p1" ? finalMatch.p1 : finalMatch.p2;
+      const repaired = {
+        ...data,
+        structure,
+        status: "completed",
+        winner_user_id: winner.user_id,
+        winner_guest_name: winner.guest_name,
+      };
+      setTournament(repaired);
+      setStage("active");
+      updateTournamentDB(repaired);
+    } else if (
+      data.format === "round_robin" &&
+      structure.settings?.rrWinnerMode === "points" &&
+      data.status === "active"
+    ) {
+      // Check if all rounds are complete for points-based RR
+      const allComplete = structure.rounds.every((r) =>
+        r.matches.every((m) => m.winner),
+      );
+      if (allComplete) {
+        const standings = calculateStandings({ ...data, structure });
+        const winner = standings[0];
+        const repaired = {
+          ...data,
+          structure,
+          status: "completed",
+          winner_user_id: winner.user_id,
+          winner_guest_name: winner.guest_name || winner.username,
+        };
+        setTournament(repaired);
+        setStage("active");
+        updateTournamentDB(repaired);
+      } else {
+        setTournament({ ...data, structure });
+        setStage("active");
+      }
+    } else {
+      setTournament({ ...data, structure });
+
+      // Determine stage based on status
+      if (data.status === "drafting") {
+        setStage(
+          data.assignment_mode === "asta"
+            ? "auctioning"
+            : data.assignment_mode === "a_buste"
+              ? "sealed_bidding"
+              : "drafting",
+        );
+      } else if (data.status === "auctioning") {
+        setStage("auctioning");
+      } else if (data.status === "draft_complete") {
+        setStage(
+          data.assignment_mode === "asta"
+            ? "auctioning"
+            : data.assignment_mode === "a_buste"
+              ? "sealed_bidding"
+              : "drafting",
+        );
+      } else if (data.status === "setup") {
+        if (
+          data.beyblade_mode === "pool" &&
+          (!structure.pool || structure.pool.length === 0) &&
+          data.created_by === user.id
+        ) {
+          setStage("pool_setup");
+        } else {
+          setStage("active"); // active stage in status 'setup' shows registrations
+        }
+      } else {
+        setStage("active");
+      }
+    }
+  }
+
   // Resume unfinished tournament if exists
   useEffect(() => {
     async function checkActiveTournament() {
@@ -102,119 +209,47 @@ export default function NewTournamentPage() {
       }
 
       const targetId = tournamentId || location.state?.tournamentId;
+      let data = null;
 
       if (targetId) {
-        const { data, error } = await supabase
+        const { data: res } = await supabase
           .from("tournaments")
           .select("*")
           .eq("id", targetId)
           .maybeSingle();
+        data = res;
+
+        if (data) {
+          resumeTournamentStage(data);
+        } else {
+          setTournament(null);
+          setStage("setup");
+        }
+      } else if (!ignoreActive) {
+        // Se non c'è un ID specifico, cerchiamo l'ultimo creato dall'utente non concluso
+        const { data: res } = await supabase
+          .from("tournaments")
+          .select("*")
+          .eq("created_by", user.id)
+          .neq("status", "completed")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        data = res;
+
+        if (data) {
+          setTournament(data);
+          setStage("setup"); // Mostra il banner di ripresa
+        } else {
+          setTournament(null);
+          setStage("setup");
+        }
+      } else {
+        setTournament(null);
+        setStage("setup");
+      }
 
       if (data) {
-        const isAdminUser =
-          user?.email === "hcskso96@gmail.com" || profile?.is_admin;
-        setIsReadOnly(!(isAdminUser || data.created_by === user.id));
-        const structure =
-          typeof data.structure === "string"
-            ? JSON.parse(data.structure)
-            : data.structure;
-        data.structure = structure || {};
-        data.assignment_mode =
-          data.assignment_mode || data.structure?.assignment_mode;
-        data.beyblade_mode =
-          data.beyblade_mode || data.structure?.beyblade_mode;
-
-        const rounds = data.structure.rounds || [];
-        const finalRound = rounds[rounds.length - 1];
-        const finalMatch = finalRound?.matches[0];
-
-        const isPlayoffFinal =
-          finalRound?.isPlayoff && finalRound?.matches.length === 1;
-        const isBracketFinal = data.format === "bracket" && finalMatch?.winner;
-        const isRRFinal =
-          data.format === "round_robin" && isPlayoffFinal && finalMatch?.winner;
-
-        if (
-          (isBracketFinal || isRRFinal) &&
-          data.status === "active" &&
-          data.created_by === user.id
-        ) {
-          const winner =
-            finalMatch.winner === "p1" ? finalMatch.p1 : finalMatch.p2;
-          const repaired = {
-            ...data,
-            structure,
-            status: "completed",
-            winner_user_id: winner.user_id,
-            winner_guest_name: winner.guest_name,
-          };
-          setTournament(repaired);
-          setStage("active");
-          updateTournamentDB(repaired);
-        } else if (
-          data.format === "round_robin" &&
-          structure.settings?.rrWinnerMode === "points" &&
-          data.status === "active"
-        ) {
-          // Check if all rounds are complete for points-based RR
-          const allComplete = structure.rounds.every((r) =>
-            r.matches.every((m) => m.winner),
-          );
-          if (allComplete) {
-            const standings = calculateStandings({ ...data, structure });
-            const winner = standings[0];
-            const repaired = {
-              ...data,
-              structure,
-              status: "completed",
-              winner_user_id: winner.user_id,
-              winner_guest_name: winner.guest_name || winner.username,
-            };
-            setTournament(repaired);
-            setStage("active");
-            updateTournamentDB(repaired);
-          } else {
-            setTournament({ ...data, structure });
-            if (targetId || (data.status === "setup" && data.registration_open))
-              setStage("active");
-          }
-        } else {
-          setTournament({ ...data, structure });
-
-          // Determine stage based on status
-          if (data.status === "drafting") {
-            setStage(
-              data.assignment_mode === "asta"
-                ? "auctioning"
-                : data.assignment_mode === "a_buste"
-                  ? "sealed_bidding"
-                  : "drafting",
-            );
-          } else if (data.status === "auctioning") {
-            setStage("auctioning");
-          } else if (data.status === "draft_complete") {
-            setStage(
-              data.assignment_mode === "asta"
-                ? "auctioning"
-                : data.assignment_mode === "a_buste"
-                  ? "sealed_bidding"
-                  : "drafting",
-            );
-          } else if (data.status === "setup") {
-            if (
-              data.beyblade_mode === "pool" &&
-              (!structure.pool || structure.pool.length === 0) &&
-              data.created_by === user.id
-            ) {
-              setStage("pool_setup");
-            } else {
-              setStage("active"); // active stage in status 'setup' shows registrations
-            }
-          } else {
-            setStage("active");
-          }
-        }
-
         // FETCH ADDITIONAL DATA FOR DETAILS
         const tid = data.id;
         const [bladesRes, ratchetsRes, bitsRes, battlesRes, leaderboard] = await Promise.all(
@@ -274,13 +309,6 @@ export default function NewTournamentPage() {
             setAllCombos(combosData || []);
           }
         }
-        } else {
-          setTournament(null);
-          setStage("setup");
-        }
-      } else {
-        setTournament(null);
-        setStage("setup");
       }
       setLoadingTournament(false);
     }
@@ -326,7 +354,7 @@ export default function NewTournamentPage() {
 
       return () => supabase.removeChannel(channel);
     }
-  }, [user, profile, tournamentId, location.state?.tournamentId]);
+  }, [user, profile, tournamentId, location.state?.tournamentId, ignoreActive]);
 
   // Sincronizzazione automatica dello stage del torneo per i client in tempo reale
   useEffect(() => {
@@ -1411,9 +1439,10 @@ export default function NewTournamentPage() {
   }
 
   async function archiveCurrentAndNew() {
-    // Rimuoviamo l'update a 'completed' per consentire tornei paralleli
+    setIgnoreActive(true);
     setTournament(null);
     setStage("setup");
+    navigate("/battle/new/tournament");
   }
 
   return (
@@ -1481,7 +1510,7 @@ export default function NewTournamentPage() {
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button
-                    onClick={() => setStage("active")}
+                    onClick={() => resumeTournamentStage(tournament)}
                     className="flex-1 py-3 bg-primary text-white font-black uppercase text-[10px] tracking-widest rounded-xl shadow-glow-primary"
                   >
                     Riprendi
