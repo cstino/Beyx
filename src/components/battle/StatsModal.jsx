@@ -52,7 +52,7 @@ function MiniStatCard({ label, value, color, icon: Icon }) {
   );
 }
 
-export default function StatsModal({ isOpen, onClose, blade }) {
+export default function StatsModal({ isOpen, onClose, blade, actionLabel, onAction, actionDisabled }) {
   const [matchStats, setMatchStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -250,6 +250,24 @@ export default function StatsModal({ isOpen, onClose, blade }) {
                 <div className="text-[9px] font-black text-white truncate max-w-full" title={blade.stock_bit}>{blade.stock_bit || '-'}</div>
               </div>
             </div>
+          )}
+
+          {/* Action Button */}
+          {actionLabel && onAction && (
+            <button
+              onClick={() => {
+                onAction();
+                onClose();
+              }}
+              disabled={actionDisabled}
+              className="w-full mt-6 py-4 bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-white font-black uppercase text-xs tracking-[0.15em] rounded-2xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 border border-white/10"
+              style={{ 
+                backgroundColor: actionDisabled ? undefined : glowColor, 
+                boxShadow: actionDisabled ? undefined : `0 0 20px ${glowColor}55` 
+              }}
+            >
+              {actionLabel}
+            </button>
           )}
         </div>
       </div>

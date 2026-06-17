@@ -297,7 +297,7 @@ function calculateStandings(tournament) {
     r.matches.forEach(m => {
       if (m.winner) {
         const isByeMatch = m.p1?.isBye || m.p2?.isBye;
-        if (isByeMatch && !isRoundCompleted) return;
+        if (isByeMatch) return;
 
         const p1Id = m.p1.user_id || m.p1.username;
         const p2Id = m.p2.user_id || m.p2.username;

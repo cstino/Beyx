@@ -12,11 +12,19 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
   
   const [timeLeft, setTimeLeft] = useState(10);
   const [modalBlade, setModalBlade] = useState(null);
+  const [modalPack, setModalPack] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const longPressTimeout = React.useRef(null);
   const isLongPress = React.useRef(false);
   const touchStartRef = React.useRef(0);
   const startPos = React.useRef({ x: 0, y: 0 });
+
+  const handlePointerMove = (e) => {
+    const dist = Math.hypot(e.clientX - startPos.current.x, e.clientY - startPos.current.y);
+    if (dist > 10) {
+      clearTimeout(longPressTimeout.current);
+    }
+  };
 
   const handlePointerDown = (e, blade) => {
     if (e.button !== undefined && e.button !== 0) return;
@@ -584,8 +592,12 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
                     key={pack.id}
                     className={`draft-card aspect-[3/4] max-w-[190px] mx-auto w-full ${pack.isOpened ? 'is-opened opacity-40' : ''} ${isDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer active:scale-95 transition-transform'}`}
                     style={{ '--glow-color': glowColor }}
-                    onPointerDown={(e) => handlePointerDown(e, blade)}
+                    onPointerDown={(e) => {
+                      setModalPack(pack);
+                      handlePointerDown(e, blade);
+                    }}
                     onPointerUp={(e) => handlePointerUp(e, pack, isDisabled)}
+                    onPointerMove={handlePointerMove}
                     onPointerCancel={handlePointerCancel}
                     onContextMenu={(e) => e.preventDefault()}
                   >
@@ -751,8 +763,18 @@ export function PoolAstaPlayerView({ tournament, setTournament, updateTournament
 
       <StatsModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setModalPack(null);
+        }} 
         blade={modalBlade} 
+        actionLabel="Metti all'asta"
+        actionDisabled={!isMyNominationTurn || isActiveTurnDeckFull || modalPack?.isOpened || !!auction.currentAuction}
+        onAction={() => {
+          if (modalPack) {
+            handleNominatePack(modalPack);
+          }
+        }}
       />
     </div>
   );

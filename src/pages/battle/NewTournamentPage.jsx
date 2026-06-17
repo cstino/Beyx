@@ -102,20 +102,13 @@ export default function NewTournamentPage() {
       }
 
       const targetId = tournamentId || location.state?.tournamentId;
-      let query = supabase.from("tournaments").select("*");
 
       if (targetId) {
-        query = query.eq("id", targetId);
-      } else {
-        // Se non c'è un ID specifico, cerchiamo l'ultimo creato dall'utente non concluso
-        query = query
-          .eq("created_by", user.id)
-          .neq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1);
-      }
-
-      const { data, error } = await query.maybeSingle();
+        const { data, error } = await supabase
+          .from("tournaments")
+          .select("*")
+          .eq("id", targetId)
+          .maybeSingle();
 
       if (data) {
         const isAdminUser =
@@ -281,6 +274,10 @@ export default function NewTournamentPage() {
             setAllCombos(combosData || []);
           }
         }
+        } else {
+          setTournament(null);
+          setStage("setup");
+        }
       } else {
         setTournament(null);
         setStage("setup");
@@ -397,8 +394,7 @@ export default function NewTournamentPage() {
       r.matches.forEach((m) => {
         if (m.winner) {
           const isByeMatch = m.p1?.isBye || m.p2?.isBye;
-          // If it's a BYE match, only count it if the round is completed
-          if (isByeMatch && !isRoundCompleted) return;
+          if (isByeMatch) return;
 
           const p1Id = m.p1.user_id || m.p1.username;
           const p2Id = m.p2.user_id || m.p2.username;
@@ -789,6 +785,7 @@ export default function NewTournamentPage() {
     setTournament(data);
     setStage(data.beyblade_mode === "pool" ? "pool_setup" : "active");
     useToastStore.getState().success("Torneo creato con successo!");
+    navigate(`/battle/tournament/${data.id}`, { replace: true });
   }
 
   async function handlePoolSetupComplete(poolCombos) {

@@ -10,7 +10,7 @@
   -ms-user-select: none !important;
   user-select: none !important;
   -webkit-user-drag: none !important;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .draft-card * {
